@@ -1,4 +1,4 @@
-# npm-kraken-grid
+# kraken-grid
 A bot that extends grid trading once you use it to create a grid using orders with conditional closes.
 
 This was developed with NodeJS running in the BASH shell provided by Windows 10.  I believe it's using "Windows Subsystem for Linux" and that there are some oddities because of this.  I don't see them as odd because I'm not familiar enough with Linux yet.
