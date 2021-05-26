@@ -211,92 +211,66 @@ async function listOpens(portfolio = null, isFresh=false) {
         gp[c.ctype] = c.open;
         gp[c.type]  = c.price;
         [,sym,price] = /([A-Z]+)USD([0-9.]+)/.exec(comp);
-        /*console.log("Checking:\n" + c.type + ' ' 
+        if(verbose) console.log("Checking:\n" + c.type + ' ' 
             + sym + ' ' + price + ' ' + Math.round(c.total*10000)/10000
-            + (c.open ? ' to '+c.ctype+'-close @'+c.open : '') +' (' + c.userref + "):")
-      */  if(!isNaN(c.open)) {
-            if(c.ids.length > 1) {
+            + (c.open ? ' to '+c.ctype+'-close @'+c.open : '') +' (' + c.userref + "):");
+        if(!isNaN(c.open)) {
+            if(!c.hasClose) { // If any doesn't have a close, combine them and add one.
                 console.log(Object.values(c.ids));
                 for(const id of c.ids) { await kill(id,null); }
                 await order(c.type,sym,price, Math.round(c.total*10000)/10000,
                    c.lev,c.userref,{ordertype:'limit',price:c.open});
                 c.hasClose = true;
             } 
-        } else if(c.userref > 0) {
-            gp[c.ctype] = dontask ? '?' : prompt("Set a "+c.ctype
-                + (c.ctype=='buy' ? ' under ' : ' over ')
-                + gp[c.type] + " for "+c.userref+' '+c.sym+' ');
-            if(isNaN(gp[c.ctype])) dontask = true;
-        }
-        // Do we want a close and not have one?
-        // ------------------------------------
-        if(c.open && !isNaN(c.open)) { // Close Price never gets set if we don't want one
-            // are there both buys and sells for this userref?
-            // -----------------------------------------------
-            if(bs.buy && bs.sell) {// We might handle this later
-                console.log("Not handling "+c.sym+'@'+c.price+" because it's still on both sides.");
-            } else {
-                if(!c.hasClose) {
-                    console.log("Ensure closing: replacing "+c.ids.length+" trades with "
-                        +c.type+" "+c.sym+' '+c.price+' '+c.total+' closing @'+gp[c.ctype]);
-                    // Kill and Re-order the order, but with the close
-                    // -----------------------------------------------
-                    await kill(c.userref,null);
-                    await order(c.type,c.sym,c.price,c.total,c.lev,c.userref,
-                        {ordertype:'limit',price:c.open});
-                }
-
-                // Do we need to extend the grid?
-                // If we don't have a buy and a sell, then yes.
-                // --------------------------------------------
-                bs = bSides.find(b => b.userref==c.sym+'USD');
-                if(bs.buy && bs.sell) {
-                    // console.log("Still between buy and sell.");
-                    ++nexes;
-                } else if(bs.price==c.price
-                    && gp) { // The lowest sell or highest buy
-                    // Calculate price for missing side
-                    // --------------------------------
-                    let dp = gp.buy.indexOf('.'),
-                        decimals=Math.pow(10,dp > 0
-                            ? gp.buy.length - dp - 1
-                            : 0),
-                        ngp,sp,bp;
-                    if(bs.buy) { // Missing the sell
-                        do {
-                            sp = Math.round(decimals*gp.sell*gp.sell/gp.buy)/decimals;
-                            c.userref -= 10000000;
-                            ngp = {userref:c.userref,
-                                buy:gp.sell,
-                                sell:String(sp)};
-                            gPrices.push(ngp);
-                            console.log(ngp.userref,'(sell)',
-                                'buy:',ngp.buy,'sell:',ngp.sell);
-                            console.log(249,"sell "+c.sym+' '+sp+' '+c.volume
-                                +" to close at "+gp.sell);
-                            await order('sell',c.sym,sp,c.volume,
-                                getLev(portfolio,'sell',sp,c.volume,c.sym,false),c.userref,
-                                {ordertype:'limit',price:gp.sell});
-                            gp = ngp;
-                       } while(sp <= 1*portfolio[c.sym][1]); 
-                    } else {
-                        do {
-                            bp = Math.round(decimals*gp.buy*gp.buy/gp.sell)/decimals;
-                            c.userref -= 1000000;
-                            ngp = {userref:c.userref,
-                                buy:String(bp),
-                                sell:gp.buy};
-                            gPrices.push(ngp);
-                            console.log(ngp.userref,'( buy)',
-                                'buy:',ngp.buy,'sell:',ngp.sell);
-                            console.log(264,"buy "+c.sym+" "+bp+' '+c.volume
-                                +" to close at "+gp.buy);
-                            await order('buy',c.sym,bp,c.volume,
-                                getLev(portfolio,'buy',bp,c.volume,c.sym,false),c.userref,
-                                {ordertype:'limit',price:gp.buy});
-                            gp = ngp;
-                        } while(bp >= 1*portfolio[c.sym][1])
-                    }
+            // Do we need to extend the grid?
+            // If we don't have a buy and a sell, then yes.
+            // --------------------------------------------
+            bs = bSides.find(b => b.userref==c.sym+'USD');
+            if(bs.buy && bs.sell) {
+                // console.log("Still between buy and sell.");
+                ++nexes;
+            } else if(bs.price==c.price) { // The lowest sell or highest buy
+                // Calculate price for missing side
+                // --------------------------------
+                let dp = gp.buy.indexOf('.'),
+                    decimals=Math.pow(10,dp > 0
+                        ? gp.buy.length - dp - 1
+                        : 0),
+                    ngp,sp,bp;
+                if(bs.buy) { // Missing the sell
+                    do {
+                        sp = Math.round(decimals*gp.sell*gp.sell/gp.buy)/decimals;
+                        c.userref -= 10000000;
+                        ngp = {userref:c.userref,
+                            buy:gp.sell,
+                            sell:String(sp)};
+                        gPrices.push(ngp);
+                        console.log(ngp.userref,'(sell)',
+                            'buy:',ngp.buy,'sell:',ngp.sell);
+                        console.log(249,"sell "+c.sym+' '+sp+' '+c.volume
+                            +" to close at "+gp.sell);
+                        await order('sell',c.sym,sp,c.volume,
+                            getLev(portfolio,'sell',sp,c.volume,c.sym,false),c.userref,
+                            {ordertype:'limit',price:gp.sell});
+                        gp = ngp;
+                   } while(sp <= 1*portfolio[c.sym][1]); 
+                } else {
+                    do {
+                        bp = Math.round(decimals*gp.buy*gp.buy/gp.sell)/decimals;
+                        c.userref -= 1000000;
+                        ngp = {userref:c.userref,
+                            buy:String(bp),
+                            sell:gp.buy};
+                        gPrices.push(ngp);
+                        console.log(ngp.userref,'( buy)',
+                            'buy:',ngp.buy,'sell:',ngp.sell);
+                        console.log(264,"buy "+c.sym+" "+bp+' '+c.volume
+                            +" to close at "+gp.buy);
+                        await order('buy',c.sym,bp,c.volume,
+                            getLev(portfolio,'buy',bp,c.volume,c.sym,false),c.userref,
+                            {ordertype:'limit',price:gp.buy});
+                        gp = ngp;
+                    } while(bp >= 1*portfolio[c.sym][1])
                 }
             }
         }
@@ -517,7 +491,8 @@ let stopNow = false,
     histi = Math.floor(Date.now() / 1000),
     delay = 60,
     auto = 0,
-    verbose = false;
+    verbose = false,
+    risky = false,
     cmdList = [],
     safeMode = true;
 async function runOnce(cmdList) {
@@ -552,6 +527,10 @@ async function runOnce(cmdList) {
                         }
                     },1000);
                     await report(portfolio);
+                } else if(args[0] == "risky") {
+                    risky = !risky;
+                    console.log("Risky Mode is "+(risky 
+                        ? 'on - Experimental additions will be tried' : 'off'));
                 } else if(args[0] == "safe") {
                     safeMode = !safeMode;
                     console.log("Safe Mode is "+(safeMode 
