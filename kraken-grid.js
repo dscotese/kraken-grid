@@ -14,7 +14,7 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function kapi(arg)
+async function kapi(arg,sd=5)
 {
     // await sleep(100);
     let ret;
@@ -26,9 +26,9 @@ async function kapi(arg)
         }
     } catch(err) {
         if(/ETIMEDOUT/.test(err.code) || /nonce/.test(err.message)) {
-            console.log(22,"Timed out or bad nonce, so trying again 5s...");
-            await sleep(5000);
-            ret = await kapi(arg);
+            console.log(22,"Timed out or bad nonce, so trying again in "+sd+"s...");
+            await sleep(sd*1000);
+            ret = await kapi(arg,2*sd);
         } else {
             catcher(26,err);
         } 
@@ -41,24 +41,27 @@ async function order(buysell, xmrbtc, price, amt, lev='none', uref=0, closeO=nul
     price = Number(price);
     amt = Number(amt);
     if( closeO && closeO.price == price ) closeO = null;
-    console.log(27,buysell+"ing "+amt+" "+xmrbtc+" at "+price+
-        (!closeO || closeO.price == price ? "" : " to close at "+closeO.price));
+    console.log(27,(safeMode ? '(Safe mode, so NOT) ' : '')
+        +buysell+"ing "+amt+" "+xmrbtc+" at "+price+" with leverage "+lev
+        +(!closeO || closeO.price == price ? "" : " to close at "+closeO.price));
     // let ordered;
-    let response = await kapi(['AddOrder',
-    {   pair:           xmrbtc+'USD',
-        userref:        uref,
-        type:           buysell,
-        ordertype:      'limit',
-        price:          price,
-        volume:         amt,
-        leverage:       lev,
-        close:          closeO
-    }]);
-    console.log(40,(d = response.result.descr) 
-        ? d : 'No result.descr from kapi');
-    console.log(42,"Cooling it for a second...");
-    await sleep(1000);
-    if(verbose) console.log(44,response);
+    if(!safeMode) {
+        let response = await kapi(['AddOrder',
+        {   pair:           xmrbtc+'USD',
+            userref:        uref,
+            type:           buysell,
+            ordertype:      'limit',
+            price:          price,
+            volume:         amt,
+            leverage:       lev,
+            close:          closeO
+        }]);
+        console.log(40,(d = response.result.descr) 
+            ? d : 'No result.descr from kapi');
+        console.log(42,"Cooling it for a second...");
+        await sleep(1000);
+        if(verbose) console.log(44,response);
+    }
 }
 
 async function listOpens(portfolio = null, isFresh=false) {
@@ -133,7 +136,7 @@ async function listOpens(portfolio = null, isFresh=false) {
             if(!gp) {
                 gp = {userref:ur,buy:'?',sell:'?'};
                 gPrices.push(gp);
-                console.log(gp.userref,'('+od.type+')','buy:',gp.buy,'sell:',gp.sell);
+                if(verbose) console.log(gp.userref,'('+od.type+')','buy:',gp.buy,'sell:',gp.sell);
             }
             gp[od.type] = op;
             gp[ct] = cp;
@@ -145,6 +148,7 @@ async function listOpens(portfolio = null, isFresh=false) {
         }
 
         ci = od.pair+od.price+od.type; // pair is symUSD - picks up externals
+        if(verbose) console.log("comps index: "+ci);
         if(!comps[ci]) {
             comps[ci]={
                 total:          rv,
@@ -326,7 +330,7 @@ function getLev(portfolio,buysell,price,amt,xmrbtc,posP) {
         }
         //console.log("Now we have "+portfolio[xmrbtc][2]+" "+xmrbtc);
     }
-    console.log("Leverage will be "+lev);
+    if(verbose) console.log("Leverage will be "+lev);
     return lev;
 }
 
@@ -388,7 +392,8 @@ async function handleArgs(portfolio, args, uref = 0) {
             console.log(i+1,x[1].descr.order,x[1].userref,x[1].descr.close);
         });
     } else if(/^(y|Y)/.test(prompt("Try "+args[0]+" raw?"))) {
-        await kapi(args);
+        let raw = await kapi(args);
+        console.log(392,raw);
     } else {
         return args[0]+" is not yet implemented.";
     }
@@ -432,6 +437,10 @@ function set(p,ur,type,price) {
     console.log(p['G'].sort((a,b) => a.userref-b.userref));
 }
 
+function toDec(n,places) {
+    let f = 10**places;
+    return Math.round(n*f)/f;
+}
 async function report(portfolio,showBalance=true) { 
     let dataPromise = [
         'Balance',
@@ -449,25 +458,57 @@ async function report(portfolio,showBalance=true) {
         return; 
     }
     let [bal,tik,trb] = dataPromise;
+    let mar = await marginReport(false);
+    portfolio['M'] = mar;
     delete bal.result.KFEE;
+    delete bal.result.BSV;
+    delete bal.result.ADA;
 
     let price;
     for( const p in bal.result) {
         let ts = p+'USD',
-            tsz = p+'ZUSD';
+            tsz = p+'ZUSD',
+            sym = /^X/.test(p) ? p.substr(1) : p,
+            amt = toDec(bal.result[p],4);
         if(ts in tik.result) price = tik.result[ts].c[0];
         else if(tsz in tik.result) price = tik.result[tsz].c[0];
-        portfolio[/^X/.test(p) ? p.substr(1) : p]=[bal.result[p],price,bal.result[p]];
-        if(showBalance) console.log(p+"\t"+bal.result[p]+"\t"+price);
+        price = toDec(price,(sym=='EOS'?4:2));
+        portfolio[sym]=[amt,price,amt];
+        if(mar[sym]) portfolio[sym][0] = toDec(portfolio[sym][0]+mar[sym].open,4); 
+        if(showBalance) console.log(p+"\t"+portfolio[sym][0]+"   \t"+price);
     }
     if(showBalance) {
         console.log("Cost\t"+trb.result['c']);
         console.log("Value\t"+trb.result['v']);
         console.log("P & L\t"+trb.result['n']);
+        for( const s in mar ) {
+            if(portfolio[s]) {
+                console.log(s+": "+portfolio[s][2]+" outright, and "+mar[s].open+" on margin.");
+            } else {
+                console.log("Did not find "+s+" in portfolio!");
+            }
+        }
     }
     //console.log(portfolio); 
     await listOpens(portfolio,true);
     console.log(new Date);
+}
+
+async function marginReport(show = true) {
+    let positions = await kapi(['OpenPositions',{consolidation:"market"}]);
+    let brief = [];
+    // console.log(positions.result[0]);
+    positions.result.forEach( (pos) => {
+        let vol = (1*pos.vol-1*pos.vol_closed)*(pos.type=='sell' ? -1 : 1),
+            sym = /^X/.test(pos.pair) ? pos.pair.slice(1,4) : pos.pair.slice(0,-3);
+        vol = Math.floor(vol*10000)/10000;
+        brief[sym] = {
+            open:       vol,
+            sym:        pos.pair,
+            margin:     pos.margin };
+    });
+    if(show) console.log(475,brief);
+    return brief;
 }
 
 const prompt = require('prompt-sync')({sigint: true});
@@ -477,7 +518,8 @@ let stopNow = false,
     delay = 60,
     auto = 0,
     verbose = false;
-    cmdList = [];
+    cmdList = [],
+    safeMode = true;
 async function runOnce(cmdList) {
     //while(!stopNow) {
       //  if(cmd==null) cmd = prompt((auto>0 ? '('+delay+' min.)' : 'manual')+'>');
@@ -510,9 +552,15 @@ async function runOnce(cmdList) {
                         }
                     },1000);
                     await report(portfolio);
+                } else if(args[0] == "safe") {
+                    safeMode = !safeMode;
+                    console.log("Safe Mode is "+(safeMode 
+                        ? 'on - Orders will be displayed butnot placed' : 'off'));
                 } else if(args[0] == "verbose") {
                     verbose = !verbose;
                     console.log("Verbose is "+(verbose ? 'on' : 'off'));
+                } else if(args[0] == 'margin') {
+                    await marginReport();
                 } else await handleArgs(portfolio, args, ++histi).then(console.log);
             } catch(err) {
                 catcher(468,err);
