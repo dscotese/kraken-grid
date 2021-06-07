@@ -1,3 +1,4 @@
+// COmment Line to see git diff...
 const fs = require('fs');
 
 if(!fs.existsSync('../keys.js')) {
@@ -25,8 +26,10 @@ async function kapi(arg,sd=5)
             ret = await kraken.api(arg);
         }
     } catch(err) {
-        if(/ETIMEDOUT/.test(err.code) || /nonce/.test(err.message)) {
-            console.log(22,"Timed out or bad nonce, so trying again in "+sd+"s...");
+        if(/ETIMEDOUT/.test(err.code) 
+            || /nonce/.test(err.message)
+            || /Response code 50/.test(err.message)) {
+            console.log(22,err.message+", so trying again in "+sd+"s...");
             await sleep(sd*1000);
             ret = await kapi(arg,2*sd);
         } else {
@@ -316,6 +319,9 @@ async function kill(o,oa) {
             console.log(314,killed);
         } else { console.log("Maybe be more careful."); }  
         return;
+    } else if(safeMode) {
+        console.log("In Safemode, so NOT killing "+o);
+        return;
     } else if('string'==typeof(o) && o.match(/-/)) {
         console.log("Killing "+o+"...");
         let killed = await kapi(['CancelOrder', {txid: o}]);
@@ -449,7 +455,7 @@ async function report(portfolio,showBalance=true) {
         price = toDec(price,(sym=='EOS'?4:2));
         portfolio[sym]=[amt,price,amt];
         if(mar[sym]) portfolio[sym][0] = toDec(portfolio[sym][0]+mar[sym].open,4); 
-        if(showBalance) console.log(p+"\t"+portfolio[sym][0]+"   \t"+price);
+        if(showBalance) console.log(p+"\t"+w(portfolio[sym][0],16)+price);
     }
     if(showBalance) {
         console.log("Cost\t"+trb.result['c']);
@@ -468,20 +474,23 @@ async function report(portfolio,showBalance=true) {
     console.log(new Date);
 }
 
+function w(n,x) { let s = n.toString(); return s+' '.repeat(x-s.length); }
+
 async function marginReport(show = true) {
     let positions = await kapi(['OpenPositions',{consolidation:"market"}]);
     let brief = [];
-    // console.log(positions.result[0]);
-    positions.result.forEach( (pos) => {
-        let vol = (1*pos.vol-1*pos.vol_closed)*(pos.type=='sell' ? -1 : 1),
-            sym = /^X/.test(pos.pair) ? pos.pair.slice(1,4) : pos.pair.slice(0,-3);
-        vol = Math.floor(vol*10000)/10000;
-        brief[sym] = {
-            open:       vol,
-            sym:        pos.pair,
-            margin:     pos.margin };
-    });
-    if(show) console.log(475,brief);
+    if(Object.keys(positions.result).length) {
+        positions.result.forEach( (pos) => {
+            let vol = (1*pos.vol-1*pos.vol_closed)*(pos.type=='sell' ? -1 : 1),
+                sym = /^X/.test(pos.pair) ? pos.pair.slice(1,4) : pos.pair.slice(0,-3);
+            vol = Math.floor(vol*10000)/10000;
+            brief[sym] = {
+                open:       vol,
+                sym:        pos.pair,
+                margin:     pos.margin };
+        });
+        if(show) console.log(475,brief);
+    }
     return brief;
 }
 
@@ -575,21 +584,6 @@ process.stdin.on('readable', async () => {
     }
 });
 
-/* console.log(err) seems to have made this:
-RequestError: Timeout awaiting 'request' for 5000ms
-    at ClientRequest.<anonymous> (/home/dscotese/nodejs/kraken-api/node_modules/got/dist/source/core/index.js:956:65)
-    ...
-    at processTimers (node:internal/timers:500:7) {
-  name: 'TimeoutError',
-  code: 'ETIMEDOUT',
-  timings: {
-    start: 1619948216984,
-    ...
-    }
-  },
-  event: 'request'
-}
-*/
 function catcher(line,err) {
     if(/ETIMEDOUT/.test(err.code)) return; // We can ignore timeout errors.
     console.log("Line "+line+";\n",err);
@@ -635,4 +629,4 @@ async function openSocket() {
 };
 
 runOnce(['report']).catch((err) => { catcher(578,err); });
-
+console.log("Safemode is on.  `safe` toggles it.");
