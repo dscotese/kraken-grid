@@ -21,7 +21,7 @@ Once you've done that, the first thing it will do is execute the `report` comman
 At the prompt that kraken-grid presents (>), you can enter one of these commands:
 
 ### buy
-`buy [XMR|BTC|ETH|DASH|EOS|LTC|BCH] price amount makeClose`
+`buy [XMR|XBT|ETH|DASH|EOS|LTC|BCH] price amount makeClose`
 
 makeClose is interpreted as a Boolean.  I never tested `0` but I assume 0 means false (the default).  If makeCLose evaluates to true, the code will create this buy with a conditional close at the last price it saw.  If you don't want the code to place a trade with a conditional close, leave makeCLose off.
 
