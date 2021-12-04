@@ -40,7 +40,7 @@ XLTC ...
 ...
 ```
 2. Retrieves the list of open orders, which is immediately processed to:
-   1.  replace conditional closes resulting from partial executions with a single conditional close which, itself, has a conditional close to continue buying and selling between the two prices, but only up to the amount originally specified.
+   1.  replace conditional closes resulting from partial executions with a single conditional close which, itself, has a conditional close to continue buying and selling between the two prices, but only up to the amount originally specified, and _only_ for orders with a User Reference Number (such as all orders placed through this program).
    2.  fill out the internal record of buy/sell prices using the open orders and their conditional closes (see `set` and `reset`).
    3.  extend the grid if there are only buys or only sells remaining for the crypto identified in each order.
    4.  identify any orders that are gone or new using Kraken's Order ID and for new orders, it also describes them.
@@ -65,16 +65,27 @@ This erases the list of `userref`s and prices at which buys and sells will be pl
 `auto N`
 This automatically and repeatedly executes the second step of `report` and then waits N seconds.  N defaults to 60 but when you call auto with a new value for it, it is updated.  ***NOTE: See Internals below to understand how using `buy` or `sell` can block this repetition.***
 
+### manual
+This stops the automatic calling of `report`.  The bot will do nothing until you give it a new command.
+
+### margin
+The bot will try to use leverage when there isn't enough USD or crypto.  Whether or not it succeeds, it will still be able to report how much you are logn or short for each supported crypto.  Reporting that is all this command does.
+
 ### kill
 `kill X`
 X can be an Order ID from Kraken (recognized by the presence of dashes), a userref (which often identifies more than one order, and, importantly, _both_ the initial buy or sell, _and_ the series of sells and buys resulting from partial executions), or a `Counter` as shown from `list`.  This cancels the order or orders.  Interestingly, I think `list` will still show it unless you run `report` first to update the internal record of open orders.
 
 ### delev
 `delev C`
-C _must be_ a `Counter` as shows by executing `list`.  If the identified order uses leverage, this command will first create an order without any leverage to replace it, and then kill the one identified. ***NOTE: The new order often (or always?) appears at the top of `list` after this, so the `Counter`s identifying other orders may change.
+C _must be_ a `Counter` as shown by executing `list`.  If the identified order uses leverage, this command will first create an order without any leverage to replace it, and then kill the one identified. The order that was killed will still be in the list, prefixed with "killed:" ***NOTE: The new order often (or always?) appears at the top of `list` after this, so the `Counter`s identifying other orders may change.***
 
-### manual
-This stops the automatic calling of `report`.  The bot will do nothing until you give it a new command.
+### addlev
+`addlev C`
+The semantics are the same as for delev.
+
+### refnum (on bleeding branch only)
+`refnum C newRef`
+C _must be_ a `Counter` as shown by executing `list` which has a user reference number of 0.  This command can be used with an externally generated order (which therefore has a user reference number of 0) to tie it into the grid, by assigning it a user reference number as displayed in `list`.
 
 ### verbose
 There is a little bit of logic in the code to spit out a lot more information when verbose is on.  It's off by default and this command just toggles it.
@@ -86,7 +97,7 @@ This connects to Kraken's WebSockets, which, I have to warn you, send you someth
 When you place an order through trade.kraken.com or through kraken.com, it will have a `userref` of zero.  It will be displayed but ignored for the purposes of the grid trading it does.  When you place an order through the bot, it will have a userref and the bot will assume you have not yet decided at what price to close it.  It will ask _every time_ `report` is called, for example, from `auto` and it will do nothing until you answer.  It will ask for every order that doesn't have a conditional close, and fill out the internal record of prices using your answer.  To skip the rest of its requests for prices, answer with a question mark.  If you're still running `auto`, however, it's going to ask again in N seconds.
 
 ### Handling pasted commands
-I use Excel to calculate my grid prices so I like to copy the commands that Excel builds for me.  I thought Node would accept multiline iput as several pieces of input but it doesn't.  They are all combined into one large input string that I first broke up using CHR(13) (whatever that was in Javascript, I can't remember now), but process.stdin handles it a little differently. Search for `readable` to see how I handled it.
+I use Excel to calculate my grid prices so I like to copy the commands that Excel builds for me.  I thought Node would accept multiline input as several pieces of input but it doesn't.  They are all combined into one large input string that I first broke up using CHR(13) (whatever that was in Javascript, I can't remember now), but process.stdin handles it a little differently. Search for `readable` to see how I handled it.
 
 ## HELP!
 This code is messy and monolithic.  It works for me and I didn't want to keep waiting until I cleaned it up to publish it.  I haven't yet put enough thought into how (and whether) I would break it up into smaller files with specific purposes, so I'd love to see proposals.  One of the major motivations I have for publishing it is that as more people use a strategy like "grid trader" to balance their savings, the prices of the cryptos with which they do it will become more stable.
