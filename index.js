@@ -26,7 +26,7 @@ async function kapi(arg,sd=5)
             ret = await kraken.api(arg);
         }
     } catch(err) {
-        if(/ETIMEDOUT|EAI_AGAIN/.test(err.code) 
+        if((!/AddOrder/.test(arg[0])&&/ETIMEDOUT|EAI_AGAIN/.test(err.code)) 
             || /nonce/.test(err.message)
             || /Response code 50/.test(err.message)) {
             console.log(22,err.message+", so trying again in "+sd+"s...("+(new Date)+"):");
@@ -447,19 +447,22 @@ async function handleArgs(portfolio, args, uref = 0) {
         let sortedA = [], orders = portfolio['O'];
         if(args[1] == 'C') {
             let ur = args[2] ? args.pop() : false,
-            response = ur
-                ? await kapi(['ClosedOrders',{userref:ur}])
-                : await kapi('ClosedOrders');
+                response = ur
+                    ? await kapi(['ClosedOrders',{userref:ur}])
+                    : await kapi('ClosedOrders');
             orders = [];
             for( o in response.result.closed) {
                 let oo = response.result.closed[o];
                 if(oo.status=='closed') orders.push([o,response.result.closed[o]]); 
             }
+            args.pop();
         }
         orders.forEach((x,i) => {
             let ldo = x[1].descr.order;
             if(args.length==1 || RegExp(args[1]).test(ldo))
-                console.log(i+1,ldo,x[1].userref,x[1].descr.close);
+                console.log(i+1,ldo,x[1].userref,x[1].status=='closed'
+                    ? new Date(1000*x[1].closetm)
+                    : x[1].descr.close);
             else if(x[1][args[1]]) sortedA[i+1]=x;
             else if(x[1].descr[args[1]]) sortedA[i+1]=x;
             });
