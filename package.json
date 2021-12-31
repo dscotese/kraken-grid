@@ -1,0 +1,31 @@
+{
+  "name": "kraken-grid",
+  "version": "1.0.1",
+  "description": "Bot repeatedly buys & sells on kraken from a conditional close order.",
+  "main": "index.js",
+  "bin": "./index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dscotese/kraken-grid.git"
+  },
+  "keywords": [
+    "kraken",
+    "bot",
+    "grid",
+    "crypto"
+  ],
+  "author": "Dave Scotese",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dscotese/kraken-grid/issues"
+  },
+  "homepage": "https://github.com/dscotese/kraken-grid#readme",
+  "dependencies": {
+    "kraken-api": "^1.0.1",
+    "prompt-sync": "^4.2.0",
+    "ws": "^8.4.0"
+  }
+}

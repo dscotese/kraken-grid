@@ -1,14 +1,21 @@
-// COmment Line to see git diff...
+#!/usr/bin/env node
 const fs = require('fs');
+const prompt = require('prompt-sync')({sigint: true});
 
-if(!fs.existsSync('../keys.js')) {
-    console.log("Paste your key and secret between the single quotes and save this"
-        +" to the parent folder as keys.js:\nexports.key='';\nexports.secret='';");
-    process.exit(1);
+let homeDir = process.env.APPDATA
+        || (process.platform == 'darwin' 
+            ? process.env.HOME + '/Library/Preferences' 
+            : process.env.HOME + "/.local/share"),
+    keyFile = homeDir+'/keys.txt';
+
+if(!fs.existsSync(keyFile)) {
+    const key = prompt("Enter your API key: ");
+    const secret = prompt('Enter your API secret: ');
+    fs.writeFileSync(keyFile,key+' '+secret);
 }
-const my           = require('../keys.js');
-const key          = my.key; // API Key
-const secret       = my.secret; // API Private Key
+
+const myKeys       = fs.readFileSync(keyFile,{encoding:'utf8', flag:'r'});
+const [key,secret] = myKeys.split(' ');
 const KrakenClient = require('kraken-api');
 const kraken       = new KrakenClient(key, secret);
 function sleep(ms) {
@@ -655,7 +662,6 @@ async function marginReport(show = true) {
     return brief;
 }
 
-const prompt = require('prompt-sync')({sigint: true});
 let stopNow = false,
     portfolio = [],
     histi = Math.floor(Date.now() / 1000),
