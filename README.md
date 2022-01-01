@@ -4,7 +4,11 @@ A bot that extends grid trading once you use it to create a grid using orders wi
 This was developed with NodeJS running in the BASH shell provided by Windows 10.  I believe it's using "Windows Subsystem for Linux" and that there are some oddities because of this.  I don't see them as odd because I'm not familiar enough with Linux yet.
 
 ## Installation
-Once the file (kraken-grid.js) is installed with the dependencies (NPM and/or Node figures this out), you can run it and it will save a file`keys.txt to your home folder. 
+1. Get your API key and secret from Kraken.
+2. Install [NodeJS](https://nodejs.org/)
+3. Run `npm install kraken-grid`
+
+If you install kraken-grid globally, you can run it from anywhere.  Please note that it will save a file `keys.txt to your home folder. 
 
 ## Usage
 At the prompt that kraken-grid presents (>), you can enter one of these commands:
