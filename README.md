@@ -55,6 +55,8 @@ If you enter anything for [SEARCH], the list will only display lines that contai
 
 ### set
 This lists the `userref`s and prices at which buys and sells have been (and will be) placed.
+`set R S P`
+R _must be_ a userref, S _must be_ either `buy` or `sell`, and P is the price you want to add for that grid point.  If the bot fails to determine either the buy price or the sell price, it displays a ?, and this will prevent the creation of a new order as described under `refnum`.  This command allows you to fix that so that Step 2.1 under `report` will work properly as described under `refnum`. 
 
 ### reset
 This erases the list of `userref`s and prices at which buys and sells will be placed, but that list gets immediately rebuilt because it performs the second step in `report`.
@@ -83,7 +85,7 @@ The semantics are the same as for `delev`.
 
 ### refnum
 `refnum C R`
-C _must be_ a `Counter` as shown by executing `list`, and it must be an order that was entered without a userref.  It will cancel the existing order and create a new one with the specified userref `R`.  All orders added by the bot (automatically and manually) have a userref.  This function is to allow you to enter an order at trade.kraken.com using the same price and no conditional close so that the bot will include it into the existing grid point with the same userref (see `set`) as R.  If you use `refnum` to assign the reference number of an order that is at a different price, the behavior is undefined.
+C _must be_ a `Counter` as shown by executing `list`, and it must be an order that was entered without a userref.  It will cancel the existing order and create a new one with the specified userref `R`.  All orders added by the bot (automatically and manually) have a userref.  This function is to allow you to enter an order at trade.kraken.com using the same price and no conditional close so that the bot will include it into the existing grid point with the same userref (use `set` to make sure both the buy and sell prices are known for the userref) as R.  If you use `refnum` to assign the reference number of an order that is at a different price, the behavior is undefined.
 
 ### verbose
 There is a little bit of logic in the code to spit out a lot more information when verbose is on.  It's off by default and this command just toggles it.
