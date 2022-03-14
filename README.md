@@ -10,7 +10,7 @@ Once the file (kraken-grid.js) is installed with the dependencies (NPM and/or No
 At the prompt that kraken-grid presents (>), you can enter one of these commands:
 
 ### buy
-`buy [XMR|BTC|ETH|DASH|EOS|LTC|BCH] price amount makeClose`
+`buy [XMR|XBT|ETH|DASH|EOS|LTC|BCH] price amount makeClose`
 
 makeClose is interpreted as a Boolean.  I never tested `0` but I assume 0 means false (the default).  If makeCLose evaluates to true, the code will create this buy with a conditional close at the last price it saw.  If you don't want the code to place a trade with a conditional close, leave makeCLose off.
 
@@ -29,7 +29,7 @@ XLTC ...
 ...
 ```
 2. Retrieves the list of open orders, which is immediately processed to:
-   1.  replace conditional closes resulting from partial executions with a single conditional close which, itself, has a conditional close to continue buying and selling between the two prices, but only up to the amount originally specified.
+   1.  replace conditional closes resulting from partial executions with a single conditional close which, itself, has a conditional close to continue buying and selling between the two prices, but only up to the amount originally specified, and _only_ for orders with a User Reference Number (such as all orders placed through this program).
    2.  fill out the internal record of buy/sell prices using the open orders and their conditional closes (see `set` and `reset`).
    3.  extend the grid if there are only buys or only sells remaining for the crypto identified in each order.
    4.  identify any orders that are gone or new using Kraken's Order ID and for new orders, it also describes them.
@@ -56,13 +56,19 @@ This erases the list of `userref`s and prices at which buys and sells will be pl
 `auto N`
 This automatically and repeatedly executes the second step of `report` and then waits N seconds.  N defaults to 60 but when you call auto with a new value for it, it is updated.  ***NOTE: See Internals below to understand how using `buy` or `sell` can block this repetition.***
 
+### manual
+This stops the automatic calling of `report`.  The bot will do nothing until you give it a new command.
+
+### margin
+The bot will try to use leverage when there isn't enough USD or crypto.  Whether or not it succeeds, it will still be able to report how much you are logn or short for each supported crypto.  Reporting that is all this command does.
+
 ### kill
 `kill X`
 X can be an Order ID from Kraken (recognized by the presence of dashes), a userref (which often identifies more than one order, and, importantly, _both_ the initial buy or sell, _and_ the series of sells and buys resulting from partial executions), or a `Counter` as shown from `list`.  This cancels the order or orders.  Interestingly, I think `list` will still show it unless you run `report` first to update the internal record of open orders.
 
 ### delev
 `delev C`
-C _must be_ a `Counter` as shown by executing `list`.  If the identified order uses leverage, this command will first create an order without any leverage to replace it, and then kill the one identified. ***NOTE: The new order often (or always?) appears at the top of `list` after this, so the `Counter`s identifying other orders may change.
+C _must be_ a `Counter` as shown by executing `list`.  If the identified order uses leverage, this command will first create an order without any leverage to replace it, and then kill the one identified. The order that was killed will still be in the list, prefixed with "killed:" ***NOTE: The new order often (or always?) appears at the top of `list` after this, so the `Counter`s identifying other orders may change.
 
 ### addlev
 `addlev C`
@@ -72,8 +78,13 @@ The semantics are the same as for `delev`.
 `refnum C R`
 C _must be_ a `Counter` as shown by executing `list`, and it must be an order that was entered without a userref.  All orders added by the bot (automatically and manually) have a userref.  This function is to allow you to enter an order at trade.kraken.com and then include it into an existing grid point by using that grid point's refnum (see `set`) as R.  
 
-### manual
-This stops the automatic calling of `report`.  The bot will do nothing until you give it a new command.
+### addlev
+`addlev C`
+The semantics are the same as for delev.
+
+### refnum (on bleeding branch only)
+`refnum C newRef`
+C _must be_ a `Counter` as shown by executing `list` which has a user reference number of 0.  This command can be used with an externally generated order (which therefore has a user reference number of 0) to tie it into the grid, by assigning it a user reference number as displayed in `list`.
 
 ### verbose
 There is a little bit of logic in the code to spit out a lot more information when verbose is on.  It's off by default and this command just toggles it.
