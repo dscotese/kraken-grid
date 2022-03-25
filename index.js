@@ -422,7 +422,7 @@ async function kill(o,oa) {
 async function handleArgs(portfolio, args, uref = 0) {
     if(/buy|sell/.test(args[0])) {
         [buysell,xmrbtc,price,amt,posP] = args;
-        if(!/XMR|XBT|ETH|LTC|DASH|EOS|BCH|USDT/.test(xmrbtc)) return xmrbtc+" is not yet supported.";
+        if(!/XMR|XBT|ETH|LTC|DASH|EOS|BCH|USDT|UST|LUNA/.test(xmrbtc)) return xmrbtc+" is not yet supported.";
         let total=price*amt;
         if(total > 100000) return total+" is too much for code to "+buysell;
 
@@ -590,7 +590,7 @@ function toDec(n,places) {
 async function report(portfolio,showBalance=true) { 
     let dataPromise = [
         'Balance',
-        ['Ticker',{ pair : 'XBTUSD,XMRUSD,BCHUSD,DASHUSD,EOSUSD,ETHUSD,LTCUSD,USDTUSD' }],
+        ['Ticker',{ pair : 'XBTUSD,XMRUSD,BCHUSD,DASHUSD,EOSUSD,ETHUSD,LTCUSD,USDTUSD,USTUSD,LUNAUSD' }],
         'TradeBalance'
     ];
     try {
