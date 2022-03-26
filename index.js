@@ -35,6 +35,7 @@ async function kapi(arg,sd=5)
     } catch(err) {
         if((!/AddOrder/.test(arg[0])&&/ETIMEDOUT|EAI_AGAIN/.test(err.code)) 
             || /nonce/.test(err.message)
+            || (risky && /Internal error/.test(err.message))
             || /Response code 50/.test(err.message)) {
             console.log(22,err.message+", so trying again in "+sd+"s...("+(new Date)+"):");
             if(Array.isArray(arg)) {
