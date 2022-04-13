@@ -3,8 +3,8 @@ const fs = require('fs');
 const prompt = require('prompt-sync')({sigint: true});
 
 let homeDir = process.env.APPDATA
-        || (process.platform == 'darwin' 
-            ? process.env.HOME + '/Library/Preferences' 
+        || (process.platform == 'darwin'
+            ? process.env.HOME + '/Library/Preferences'
             : process.env.HOME + "/.local/share"),
     keyFile = homeDir+'/keys.txt';
 
@@ -33,10 +33,11 @@ async function kapi(arg,sd=5)
             ret = await kraken.api(arg);
         }
     } catch(err) {
-        if((!/AddOrder/.test(arg[0])&&/ETIMEDOUT|EAI_AGAIN/.test(err.code)) 
+        if((!/AddOrder/.test(arg[0])&&/ETIMEDOUT|EAI_AGAIN/.test(err.code))
             || /nonce/.test(err.message)
+            || /Response code 50/.test(err.message)
             || (risky && /Internal error/.test(err.message))
-            || /Response code 50/.test(err.message)) {
+            || /Unavailable/.test(err.message)) {
             console.log(22,err.message+", so trying again in "+sd+"s...("+(new Date)+"):");
             if(Array.isArray(arg)) {
                 delete arg[1].nonce;
@@ -47,29 +48,34 @@ async function kapi(arg,sd=5)
             await sleep(sd*1000);
             ret = await kapi(arg,sd>300?sd:2*sd);
         } else if( /Unknown order/.test(err.message) && /CancelOrder/.test(arg[0])) {
-            console.log("Ignoring: ", err.message, ...arg);
+            console.log("Ignoring: ", ...arg);
             ret = { result: { descr: "Ignored" }};
         } else {
             catcher(26,err);
             ret = { result: { descr: err }};
-        } 
+        }
     }
     if(verbose) console.log(ret);
     return ret;
 }
 
-async function order(buysell, xmrbtc, price, amt, lev='none', uref=0, closeO=0) {
+async function order(buysell, xmrbtc, price, amt, lev='none', uref=0, closeO=null) {
     let cO = Number(closeO),
         p = Number(price),
         a = Number(amt),
         ret = '';
     if( cO == price ) cO = 0;
+    if(uref==0) {
+		uref = Number((buysell=='buy'?'1':'2')
+			+ ('00'+USDPairs.indexOf(xmrbtc+'USD')).slice(-2)
+			+ String('000000'+price).replace('.','').slice(-7));
+		}
     console.log(27,(safeMode ? '(Safe mode, so NOT) ' : '')
         +buysell+"ing "+a+" "+xmrbtc+" at "+p+" with leverage "+lev
-        +(cO>0 ? "" : " to close at "+cO));
-    // let ordered;
-    if(!safeMode) {
-        let response = await kapi(['AddOrder',
+        +(cO==0 ? "" : " to close at "+(isNaN(cO)?closeO+' is NaN!':cO)) +" as "+uref);
+    if( buysell == 'buy' ? cO <= price : cO >= price )
+		throw 'Close price, ',cO,' is on the wrong side of ',buysell,' at ',price,'!';
+    ret = ['AddOrder',
         {   pair:           xmrbtc+'USD', // Just call it 'pair'! #USD Refactor
             userref:        uref,
             type:           buysell,
@@ -78,8 +84,10 @@ async function order(buysell, xmrbtc, price, amt, lev='none', uref=0, closeO=0) 
             volume:         a,
             leverage:       lev,
             close:          (cO>0 ? {ordertype:'limit',price:cO} : null)
-        }]);
-        console.log(40,response ? ((d = response.result) 
+        }];
+    if(!safeMode) {
+        let response = await kapi(ret);
+        console.log(40,response ? ((d = response.result)
             ? (ret = d.txid,d.descr) : 'No result.descr from kapi') : "No kapi response.");
         console.log(42,"Cooling it for a second...");
         await sleep(1000);
@@ -99,7 +107,7 @@ async function listOpens(portfolio = null, isFresh=false) {
         ci,oo,od,rv,n=0,ur,op,cp,gpi,gp,ct,bs;
         // Index for comps, n?, Closing Price, index to grid prices,
         // and bs is "Both sides", holding an array of objects
-        // holding userref, and two booleans, buy and sell.
+        // holding userref, and two bookeans, buy and sell.
     if(portfolio&&portfolio['G']) gPrices = portfolio['G'];
     if(gPrices.length == 0) {
         let response = await kapi('ClosedOrders'),
@@ -128,7 +136,7 @@ async function listOpens(portfolio = null, isFresh=false) {
             }
         }
     }
-        
+
     // Save the old order array so we can see the diff
     // -----------------------------------------------
     let oldRefs = [];
@@ -141,7 +149,7 @@ async function listOpens(portfolio = null, isFresh=false) {
         op = od.price;
         rv = oo.vol-oo.vol_exec;
         ur = oo.userref;
-        
+
         if(ur > 0) {
             // BothSides record for userref
             // ----------------------------
@@ -185,7 +193,7 @@ async function listOpens(portfolio = null, isFresh=false) {
         // order of the closing order into which we combine.
         // -------------------------------------------------
         if(od.close && ur>0) { // Externally added orders have userref=0
-            cp = /[0-9.]+$/.exec(od.close)[0]; 
+            cp = /[0-9.]+$/.exec(od.close)[0];
             gp = gPrices.find(gprice => gprice.userref==ur);
             if(!gp) {
                 gp = {userref:ur,buy:'?',sell:'?', bought: 0, sold: 0};
@@ -218,7 +226,7 @@ async function listOpens(portfolio = null, isFresh=false) {
                 price:          od.price,
                 hasClose:       Boolean(od.close)
             };
-        } else { 
+        } else {
             comps[ci].total+=rv;        // Volume for combined order.
             comps[ci].ids.push(o);
             comps[ci].volume += Number(oo.vol); // Volume for extended order.
@@ -240,7 +248,7 @@ async function listOpens(portfolio = null, isFresh=false) {
             console.log(159, "New: ",o,opensA.length, od.order, oo.userref, cp);
             if(verbose) console.log(160,oo);
         }
-            
+
         if(portfolio && isFresh && od.leverage == "none") {
             if(od.type == "buy") {
                 if(/USD$/.test(od.pair)) { // Deplete our cash
@@ -261,7 +269,7 @@ async function listOpens(portfolio = null, isFresh=false) {
 
     let nexes = 0, // Orders not requiring extension
         dontask = false;
-    for( comp in comps ) if(/USD/.test(comp)) { // non-USD pairs break regex below... #USD Refactor 
+    for( comp in comps ) if(/USD/.test(comp)) { // non-USD pairs break regex below... #USD Refactor
         let c = comps[comp],
         gp = gPrices.find(gprice => gprice.userref==c.userref);
         bs = bSides.find(b => b.userref==c.userref);
@@ -273,7 +281,7 @@ async function listOpens(portfolio = null, isFresh=false) {
         gp[c.ctype] = c.open;
         gp[c.type]  = c.price;
         [,sym,price] = /([A-Z]+)USD([0-9.]+)/.exec(comp); //#USD Refactor
-        if(verbose) console.log("Checking: " + c.type + ' ' 
+        if(verbose) console.log("Checking: " + c.type + ' '
             + sym + ' ' + price + ' ' + Math.round(c.total*10000)/10000
             + (c.open ? ' to '+c.ctype+'-close @'+c.open : '') +' (' + c.userref + "):");
         if(!isNaN(c.open)) {
@@ -287,7 +295,7 @@ async function listOpens(portfolio = null, isFresh=false) {
                 // ----------------------
                 let traded = c.type=='buy' ? 'sold' : 'bought';
                 gp[traded]+=c.total;
-            } 
+            }
             // Do we need to extend the grid?
             // If we don't have a buy and a sell, then yes.
             // --------------------------------------------
@@ -307,7 +315,7 @@ async function listOpens(portfolio = null, isFresh=false) {
                     do {
                         sp = Math.round(decimals*gp.sell*gp.sell/gp.buy)/decimals;
                         c.userref -= 10000000;
-                        // We may already have this grid price but the order 
+                        // We may already have this grid price but the order
                         // was deleted, so search for it first.
                         ngp = gPrices.find(n => n.userref==c.userref);
                         if(!ngp) {
@@ -325,12 +333,12 @@ async function listOpens(portfolio = null, isFresh=false) {
                             getLev(portfolio,'sell',sp,c.volume,c.sym,false),c.userref,
                             gp.sell);
                         gp = ngp;
-                   } while(sp <= 1*portfolio[c.sym][1]); 
+                   } while(sp <= 1*portfolio[c.sym][1]);
                 } else {
                     do {
                         bp = Math.round(decimals*gp.buy*gp.buy/gp.sell)/decimals;
                         c.userref -= 1000000;
-                        // We may already have this grid price but the order 
+                        // We may already have this grid price but the order
                         // was deleted, so search for it first.
                         ngp = gPrices.find(n => n.userref==c.userref);
                         if(!ngp) {
@@ -354,7 +362,7 @@ async function listOpens(portfolio = null, isFresh=false) {
         }
     }
     // console.log(gPrices);
-    console.log(nexes,"orders didn't require extension.");
+    console.log(nexes,"orders did NOT require extension.");
     // console.log(comps);
     if(portfolio){
         portfolio['O'] = opensA;
@@ -374,7 +382,7 @@ function getLev(portfolio,buysell,price,amt,xmrbtc,posP) {
             lev = '2';                           // on non-USD pairs.
         } else {
             portfolio['ZUSD'][2] -= price*amt;
-        } 
+        }
     } else {
         if(price*1 < 1*portfolio[xmrbtc][1] && posP) return "Selling "+xmrbtc+" @ "+price+" isn't a limit order.";
         //console.log("We have "+portfolio[xmrbtc][2]+" "+xmrbtc);
@@ -395,7 +403,7 @@ async function kill(o,oa) {
         if(/^y/i.test(killAll)) {
             let killed = await kapi('CancelAll');
             console.log(314,killed);
-        } else { console.log("Maybe be more careful."); }  
+        } else { console.log("Maybe be more careful."); }
         return;
     } else if(safeMode) {
         console.log("In Safemode, so NOT killing "+o);
@@ -436,12 +444,12 @@ async function handleArgs(portfolio, args, uref = 0) {
         // Without a record of a closing price, use the last one we found.
         // ---------------------------------------------------------------
         if(!cPrice) cPrice = portfolio[xmrbtc][1];
-        let closeO = posP ? cPrice : 0;
+        let closeO = posP ? cPrice : null;
         let ret = await order(buysell,xmrbtc,price,amt,lev,uref,closeO);
         console.log("New order: "+ret);
         return;
     } else if(args[0] == 'set') {
-        set(portfolio, args[1], args[2], args[3]);
+        await set(portfolio, args[1], args[2], args[3]);
     } else if(args[0] == 'reset') {
         portfolio['G'] = [];
         await listOpens(portfolio);
@@ -461,7 +469,7 @@ async function handleArgs(portfolio, args, uref = 0) {
             orders = [];
             for( o in response.result.closed) {
                 let oo = response.result.closed[o];
-                if(oo.status=='closed') orders.push([o,response.result.closed[o]]); 
+                if(oo.status=='closed') orders.push([o,response.result.closed[o]]);
             }
             args.pop();
         }
@@ -482,7 +490,7 @@ async function handleArgs(portfolio, args, uref = 0) {
                 } else {
                     a = a[1][args[1]];
                     b = b[1][args[1]];
-                } 
+                }
                 return isNaN(a)
                     ? a.localeCompare(b)
                     : a - b;
@@ -492,7 +500,7 @@ async function handleArgs(portfolio, args, uref = 0) {
                 console.log(i+1, x[1].descr[args[1]]
                     ? x[1].descr[args[1]] : x[1][args[1]],
                     ldo,x[1].userref,x[1].descr.close);
-            }); 
+            });
         };
     } else if(args[0] == 'test') {
         // Put some test code here if you want
@@ -528,7 +536,7 @@ async function refnum(opensA,oid,newRef) {
         await order(bs,sym,p,amt,lev,newRef);
     } else {
         console.log(oRef+" already has userref "+o.userref);
-    } 
+    }
 }
 
 async function deleverage(opensA,oid,undo=false) {
@@ -551,7 +559,7 @@ async function deleverage(opensA,oid,undo=false) {
     await order(o.descr.type,/^([A-Z]+)USD/.exec(o.descr.pair)[1],
         o.descr.price,Math.round(10000*(Number(o.vol) - Number(o.vol_exec)))/10000,
         (undo ? '2' : 'none'),o.userref);
-    } else { 
+    } else {
     await order(o.descr.type,/^([A-Z]+)USD/.exec(o.descr.pair)[1],
         o.descr.price,Math.round(10000*(Number(o.vol) - Number(o.vol_exec)))/10000,
         (undo ? '2' : 'none'),o.userref,
@@ -563,12 +571,12 @@ async function deleverage(opensA,oid,undo=false) {
 
 function set(p,ur,type,price) {
     if(ur) {
-        let gp = p['G'].find(g => g.userref==ur); 
+        let gp = p['G'].find(g => g.userref==ur);
         if(!gp) {
             gp = {userref:Number(ur),buy:'?',sell:'?'};
             p['G'].push(gp);
         }
-        console.log(405,gp); 
+        console.log(405,gp);
         gp[type] = price;
     }
     p['G'].sort((a,b) => a.userref-b.userref);
@@ -576,33 +584,33 @@ function set(p,ur,type,price) {
     p['G'].forEach(x => {
         let f = toDec(((x.sell-x.buy)*Math.min(x.bought,x.sold)),2);
         console.log(x.userref+': '+x.buy+'-'+x.sell
-            + ((x.bought+x.sold)>0 
+            + ((x.bought+x.sold)>0
                 ? (", bought "+toDec(x.bought,2)+" and sold "+toDec(x.sold,2)+' for ' + f)
                 : '' ));
         if(!isNaN(f)) profits += f;
     });
-    console.log("That's "+toDec(profits,2)+" since "+new Date(ts150*1000)); 
+    console.log("That's "+toDec(profits,2)+" since "+new Date(ts150*1000));
 }
 
 function toDec(n,places) {
     let f = 10**places;
     return Math.round(n*f)/f;
 }
-async function report(portfolio,showBalance=true) { 
+async function report(portfolio,showBalance=true) {
     let dataPromise = [
         'Balance',
-        ['Ticker',{ pair : 'XBTUSD,XMRUSD,BCHUSD,DASHUSD,EOSUSD,ETHUSD,LTCUSD,USDTUSD,USTUSD,LUNAUSD' }],
+        ['Ticker',{ pair : USDPairs.join() }],
         'TradeBalance'
     ];
     try {
         dataPromise[0] = await kapi(dataPromise[0]);
         dataPromise[1] = await kapi(dataPromise[1]);
         dataPromise[2] = await kapi(dataPromise[2]);
-    } catch(err) { 
+    } catch(err) {
         catcher(411,err);
-        console.log(423,"Waiting a minute..."); 
+        console.log(423,"Waiting a minute...");
         await sleep(60000);
-        return; 
+        return;
     }
     let [bal,tik,trb] = dataPromise;
     let mar = await marginReport(false);
@@ -621,7 +629,7 @@ async function report(portfolio,showBalance=true) {
         else if(tsz in tik.result) price = tik.result[tsz].c[0];
         price = toDec(price,(sym=='EOS'?4:2));
         portfolio[sym]=[amt,price,amt]; // holdings w/reserves, price, holdings w/o reserves
-        if(mar[sym]) portfolio[sym][0] = toDec(portfolio[sym][0]+mar[sym].open,4); 
+        if(mar[sym]) portfolio[sym][0] = toDec(portfolio[sym][0]+mar[sym].open,4);
         if(showBalance) console.log(p+"\t"+w(portfolio[sym][0],16)+price);
     }
     if(showBalance) {
@@ -636,7 +644,7 @@ async function report(portfolio,showBalance=true) {
             }
         }
     }
-    //console.log(portfolio); 
+    //console.log(portfolio);
     console.log(new Date);
     await listOpens(portfolio,true);
     process.stdout.write("\033[A".repeat(cli.apl));
@@ -673,7 +681,8 @@ let stopNow = false,
     risky = false,
     cmdList = [],
     safeMode = true,
-    cli = {'apl': 0};
+    cli = {'apl': 0},
+    USDPairs = 'XBTUSD,XMRUSD,BCHUSD,DASHUSD,EOSUSD,ETHUSD,LTCUSD,USDTUSD,USTUSD,LUNAUSD'.split(',');
 async function runOnce(cmdList) {
     //while(!stopNow) {
       //  if(cmd==null) cmd = prompt((auto>0 ? '('+delay+' min.)' : 'manual')+'>');
@@ -689,7 +698,7 @@ async function runOnce(cmdList) {
                 else if(args[0] == "ws") {
                     if(kwsCheck) console.log("Kraken WebSocket heartbeat at "+kwsCheck);
                     if(!kwsCheck || (new Date()).valueOf() > 10000+kwsCheck.valueOf()) {
-                        openSocket();
+                        await openSocket();
                     }
                 } else if(args[0] == "report" || args[0] == "") await report(portfolio);
                 else if(/^(manual)$/.test(args[0])) {
@@ -708,18 +717,18 @@ async function runOnce(cmdList) {
                     await report(portfolio);
                 } else if(args[0] == "risky") {
                     risky = !risky;
-                    console.log("Risky Mode is "+(risky 
+                    console.log("Risky Mode is "+(risky
                         ? 'on - Experimental additions will be tried' : 'off'));
                 } else if(args[0] == "safe") {
                     safeMode = !safeMode;
-                    console.log("Safe Mode is "+(safeMode 
+                    console.log("Safe Mode is "+(safeMode
                         ? 'on - Orders will be displayed butnot placed' : 'off'));
                 } else if(args[0] == "verbose") {
                     verbose = !verbose;
                     console.log("Verbose is "+(verbose ? 'on' : 'off'));
                 } else if(args[0] == 'margin') {
                     await marginReport();
-                } else await handleArgs(portfolio, args, ++histi).then(console.log);
+                } else await handleArgs(portfolio, args, 0).then(console.log);
             } catch(err) {
                 catcher(468,err);
             }
@@ -733,7 +742,7 @@ async function runOnce(cmdList) {
     //}
 }
 
-process.stdin.on('readable', async () => {
+process.stdin.on('readable', () => {
     // clearInterval(auto);
     let cmd = '',
         waiter = 0;
@@ -749,7 +758,7 @@ process.stdin.on('readable', async () => {
             // Do we need to stop this listener from listening while runOnce runs?
             if(cmdList.length > 0) runOnce(cmdList).catch((err) => { catcher(496,err); });
             cmdList = [];
-            },100); 
+            },100);
         cmdList.push(cmd);
     }
 });
@@ -765,13 +774,13 @@ process.on('uncaughtException', function (err) {
 });
 
 let kwsCheck;
-function krakenSaid(obj) {
+async function krakenSaid(obj) {
     if(obj.event=='heartbeat') {
         kwsCheck = new Date();
     } else {
         console.log(557,obj);
         if(Array.isArray(obj)) {
-            runOnce(['report']).catch((err) => { catcher(543,err); });
+            await runOnce(['report']).catch((err) => { catcher(543,err); });
         }
     }
 }
