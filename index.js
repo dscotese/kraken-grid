@@ -48,7 +48,7 @@ async function kapi(arg,sd=5)
             await sleep(sd*1000);
             ret = await kapi(arg,sd>300?sd:2*sd);
         } else if( /Unknown order/.test(err.message) && /CancelOrder/.test(arg[0])) {
-            console.log("Ignoring: ", ...arg);
+            console.log("Ignoring: ", err.message, ...arg);
             ret = { result: { descr: "Ignored" }};
         } else {
             catcher(26,err);
@@ -107,7 +107,7 @@ async function listOpens(portfolio = null, isFresh=false) {
         ci,oo,od,rv,n=0,ur,op,cp,gpi,gp,ct,bs;
         // Index for comps, n?, Closing Price, index to grid prices,
         // and bs is "Both sides", holding an array of objects
-        // holding userref, and two bookeans, buy and sell.
+        // holding userref, and two booleans, buy and sell.
     if(portfolio&&portfolio['G']) gPrices = portfolio['G'];
     if(gPrices.length == 0) {
         let response = await kapi('ClosedOrders'),
