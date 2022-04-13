@@ -35,6 +35,7 @@ async function kapi(arg,sd=5)
     } catch(err) {
         if((!/AddOrder/.test(arg[0])&&/ETIMEDOUT|EAI_AGAIN/.test(err.code)) 
             || /nonce/.test(err.message)
+            || (risky && /Internal error/.test(err.message))
             || /Response code 50/.test(err.message)) {
             console.log(22,err.message+", so trying again in "+sd+"s...("+(new Date)+"):");
             if(Array.isArray(arg)) {
@@ -46,7 +47,7 @@ async function kapi(arg,sd=5)
             await sleep(sd*1000);
             ret = await kapi(arg,sd>300?sd:2*sd);
         } else if( /Unknown order/.test(err.message) && /CancelOrder/.test(arg[0])) {
-            console.log("Ignoring: ", ...arg);
+            console.log("Ignoring: ", err.message, ...arg);
             ret = { result: { descr: "Ignored" }};
         } else {
             catcher(26,err);
@@ -57,15 +58,15 @@ async function kapi(arg,sd=5)
     return ret;
 }
 
-async function order(buysell, xmrbtc, price, amt, lev='none', uref=0, closeO=null) {
-    if(closeO) closeO.price = Number(closeO.price);
-    price = Number(price);
-    amt = Number(amt);
-    ret = '';
-    if( closeO && closeO.price == price ) closeO = null;
+async function order(buysell, xmrbtc, price, amt, lev='none', uref=0, closeO=0) {
+    let cO = Number(closeO),
+        p = Number(price),
+        a = Number(amt),
+        ret = '';
+    if( cO == price ) cO = 0;
     console.log(27,(safeMode ? '(Safe mode, so NOT) ' : '')
-        +buysell+"ing "+amt+" "+xmrbtc+" at "+price+" with leverage "+lev
-        +(!closeO || closeO.price == price ? "" : " to close at "+closeO.price));
+        +buysell+"ing "+a+" "+xmrbtc+" at "+p+" with leverage "+lev
+        +(cO>0 ? "" : " to close at "+cO));
     // let ordered;
     if(!safeMode) {
         let response = await kapi(['AddOrder',
@@ -73,10 +74,10 @@ async function order(buysell, xmrbtc, price, amt, lev='none', uref=0, closeO=nul
             userref:        uref,
             type:           buysell,
             ordertype:      'limit',
-            price:          price,
-            volume:         amt,
+            price:          p,
+            volume:         a,
             leverage:       lev,
-            close:          closeO
+            close:          (cO>0 ? {ordertype:'limit',price:cO} : null)
         }]);
         console.log(40,response ? ((d = response.result) 
             ? (ret = d.txid,d.descr) : 'No result.descr from kapi') : "No kapi response.");
@@ -98,7 +99,7 @@ async function listOpens(portfolio = null, isFresh=false) {
         ci,oo,od,rv,n=0,ur,op,cp,gpi,gp,ct,bs;
         // Index for comps, n?, Closing Price, index to grid prices,
         // and bs is "Both sides", holding an array of objects
-        // holding userref, and two bookeans, buy and sell.
+        // holding userref, and two booleans, buy and sell.
     if(portfolio&&portfolio['G']) gPrices = portfolio['G'];
     if(gPrices.length == 0) {
         let response = await kapi('ClosedOrders'),
@@ -280,7 +281,7 @@ async function listOpens(portfolio = null, isFresh=false) {
                 console.log(Object.values(c.ids));
                 for(const id of c.ids) { await kill(id,null); }
                 await order(c.type,sym,price, Math.round(c.total*10000)/10000,
-                   c.lev,c.userref,{ordertype:'limit',price:c.open});
+                   c.lev,c.userref,c.open);
                 c.hasClose = true;
                 // Store the trades in gp
                 // ----------------------
@@ -322,7 +323,7 @@ async function listOpens(portfolio = null, isFresh=false) {
                         }
                         await order('sell',c.sym,sp,c.volume,
                             getLev(portfolio,'sell',sp,c.volume,c.sym,false),c.userref,
-                            {ordertype:'limit',price:gp.sell});
+                            gp.sell);
                         gp = ngp;
                    } while(sp <= 1*portfolio[c.sym][1]); 
                 } else {
@@ -345,7 +346,7 @@ async function listOpens(portfolio = null, isFresh=false) {
                         }
                         await order('buy',c.sym,bp,c.volume,
                             getLev(portfolio,'buy',bp,c.volume,c.sym,false),c.userref,
-                            {ordertype:'limit',price:gp.buy});
+                            gp.buy);
                         gp = ngp;
                     } while(bp >= 1*portfolio[c.sym][1])
                 }
@@ -422,7 +423,7 @@ async function kill(o,oa) {
 async function handleArgs(portfolio, args, uref = 0) {
     if(/buy|sell/.test(args[0])) {
         [buysell,xmrbtc,price,amt,posP] = args;
-        if(!/XMR|XBT|ETH|LTC|DASH|EOS|BCH|USDT/.test(xmrbtc)) return xmrbtc+" is not yet supported.";
+        if(!/XMR|XBT|ETH|LTC|DASH|EOS|BCH|USDT|UST|LUNA/.test(xmrbtc)) return xmrbtc+" is not yet supported.";
         let total=price*amt;
         if(total > 100000) return total+" is too much for code to "+buysell;
 
@@ -435,7 +436,7 @@ async function handleArgs(portfolio, args, uref = 0) {
         // Without a record of a closing price, use the last one we found.
         // ---------------------------------------------------------------
         if(!cPrice) cPrice = portfolio[xmrbtc][1];
-        let closeO = posP ? { ordertype: 'limit', price: cPrice } : null;
+        let closeO = posP ? cPrice : 0;
         let ret = await order(buysell,xmrbtc,price,amt,lev,uref,closeO);
         console.log("New order: "+ret);
         return;
@@ -554,7 +555,7 @@ async function deleverage(opensA,oid,undo=false) {
     await order(o.descr.type,/^([A-Z]+)USD/.exec(o.descr.pair)[1],
         o.descr.price,Math.round(10000*(Number(o.vol) - Number(o.vol_exec)))/10000,
         (undo ? '2' : 'none'),o.userref,
-        { ordertype: 'limit', price: /[0-9.]+$/.exec(o.descr.close)[0] });
+        /[0-9.]+$/.exec(o.descr.close)[0] );
     }
     await kill(oid+1, opensA);
 }
@@ -590,7 +591,7 @@ function toDec(n,places) {
 async function report(portfolio,showBalance=true) { 
     let dataPromise = [
         'Balance',
-        ['Ticker',{ pair : 'XBTUSD,XMRUSD,BCHUSD,DASHUSD,EOSUSD,ETHUSD,LTCUSD,USDTUSD' }],
+        ['Ticker',{ pair : 'XBTUSD,XMRUSD,BCHUSD,DASHUSD,EOSUSD,ETHUSD,LTCUSD,USDTUSD,USTUSD,LUNAUSD' }],
         'TradeBalance'
     ];
     try {
@@ -698,9 +699,9 @@ async function runOnce(cmdList) {
                     clearInterval(auto);
                     if(args[1]&&!isNaN(args[1])) delay = args[1];
                     let counter = delay;
-                    auto = setInterval(() => {
+                    auto = setInterval(async function() {
                         if(0 == --counter) {
-                            report(portfolio,false);
+                            await report(portfolio,false);
                             counter = delay;
                         }
                     },1000);
