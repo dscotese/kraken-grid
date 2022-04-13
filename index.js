@@ -73,8 +73,8 @@ async function order(buysell, xmrbtc, price, amt, lev='none', uref=0, closeO=nul
     console.log(27,(safeMode ? '(Safe mode, so NOT) ' : '')
         +buysell+"ing "+a+" "+xmrbtc+" at "+p+" with leverage "+lev
         +(cO==0 ? "" : " to close at "+(isNaN(cO)?closeO+' is NaN!':cO)) +" as "+uref);
-    if( buysell == 'buy' ? cO <= price : cO >= price )
-		throw 'Close price, ',cO,' is on the wrong side of ',buysell,' at ',price,'!';
+    if( cO>0 && (buysell == 'buy' ? cO <= price : cO >= price) )
+		throw 'Close price, '+cO+' is on the wrong side of '+buysell+' at '+price+'!';
     ret = ['AddOrder',
         {   pair:           xmrbtc+'USD', // Just call it 'pair'! #USD Refactor
             userref:        uref,
@@ -314,7 +314,7 @@ async function listOpens(portfolio = null, isFresh=false) {
                 if(bs.buy) { // Missing the sell
                     do {
                         sp = Math.round(decimals*gp.sell*gp.sell/gp.buy)/decimals;
-                        c.userref -= 10000000;
+                        c.userref -= 1;
                         // We may already have this grid price but the order
                         // was deleted, so search for it first.
                         ngp = gPrices.find(n => n.userref==c.userref);
@@ -337,7 +337,7 @@ async function listOpens(portfolio = null, isFresh=false) {
                 } else {
                     do {
                         bp = Math.round(decimals*gp.buy*gp.buy/gp.sell)/decimals;
-                        c.userref -= 1000000;
+                        c.userref += 1;
                         // We may already have this grid price but the order
                         // was deleted, so search for it first.
                         ngp = gPrices.find(n => n.userref==c.userref);
@@ -440,7 +440,7 @@ async function handleArgs(portfolio, args, uref = 0) {
         // Do we need leverage?
         // --------------------
         let lev = getLev(portfolio,buysell,price,amt,xmrbtc,posP);
-        let cPrice = portfolio['G'][uref] ? portfolio['G'][uref][buysell=='buy'?'sell':'buy'] : 0;
+        let cPrice = !isNaN(portfolio['G'][uref]) ? portfolio['G'][uref][buysell=='buy'?'sell':'buy'] : 0;
         // Without a record of a closing price, use the last one we found.
         // ---------------------------------------------------------------
         if(!cPrice) cPrice = portfolio[xmrbtc][1];
