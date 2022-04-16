@@ -64,12 +64,10 @@ async function order(buysell, xmrbtc, price, amt, lev='none', uref=0, closeO=nul
         p = Number(price),
         a = Number(amt),
         ret = '';
+
     if( cO == price ) cO = 0;
-    if(uref==0) {
-		uref = Number((buysell=='buy'?'1':'2')
-			+ ('00'+USDPairs.indexOf(xmrbtc+'USD')).slice(-2)
-			+ String('000000'+price).replace('.','').slice(-7));
-		}
+    if(uref==0) uref = makeUserRef(buysell, xmrbtc, price);
+
     console.log(27,(safeMode ? '(Safe mode, so NOT) ' : '')
         +buysell+"ing "+a+" "+xmrbtc+" at "+p+" with leverage "+lev
         +(cO==0 ? "" : " to close at "+(isNaN(cO)?closeO+' is NaN!':cO)) +" as "+uref);
@@ -96,6 +94,14 @@ async function order(buysell, xmrbtc, price, amt, lev='none', uref=0, closeO=nul
 }
 
 function gpToStr(gp) { return gp.userref+':'+gp.buy+'-'+gp.sell+' '+gp.bought+'/'+gp.sold; }
+
+function makeUserRef(buysell, xmrbtc, price) {
+    let ret = Number((buysell=='buy'?'1':'2')
+        + ('00'+USDPairs.indexOf(xmrbtc+'USD')).slice(-2)
+        + String('000000'+price).replace('.','').slice(-7));
+    if(verbose) console.log("Created userref ",ret);
+    return ret;
+}
 
 async function listOpens(portfolio = null, isFresh=false) {
     let response = await kapi('OpenOrders'),
@@ -314,7 +320,7 @@ async function listOpens(portfolio = null, isFresh=false) {
                 if(bs.buy) { // Missing the sell
                     do {
                         sp = Math.round(decimals*gp.sell*gp.sell/gp.buy)/decimals;
-                        c.userref -= 1;
+                        c.userref = makeUserRef('sell', c.sym, sp);
                         // We may already have this grid price but the order
                         // was deleted, so search for it first.
                         ngp = gPrices.find(n => n.userref==c.userref);
@@ -337,7 +343,7 @@ async function listOpens(portfolio = null, isFresh=false) {
                 } else {
                     do {
                         bp = Math.round(decimals*gp.buy*gp.buy/gp.sell)/decimals;
-                        c.userref += 1;
+                        c.userref = makeUserRef('buy', c.sym, bp);
                         // We may already have this grid price but the order
                         // was deleted, so search for it first.
                         ngp = gPrices.find(n => n.userref==c.userref);
@@ -645,7 +651,7 @@ async function report(portfolio,showBalance=true) {
         }
     }
     //console.log(portfolio);
-    console.log(new Date);
+    console.log(new Date,' ',(auto>0?'A':'.')+(risky?'R':'.')+(safeMode?'S':'.'));
     await listOpens(portfolio,true);
     process.stdout.write("\033[A".repeat(cli.apl));
     cli.apl = 2;
@@ -692,7 +698,7 @@ async function runOnce(cmdList) {
         console.log("Got "+(cmds.length)+" commands...");
         while(cdx < cmds.length) {
             let args = cmds[cdx++].split(' ').map((x) => { return x.trim(); });
-            console.log("...("+cdx+")> "+args.join(' '));
+            console.log((auto>0?'A':'.')+(risky?'R':'.')+(safeMode?'S':'.')+"("+cdx+")> "+args.join(' '));
             try {
                 if(args[0] == 'kill') await kill(args[1],portfolio['O']);
                 else if(args[0] == "ws") {
@@ -749,8 +755,6 @@ process.stdin.on('readable', () => {
         data = '';
     while(null != (data = process.stdin.read())) cmd += data;
     if(/^quit/.test(cmd)) {
-        console.log("Userref collisions possible with restart before "
-            + new Date(histi * 1000));
         process.exit(0);
     } else {
         clearTimeout(waiter);
