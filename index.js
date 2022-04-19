@@ -673,64 +673,64 @@ let stopNow = false,
     risky = false,
     cmdList = [],
     safeMode = true,
+    auto_on_hold = false;
     cli = {'apl': 0};
 async function runOnce(cmdList) {
-    //while(!stopNow) {
-      //  if(cmd==null) cmd = prompt((auto>0 ? '('+delay+' min.)' : 'manual')+'>');
-        let cmds = cmdList.map((x) => { return x.trim(); }),
-            cdx = 0;
-
-        console.log("Got "+(cmds.length)+" commands...");
-        while(cdx < cmds.length) {
-            let args = cmds[cdx++].split(' ').map((x) => { return x.trim(); });
-            console.log("...("+cdx+")> "+args.join(' '));
-            try {
-                if(args[0] == 'kill') await kill(args[1],portfolio['O']);
-                else if(args[0] == "ws") {
-                    if(kwsCheck) console.log("Kraken WebSocket heartbeat at "+kwsCheck);
-                    if(!kwsCheck || (new Date()).valueOf() > 10000+kwsCheck.valueOf()) {
-                        openSocket();
+    let cmds = cmdList.map((x) => { return x.trim(); }),
+        cdx = 0;
+    auto_on_hold = auto>0;
+    
+    console.log("Got "+(cmds.length)+" commands...");
+    while(cdx < cmds.length) {
+        let args = cmds[cdx++].split(' ').map((x) => { return x.trim(); });
+        console.log("...("+cdx+")> "+args.join(' '));
+        try {
+            if(args[0] == 'kill') await kill(args[1],portfolio['O']);
+            else if(args[0] == "ws") {
+                if(kwsCheck) console.log("Kraken WebSocket heartbeat at "+kwsCheck);
+                if(!kwsCheck || (new Date()).valueOf() > 10000+kwsCheck.valueOf()) {
+                    openSocket();
+                }
+            } else if(args[0] == "report" || args[0] == "") await report(portfolio);
+            else if(/^(manual)$/.test(args[0])) {
+                clearInterval(auto);
+                auto = 0;
+            } else if(args[0] == "auto") {
+                clearInterval(auto);
+                if(args[1]&&!isNaN(args[1])) delay = args[1];
+                let counter = delay;
+                auto = setInterval(async function() {
+                    if(0 == --counter && !auto_on_hold) {
+                        await report(portfolio,false);
+                        counter = delay;
                     }
-                } else if(args[0] == "report" || args[0] == "") await report(portfolio);
-                else if(/^(manual)$/.test(args[0])) {
-                    clearInterval(auto);
-                    auto = 0;
-                } else if(args[0] == "auto") {
-                    clearInterval(auto);
-                    if(args[1]&&!isNaN(args[1])) delay = args[1];
-                    let counter = delay;
-                    auto = setInterval(async function() {
-                        if(0 == --counter) {
-                            await report(portfolio,false);
-                            counter = delay;
-                        }
-                    },1000);
-                    await report(portfolio);
-                } else if(args[0] == "risky") {
-                    risky = !risky;
-                    console.log("Risky Mode is "+(risky 
-                        ? 'on - Experimental additions will be tried' : 'off'));
-                } else if(args[0] == "safe") {
-                    safeMode = !safeMode;
-                    console.log("Safe Mode is "+(safeMode 
-                        ? 'on - Orders will be displayed butnot placed' : 'off'));
-                } else if(args[0] == "verbose") {
-                    verbose = !verbose;
-                    console.log("Verbose is "+(verbose ? 'on' : 'off'));
-                } else if(args[0] == 'margin') {
-                    await marginReport();
-                } else await handleArgs(portfolio, args, ++histi).then(console.log);
-            } catch(err) {
-                catcher(468,err);
-            }
-            // Wait a sec for the nonce.
-            // -------------------------
-            await sleep(1000);
+                },1000);
+                await report(portfolio);
+            } else if(args[0] == "risky") {
+                risky = !risky;
+                console.log("Risky Mode is "+(risky 
+                    ? 'on - Experimental additions will be tried' : 'off'));
+            } else if(args[0] == "safe") {
+                safeMode = !safeMode;
+                console.log("Safe Mode is "+(safeMode 
+                    ? 'on - Orders will be displayed butnot placed' : 'off'));
+            } else if(args[0] == "verbose") {
+                verbose = !verbose;
+                console.log("Verbose is "+(verbose ? 'on' : 'off'));
+            } else if(args[0] == 'margin') {
+                await marginReport();
+            } else await handleArgs(portfolio, args, ++histi).then(console.log);
+        } catch(err) {
+            catcher(468,err);
         }
-        //console.log("Try CRTL-C while I sleep for a minute...");
-        //await sleep(1000);
-        cmd = null;
-    //}
+        // Wait a sec for the nonce.
+        // -------------------------
+        await sleep(1000);
+    }
+    //console.log("Try CRTL-C while I sleep for a minute...");
+    //await sleep(1000);
+    cmd = null;
+    auto_on_hold = false;
 }
 
 process.stdin.on('readable', async () => {
