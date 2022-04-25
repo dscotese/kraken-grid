@@ -771,6 +771,7 @@ function catcher(line,err) {
     if(/ETIMEDOUT/.test(err.code)) return; // We can ignore timeout errors.
     console.log("Line "+line+";\n",err);
     clearInterval(auto);
+    auto = 0;
 }
 
 process.on('uncaughtException', function (err) {
