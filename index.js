@@ -715,8 +715,8 @@ async function runOnce(cmdList) {
                 if(args[1]&&!isNaN(args[1])) delay = args[1];
                 let counter = delay;
                 auto = setInterval(async function() {
-                    if(0 == --counter && !auto_on_hold) {
-                        await report(portfolio,false);
+                    if(0 == --counter) {
+                        if(!auto_on_hold) await report(portfolio,false);
                         counter = delay;
                     }
                 },1000);
