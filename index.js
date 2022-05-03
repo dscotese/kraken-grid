@@ -679,7 +679,6 @@ async function marginReport(show = true) {
 
 let stopNow = false,
     portfolio = [],
-    histi = Math.floor(Date.now() / 1000),
     ts150 = 0,
     delay = 60,
     auto = 0,
@@ -734,7 +733,7 @@ async function runOnce(cmdList) {
                 console.log("Verbose is "+(verbose ? 'on' : 'off'));
             } else if(args[0] == 'margin') {
                 await marginReport();
-            } else await handleArgs(portfolio, args, ++histi).then(console.log);
+            } else await handleArgs(portfolio, args, 0).then(console.log);
         } catch(err) {
             catcher(468,err);
         }
