@@ -74,7 +74,7 @@ async function order(buysell, xmrbtc, price, amt, lev='none', uref=0, closeO=nul
     if( cO>0 && (buysell == 'buy' ? cO <= price : cO >= price) )
 		throw 'Close price, '+cO+' is on the wrong side of '+buysell+' at '+price+'!';
     ret = ['AddOrder',
-        {   pair:           xmrbtc+'USD', // Just call it 'pair'! #USD Refactor
+        {   pair:           xmrbtc+'USD', // Just call it 'pair' so it already has the USD at the end! #USD Refactor
             userref:        uref,
             type:           buysell,
             ordertype:      'limit',
@@ -223,7 +223,7 @@ async function listOpens(portfolio = null, isFresh=false) {
                 volume:         Number(oo.vol),
                 type:           od.type,
                 sym:            /USD/.test(od.pair) ? /^([A-Z]+)USD/.exec(od.pair)[1] : od.pair,
-                // Just call it 'pair'! #USD Refactor
+                // Just call it 'pair' instad of sym and use od.pair! #USD Refactor
                 ctype:          ct,
                 lev:            od.leverage,
                 ids:            [o],
@@ -258,7 +258,7 @@ async function listOpens(portfolio = null, isFresh=false) {
         if(portfolio && isFresh && od.leverage == "none") {
             if(od.type == "buy") {
                 if(/USD$/.test(od.pair)) { // Deplete our cash
-                    portfolio['ZUSD'][2] -= od.price*opens[o].vol;
+                    portfolio['ZUSD'][2] -= od.price*opens[o].vol;      // #USD Refactor and basePair()
                 } else if(/XBT$/.test(od.pair)) { // Deplete our BTC
                     portfolio['XBT'][0] -= od.price*opens[o].vol;
                 }
@@ -286,7 +286,7 @@ async function listOpens(portfolio = null, isFresh=false) {
         }
         gp[c.ctype] = c.open;
         gp[c.type]  = c.price;
-        [,sym,price] = /([A-Z]+)USD([0-9.]+)/.exec(comp); //#USD Refactor
+        [,sym,price] = /([A-Z]+)USD([0-9.]+)/.exec(comp); //remove USD #USD Refactor
         if(verbose) console.log("Checking: " + c.type + ' '
             + sym + ' ' + price + ' ' + Math.round(c.total*10000)/10000
             + (c.open ? ' to '+c.ctype+'-close @'+c.open : '') +' (' + c.userref + "):");
@@ -385,9 +385,9 @@ function getLev(portfolio,buysell,price,amt,xmrbtc,posP) {
         if(1*price > 1*portfolio[xmrbtc][1] && posP)
             return "Buying "+xmrbtc+" @ "+price+" isn't a limit order.";
         if(price*amt > 1*portfolio['ZUSD'][2]) { // #USD Refactor - This doesn't support leverage
-            lev = '2';                           // on non-USD pairs.
+            lev = '2';                           // on non-USD pairs. Hunt ZUSD and add basePair(pair) to get base.
         } else {
-            portfolio['ZUSD'][2] -= price*amt;
+            portfolio['ZUSD'][2] -= price*amt;   // #USD Refactor and basePair()
         }
     } else {
         if(price*1 < 1*portfolio[xmrbtc][1] && posP) return "Selling "+xmrbtc+" @ "+price+" isn't a limit order.";
@@ -627,8 +627,8 @@ async function report(portfolio,showBalance=true) {
 
     let price;
     for( const p in bal.result) {
-        let ts = p+'USD',
-            tsz = p+'ZUSD',
+        let ts = p+'USD',               // #USD Refactor and basePair()
+            tsz = p+'ZUSD',             // #USD Refactor and basePair()
             sym = /^X/.test(p) ? p.substr(1) : p,
             amt = toDec(bal.result[p],4);
         if(ts in tik.result) price = tik.result[ts].c[0];
@@ -679,7 +679,6 @@ async function marginReport(show = true) {
 
 let stopNow = false,
     portfolio = [],
-    histi = Math.floor(Date.now() / 1000),
     ts150 = 0,
     delay = 60,
     auto = 0,
@@ -715,8 +714,8 @@ async function runOnce(cmdList) {
                 if(args[1]&&!isNaN(args[1])) delay = args[1];
                 let counter = delay;
                 auto = setInterval(async function() {
-                    if(0 == --counter && !auto_on_hold) {
-                        await report(portfolio,false);
+                    if(0 == --counter) {
+                        if(!auto_on_hold) await report(portfolio,false);
                         counter = delay;
                     }
                 },1000);
@@ -734,7 +733,7 @@ async function runOnce(cmdList) {
                 console.log("Verbose is "+(verbose ? 'on' : 'off'));
             } else if(args[0] == 'margin') {
                 await marginReport();
-            } else await handleArgs(portfolio, args, ++histi).then(console.log);
+            } else await handleArgs(portfolio, args, 0).then(console.log);
         } catch(err) {
             catcher(468,err);
         }
@@ -771,6 +770,7 @@ function catcher(line,err) {
     if(/ETIMEDOUT/.test(err.code)) return; // We can ignore timeout errors.
     console.log("Line "+line+";\n",err);
     clearInterval(auto);
+    auto = 0;
 }
 
 process.on('uncaughtException', function (err) {
