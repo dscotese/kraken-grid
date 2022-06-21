@@ -49,7 +49,7 @@ This simply prints out a list of all the open orders the code last retrieved (it
 * `Pair` is symbol (see `buy`) with the 'USD' suffix.
 * `Price` is the price for this trade.
 * The corresponding bracketed items will be missing for an order with no leverage or without a conditional close.
-* `userref` is a user-reference number derived from the UNIX TimeStamp when the order was placed.  Extending the grid to higher sells uses a userref 10,000,000 less than the current highest sell's userref, and extending it to lower-priced buys uses a userref 1,000,000 less than the current lowest buy's userref.  The last six digits of all userrefs are assumed to be different for every combination of price and symbol.
+* `userref` is a user-reference number created when you use the `buy` or `sell` command.  It starts with 1 for buys and 2 for sells, followed by two digits that identify the cryptocurrency pair, and then the price without the decimal point and with leading zeroes.  Note that this causes collisions in very rare cases like a price of $35.01 and another price for the same crypto of $350.10.  I expect this to be too rare to fix at this time.
 
 If you enter anything for [SEARCH], the list will only display lines that contain what you entered, except in one case, `C`.  If it's just the `C`, it will retrieve the last 50 orders that are no longer open (Filled, Cancelled, or Expired), but only list those that actually executed (Filled).  If you add the userref after `C`, then it will fetch only orders with that userref, which means the buys and sells at one grid point. See `set` for a list of them userrefs for the grid points.  Such orders also include the time at which the order filled completely.
 
