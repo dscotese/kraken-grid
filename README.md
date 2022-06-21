@@ -51,12 +51,12 @@ This simply prints out a list of all the open orders the code last retrieved (it
 * The corresponding bracketed items will be missing for an order with no leverage or without a conditional close.
 * `userref` is a user-reference number created when you use the `buy` or `sell` command.  It starts with 1 for buys and 2 for sells, followed by two digits that identify the cryptocurrency pair, and then the price without the decimal point and with leading zeroes.  Note that this causes collisions in very rare cases like a price of $35.01 and another price for the same crypto of $350.10.  I expect this to be too rare to fix at this time.
 
-If you enter anything for [SEARCH], the list will only display lines that contain what you entered, except in one case, `C`.  If it's just the `C`, it will retrieve the last 50 orders that are no longer open (Filled, Cancelled, or Expired), but only list those that actually executed (Filled).  If you add the userref after `C`, then it will fetch only orders with that userref, which means the buys and sells at one grid point. See `set` for a list of them userrefs for the grid points.  Such orders also include the time at which the order filled completely.
+If you enter anything for [SEARCH], the list will only display lines that contain what you entered, except in one case, `C`.  If it's just the `C`, it will retrieve the last 50 orders that are no longer open (Filled, Cancelled, or Expired), but only list those that actually executed (Filled).  If you add the userref after `C`, then it will fetch only orders with that userref, which means the buys and sells between one set of prices. Use `set` for a list of the userrefs for the grid points.  Such orders also include the time at which the order filled completely.
 
 ### set
 This lists the `userref`s and prices at which buys and sells have been (and will be) placed.
 `set R S P`
-R _must be_ a userref, S _must be_ either `buy` or `sell`, and P is the price you want to add for that grid point.  If the bot fails to determine either the buy price or the sell price, it displays a ?, and this will prevent the creation of a new order as described under `refnum`.  This command allows you to fix that so that Step 2.1 under `report` will work properly as described under `refnum`. 
+R _must be_ a userref, S _must be_ either `buy` or `sell`, and P is the price you want to add or replace) for that grid point.  If the bot fails to determine either the buy price or the sell price, it displays a ?, and this will prevent the creation of a new order as described under `refnum`.  This command allows you to fix that so that Step 2.1 under `report` will work properly as described under `refnum`. 
 
 ### reset
 This erases the list of `userref`s and prices at which buys and sells will be placed, but that list gets immediately rebuilt because it performs the second step in `report`.
@@ -69,7 +69,7 @@ This automatically and repeatedly executes the second step of `report` and then 
 This stops the automatic calling of `report`.  The bot will do nothing until you give it a new command.
 
 ### margin
-The bot will try to use leverage when there isn't enough USD or crypto.  Whether or not it succeeds, it will still be able to report how much you are long or short for each supported crypto.  Reporting that is all this command does.
+Whether or not you use this command, the bot will try to use leverage when there isn't enough USD or crypto.  Whether or not it succeeds, it will still be able to report how much you are long or short for each supported crypto.  Reporting that is all this command does.
 
 ### kill
 `kill X`
@@ -91,7 +91,7 @@ C _must be_ a `Counter` as shown by executing `list`, and it must be an order th
 There is a little bit of logic in the code to spit out a lot more information when verbose is on.  It's off by default and this command just toggles it.
 
 ### safe
-When the bot starts, it is in "safe" mode, which means that it will not __actually__ add or cancel any orders.  The idea is that it won't do anything, but instead just show you what it would do if __safe__ were off.  Your have to enter `safe` to turn this off so that the bot will actually do things.  It allows for startup with a lot less rish with a possible buggy bot.
+When the bot starts, it is in "safe" mode, which means that it will not __actually__ add or cancel any orders.  The idea is that it won't do anything, but instead just show you what it would do if __safe__ were off.  Your have to enter `safe` to turn this off so that the bot will actually do things.  It allows for startup with a lot less risk with a possibly buggy bot.
 
 ### ws - EXPERIMENTAL
 This connects to Kraken's WebSockets, which, I have to warn you, send you something about every second, and sometimes silently disconnects.
