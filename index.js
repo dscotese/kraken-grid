@@ -16,7 +16,7 @@ if(!fs.existsSync(keyFile)) {
 
 const myKeys       = fs.readFileSync(keyFile,{encoding:'utf8', flag:'r'});
 const [key,secret] = myKeys.split(' ');
-const KrakenClient = require('kraken-api');
+const KrakenClient = require('kraka-djs');
 const kraken       = new KrakenClient(key, secret);
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -37,7 +37,8 @@ async function kapi(arg,sd=5)
             || /nonce/.test(err.message)
             || /Response code 50/.test(err.message)
             || (risky && /Internal error/.test(err.message))
-            || /Unavailable/.test(err.message)) {
+            || /Unavailable/.test(err.message) 
+            || /Rate limit|Throttled/.test(err.message)) {
             console.log(22,err.message+", so trying again in "+sd+"s...("+(new Date)+"):");
             if(Array.isArray(arg)) {
                 delete arg[1].nonce;
