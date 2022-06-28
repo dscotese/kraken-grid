@@ -435,6 +435,10 @@ async function kill(o,oa) {
 //    await sleep(1000);
 }
 
+/*
+   Note that handleArgs handles string arguments as collected from process.stdin.
+   This means that true and 1, as args, are strings, not a boolean and a number.
+ */
 async function handleArgs(portfolio, args, uref = 0) {
     if(/buy|sell/.test(args[0])) {
         [buysell,xmrbtc,price,amt,posP] = args;
@@ -451,7 +455,11 @@ async function handleArgs(portfolio, args, uref = 0) {
         // Without a record of a closing price, use the last one we found.
         // ---------------------------------------------------------------
         if(!cPrice) cPrice = portfolio[xmrbtc][1];
-        let closeO = posP ? cPrice : null;
+        // When passing 1 as close, it will mean close at 1 (if Risky) or at current price (without Risky)
+        // -----------------------------------------------------------------------------------------------
+        let closeO = posP ? (posP !== 'true'            // posP is a number, not the boolean
+            ? (posP !== '1' || risky ? posP : cPrice)   // use the number unless it's 1 and Risky is off
+            : cPrice) : null;                           // NaN, so current price or nothing.
         let ret = await order(buysell,xmrbtc,price,amt,lev,uref,closeO);
         console.log("New order: "+ret);
         return;
@@ -748,25 +756,6 @@ async function runOnce(cmdList) {
     auto_on_hold = false;
 }
 
-process.stdin.on('readable', () => {
-    // clearInterval(auto);
-    let cmd = '',
-        waiter = 0;
-        data = '';
-    while(null != (data = process.stdin.read())) cmd += data;
-    if(/^quit/.test(cmd)) {
-        process.exit(0);
-    } else {
-        clearTimeout(waiter);
-        waiter = setTimeout(() => {
-            // Do we need to stop this listener from listening while runOnce runs?
-            if(cmdList.length > 0) runOnce(cmdList).catch((err) => { catcher(496,err); });
-            cmdList = [];
-            },100);
-        cmdList.push(cmd);
-    }
-});
-
 function catcher(line,err) {
     if(/ETIMEDOUT/.test(err.code)) return; // We can ignore timeout errors.
     console.log("Line "+line+";\n",err);
@@ -814,3 +803,23 @@ async function openSocket() {
 
 runOnce(['report']).catch((err) => { catcher(578,err); });
 console.log("Safemode is on.  `safe` toggles it.");
+
+process.stdin.on('readable', () => {
+    // clearInterval(auto);
+    let cmd = '',
+        waiter = 0;
+        data = '';
+    while(null != (data = process.stdin.read())) cmd += data;
+    if(/^quit/.test(cmd)) {
+        process.exit(0);
+    } else {
+        clearTimeout(waiter);
+        waiter = setTimeout(() => {
+            // Do we need to stop this listener from listening while runOnce runs?
+            if(cmdList.length > 0) runOnce(cmdList).catch((err) => { catcher(496,err); });
+            cmdList = [];
+            },100);
+        cmdList.push(cmd);
+    }
+});
+
