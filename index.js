@@ -66,6 +66,7 @@ async function order(buysell, xmrbtc, price, amt, lev='none', uref=0, closeO=nul
         a = Number(amt),
         ret = '';
 
+    if(!RegExp('^('+USDPairs.join('|')+')$').test(xmrbtc+'USD')) return xmrbtc+" is not yet supported.";
     if( cO == price ) cO = 0;
     if(uref==0) uref = makeUserRef(buysell, xmrbtc, price);
 
@@ -442,7 +443,6 @@ async function kill(o,oa) {
 async function handleArgs(portfolio, args, uref = 0) {
     if(/buy|sell/.test(args[0])) {
         [buysell,xmrbtc,price,amt,posP] = args;
-        if(!/XMR|XBT|ETH|LTC|DASH|EOS|BCH|USDT|UST|LUNA/.test(xmrbtc)) return xmrbtc+" is not yet supported.";
         let total=price*amt;
         if(total > 100000) return total+" is too much for code to "+buysell;
 
@@ -532,7 +532,7 @@ async function lessmore(less, oid, amt, all = null) {
             } else {
                 console.log("To: ",o.descr.type,sym,o.descr.price,newAmt,cp);
                 await kill(oRef);
-                await order(o.descr.type,o.descr.pair,o.descr.price,newAmt,lev,o.userref,cp);
+                await order(o.descr.type,sym,o.descr.price,newAmt,lev,o.userref,cp);
             }
         }
     };
