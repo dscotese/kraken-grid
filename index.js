@@ -475,48 +475,9 @@ async function handleArgs(portfolio, args, uref = 0) {
     } else if(args[0] == 'refnum') {
         await refnum(portfolio['O'],args[1]-1,args[2]);
     } else if(args[0] == 'list') {
-        let sortedA = [], orders = portfolio['O'];
-        if(args[1] == 'C') {
-            let ur = args[2] ? args.pop() : false,
-                response = ur
-                    ? await kapi(['ClosedOrders',{userref:ur}])
-                    : await kapi('ClosedOrders');
-            orders = [];
-            for( o in response.result.closed) {
-                let oo = response.result.closed[o];
-                if(oo.status=='closed') orders.push([o,response.result.closed[o]]);
-            }
-            args.pop();
-        }
-        orders.forEach((x,i) => {
-            let ldo = x[1].descr.order;
-            if(args.length==1 || RegExp(args[1]).test(ldo))
-                console.log(i+1,ldo,x[1].userref,x[1].status=='closed'
-                    ? new Date(1000*x[1].closetm)
-                    : x[1].descr.close);
-            else if(x[1][args[1]]) sortedA[i+1]=x;
-            else if(x[1].descr[args[1]]) sortedA[i+1]=x;
-            });
-        if(sortedA.length > 0) {
-            sortedA.sort((a,b) => {
-                if(a[1].descr[args[1]]) {
-                    a = a[1].descr[args[1]];
-                    b = b[1].descr[args[1]];
-                } else {
-                    a = a[1][args[1]];
-                    b = b[1][args[1]];
-                }
-                return isNaN(a)
-                    ? a.localeCompare(b)
-                    : a - b;
-            });
-            sortedA.forEach((x,i) => {
-                let ldo = x[1].descr.order;
-                console.log(i+1, x[1].descr[args[1]]
-                    ? x[1].descr[args[1]] : x[1][args[1]],
-                    ldo,x[1].userref,x[1].descr.close);
-            });
-        };
+        await list(args);
+    } else if(/^(less|more)$/.test(args[0])) {
+        await lessmore('less'==args[0],args[1]-1,args[2],'all'==args[3]);
     } else if(args[0] == 'test') {
         // Put some test code here if you want
         // -----------------------------------
@@ -526,6 +487,101 @@ async function handleArgs(portfolio, args, uref = 0) {
     } else {
         return args[0]+" is not yet implemented.";
     }
+}
+
+async function lessmore(less, oid, amt, all = null) {
+    let opensA = portfolio['O'],
+        matches = [],
+        oRef, o, diff, newAmt, partial, sym, cp, lev;
+    if(!opensA[oid]) {
+        console.log("Order "+oid+" not found.");
+        return;
+    } else if(all) {
+        // If all, then this order only identifies the crypto and the amount to match
+        // --------------------------------------------------------------------------
+        [oRef,o] = opensA[oid];
+        matches = opensA.filter(oae => {
+            [ioRef,io] = oae;
+            return io.descr.pair==o.descr.pair
+                && Math.round(o.vol*1000)==Math.round(io.vol*1000);
+        });
+    } else {
+        matches.push(opensA[oid]);
+    }
+    diff = (less ? -1 : 1);
+    for (i in matches) {
+        [oRef,o] = matches[i];
+        // If some has been executed, then we won't replace the old one.
+        // The old one's original volume might be needed to extend the grid.
+        // -----------------------------------------------------------------
+        partial = o.vol_exec > 0;
+        if(!/USD$/.test(o.descr.pair)) {
+            console.log("Userref update to non-USD pairs is not yet supported.");
+            return;
+        } else if(partial && diff == -1) {
+            console.log("Skipping",o.descr.order,"because of partial execution.",o);
+        } else if(!o.descr.close) {
+            console.log("Skipping",o.descr.order,"because it has no close.",o.descr);
+        } else {
+            sym = /(.*)USD$/.exec(o.descr.pair)[1];
+            cp = / [0-9.]+$/.exec(o.descr.close)[0];
+            lev = o.descr.leverage[0]=='n'?"none":'2';
+            newAmt = Number(o.vol) + diff*Number(amt);
+            if(newAmt < 0) {
+                console.log("Skipping",o.descr.order,"because amount would go negative.",o.descr);
+            } else {
+                console.log("To: ",o.descr.type,sym,o.descr.price,newAmt,cp);
+                await kill(oRef);
+                await order(o.descr.type,o.descr.pair,o.descr.price,newAmt,lev,o.userref,cp);
+            }
+        }
+    };
+    if(verbose) console.log("Lessmore called with ",oid,amt,all);
+}
+
+async function list(args) {
+    let sortedA = [], orders = portfolio['O'];
+    if(args[1] == 'C') {
+        let ur = args[2] ? args.pop() : false,
+            response = ur
+                ? await kapi(['ClosedOrders',{userref:ur}])
+                : await kapi('ClosedOrders');
+        orders = [];
+        for( o in response.result.closed) {
+            let oo = response.result.closed[o];
+            if(oo.status=='closed') orders.push([o,response.result.closed[o]]);
+        }
+        args.pop();
+    }
+    orders.forEach((x,i) => {
+        let ldo = x[1].descr.order;
+        if(args.length==1 || RegExp(args[1]).test(ldo))
+            console.log(i+1,ldo,x[1].userref,x[1].status=='closed'
+                ? new Date(1000*x[1].closetm)
+                : x[1].descr.close);
+        else if(x[1][args[1]]) sortedA[i+1]=x;
+        else if(x[1].descr[args[1]]) sortedA[i+1]=x;
+        });
+    if(sortedA.length > 0) {
+        sortedA.sort((a,b) => {
+            if(a[1].descr[args[1]]) {
+                a = a[1].descr[args[1]];
+                b = b[1].descr[args[1]];
+            } else {
+                a = a[1][args[1]];
+                b = b[1][args[1]];
+            }
+            return isNaN(a)
+                ? a.localeCompare(b)
+                : a - b;
+        });
+        sortedA.forEach((x,i) => {
+            let ldo = x[1].descr.order;
+            console.log(i+1, x[1].descr[args[1]]
+                ? x[1].descr[args[1]] : x[1][args[1]],
+                ldo,x[1].userref,x[1].descr.close);
+        });
+    };
 }
 
 async function refnum(opensA,oid,newRef) {
