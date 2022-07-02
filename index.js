@@ -611,7 +611,7 @@ async function refnum(opensA,oid,newRef) {
 }
 
 async function deleverage(opensA,oid,undo=false) {
-    let o, oRef;
+    let o, oRef, placed;
     if(!opensA[oid]) {
         console.log("Order "+oid+" not found.");
         return;
@@ -627,16 +627,18 @@ async function deleverage(opensA,oid,undo=false) {
         return;
     }
     if(!o.descr.close) {
-    await order(o.descr.type,/^([A-Z]+)USD/.exec(o.descr.pair)[1],
+    placed = await order(o.descr.type,/^([A-Z]+)USD/.exec(o.descr.pair)[1],
         o.descr.price,Math.round(10000*(Number(o.vol) - Number(o.vol_exec)))/10000,
         (undo ? '2' : 'none'),o.userref);
     } else {
-    await order(o.descr.type,/^([A-Z]+)USD/.exec(o.descr.pair)[1],
+    placed = await order(o.descr.type,/^([A-Z]+)USD/.exec(o.descr.pair)[1],
         o.descr.price,Math.round(10000*(Number(o.vol) - Number(o.vol_exec)))/10000,
         (undo ? '2' : 'none'),o.userref,
         /[0-9.]+$/.exec(o.descr.close)[0] );
     }
-    await kill(oid+1, opensA);
+    if(/^[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+$/.test(placed)) { // Depends on Exchange's TxID
+        await kill(oid+1, opensA);
+    }
 }
 
 
