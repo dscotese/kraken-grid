@@ -66,6 +66,7 @@ async function order(buysell, xmrbtc, price, amt, lev='none', uref=0, closeO=nul
         a = Number(amt),
         ret = '';
 
+    if(!RegExp('^('+USDPairs.join('|')+')$').test(xmrbtc+'USD')) return xmrbtc+" is not yet supported.";
     if( cO == price ) cO = 0;
     if(uref==0) uref = makeUserRef(buysell, xmrbtc, price);
 
@@ -121,24 +122,26 @@ async function listOpens(portfolio = null, isFresh=false) {
             r2 = await kapi(['ClosedOrders',{ofs:50}]),
             r3 = await kapi(['ClosedOrders',{ofs:100}]),
             closed = {...response.result.closed, ...r2.result.closed, ...r3.result.closed };
-        ts150 = closed[Object.keys(closed).pop()].closetm;
-        for(o in closed) {
-            let oo = closed[o],
-                od = oo.descr,
-                op = od.price,
-                rv = oo.vol-oo.vol_exec,
-                ur = oo.userref;
-                gp = gPrices.find(x => x.userref==ur);
-            if(ur>0) {
-                if(!gp) {
-                    gp = {userref:ur,buy:'?',sell:'?', bought: 0, sold: 0};
-                    gp[od.type] = op;
-                    gp[(od.type=='buy') ? 'bought' : 'sold'] = Number(rv);
-                    gPrices.push(gp);
-                    if(verbose) console.log(gp.userref,'('+od.type+')','buy:',gp.buy,'sell:',gp.sell);
-                } else {
-                    gp[(od.type=='buy') ? 'bought' : 'sold'] += Number(rv);
-                    gp[od.type] = op;
+        if(closed) {
+            ts150 = closed[Object.keys(closed).pop()].closetm;
+            for(o in closed) {
+                let oo = closed[o],
+                    od = oo.descr,
+                    op = od.price,
+                    rv = oo.vol-oo.vol_exec,
+                    ur = oo.userref;
+                    gp = gPrices.find(x => x.userref==ur);
+                if(ur>0) {
+                    if(!gp) {
+                        gp = {userref:ur,buy:'?',sell:'?', bought: 0, sold: 0};
+                        gp[od.type] = op;
+                        gp[(od.type=='buy') ? 'bought' : 'sold'] = Number(rv);
+                        gPrices.push(gp);
+                        if(verbose) console.log(gp.userref,'('+od.type+')','buy:',gp.buy,'sell:',gp.sell);
+                    } else {
+                        gp[(od.type=='buy') ? 'bought' : 'sold'] += Number(rv);
+                        gp[od.type] = op;
+                    }
                 }
             }
         }
@@ -435,10 +438,13 @@ async function kill(o,oa) {
 //    await sleep(1000);
 }
 
+/*
+   Note that handleArgs handles string arguments as collected from process.stdin.
+   This means that true and 1, as args, are strings, not a boolean and a number.
+ */
 async function handleArgs(portfolio, args, uref = 0) {
     if(/buy|sell/.test(args[0])) {
         [buysell,xmrbtc,price,amt,posP] = args;
-        if(!/XMR|XBT|ETH|LTC|DASH|EOS|BCH|USDT|UST|LUNA/.test(xmrbtc)) return xmrbtc+" is not yet supported.";
         let total=price*amt;
         if(total > 100000) return total+" is too much for code to "+buysell;
 
@@ -451,7 +457,11 @@ async function handleArgs(portfolio, args, uref = 0) {
         // Without a record of a closing price, use the last one we found.
         // ---------------------------------------------------------------
         if(!cPrice) cPrice = portfolio[xmrbtc][1];
-        let closeO = posP ? cPrice : null;
+        // When passing 1 as close, it will mean close at 1 (if Risky) or at current price (without Risky)
+        // -----------------------------------------------------------------------------------------------
+        let closeO = posP ? (posP !== 'true'            // posP is a number, not the boolean
+            ? (posP !== '1' || risky ? posP : cPrice)   // use the number unless it's 1 and Risky is off
+            : cPrice) : null;                           // NaN, so current price or nothing.
         let ret = await order(buysell,xmrbtc,price,amt,lev,uref,closeO);
         console.log("New order: "+ret);
         return;
@@ -467,48 +477,9 @@ async function handleArgs(portfolio, args, uref = 0) {
     } else if(args[0] == 'refnum') {
         await refnum(portfolio['O'],args[1]-1,args[2]);
     } else if(args[0] == 'list') {
-        let sortedA = [], orders = portfolio['O'];
-        if(args[1] == 'C') {
-            let ur = args[2] ? args.pop() : false,
-                response = ur
-                    ? await kapi(['ClosedOrders',{userref:ur}])
-                    : await kapi('ClosedOrders');
-            orders = [];
-            for( o in response.result.closed) {
-                let oo = response.result.closed[o];
-                if(oo.status=='closed') orders.push([o,response.result.closed[o]]);
-            }
-            args.pop();
-        }
-        orders.forEach((x,i) => {
-            let ldo = x[1].descr.order;
-            if(args.length==1 || RegExp(args[1]).test(ldo))
-                console.log(i+1,ldo,x[1].userref,x[1].status=='closed'
-                    ? new Date(1000*x[1].closetm)
-                    : x[1].descr.close);
-            else if(x[1][args[1]]) sortedA[i+1]=x;
-            else if(x[1].descr[args[1]]) sortedA[i+1]=x;
-            });
-        if(sortedA.length > 0) {
-            sortedA.sort((a,b) => {
-                if(a[1].descr[args[1]]) {
-                    a = a[1].descr[args[1]];
-                    b = b[1].descr[args[1]];
-                } else {
-                    a = a[1][args[1]];
-                    b = b[1][args[1]];
-                }
-                return isNaN(a)
-                    ? a.localeCompare(b)
-                    : a - b;
-            });
-            sortedA.forEach((x,i) => {
-                let ldo = x[1].descr.order;
-                console.log(i+1, x[1].descr[args[1]]
-                    ? x[1].descr[args[1]] : x[1][args[1]],
-                    ldo,x[1].userref,x[1].descr.close);
-            });
-        };
+        await list(args);
+    } else if(/^(less|more)$/.test(args[0])) {
+        await lessmore('less'==args[0],args[1]-1,args[2],'all'==args[3]);
     } else if(args[0] == 'test') {
         // Put some test code here if you want
         // -----------------------------------
@@ -518,6 +489,101 @@ async function handleArgs(portfolio, args, uref = 0) {
     } else {
         return args[0]+" is not yet implemented.";
     }
+}
+
+async function lessmore(less, oid, amt, all = null) {
+    let opensA = portfolio['O'],
+        matches = [],
+        oRef, o, diff, newAmt, partial, sym, cp, lev;
+    if(!opensA[oid]) {
+        console.log("Order "+oid+" not found.");
+        return;
+    } else if(all) {
+        // If all, then this order only identifies the crypto and the amount to match
+        // --------------------------------------------------------------------------
+        [oRef,o] = opensA[oid];
+        matches = opensA.filter(oae => {
+            [ioRef,io] = oae;
+            return io.descr.pair==o.descr.pair
+                && Math.round(o.vol*1000)==Math.round(io.vol*1000);
+        });
+    } else {
+        matches.push(opensA[oid]);
+    }
+    diff = (less ? -1 : 1);
+    for (i in matches) {
+        [oRef,o] = matches[i];
+        // If some has been executed, then we won't replace the old one.
+        // The old one's original volume might be needed to extend the grid.
+        // -----------------------------------------------------------------
+        partial = o.vol_exec > 0;
+        if(!/USD$/.test(o.descr.pair)) {
+            console.log("Userref update to non-USD pairs is not yet supported.");
+            return;
+        } else if(partial && diff == -1) {
+            console.log("Skipping",o.descr.order,"because of partial execution.",o);
+        } else if(!o.descr.close) {
+            console.log("Skipping",o.descr.order,"because it has no close.",o.descr);
+        } else {
+            sym = /(.*)USD$/.exec(o.descr.pair)[1];
+            cp = / [0-9.]+$/.exec(o.descr.close)[0];
+            lev = o.descr.leverage[0]=='n'?"none":'2';
+            newAmt = Number(o.vol) + diff*Number(amt);
+            if(newAmt < 0) {
+                console.log("Skipping",o.descr.order,"because amount would go negative.",o.descr);
+            } else {
+                console.log("To: ",o.descr.type,sym,o.descr.price,newAmt,cp);
+                await kill(oRef);
+                await order(o.descr.type,sym,o.descr.price,newAmt,lev,o.userref,cp);
+            }
+        }
+    };
+    if(verbose) console.log("Lessmore called with ",oid,amt,all);
+}
+
+async function list(args) {
+    let sortedA = [], orders = portfolio['O'];
+    if(args[1] == 'C') {
+        let ur = args[2] ? args.pop() : false,
+            response = ur
+                ? await kapi(['ClosedOrders',{userref:ur}])
+                : await kapi('ClosedOrders');
+        orders = [];
+        for( o in response.result.closed) {
+            let oo = response.result.closed[o];
+            if(oo.status=='closed') orders.push([o,response.result.closed[o]]);
+        }
+        args.pop();
+    }
+    orders.forEach((x,i) => {
+        let ldo = x[1].descr.order;
+        if(args.length==1 || RegExp(args[1]).test(ldo))
+            console.log(i+1,ldo,x[1].userref,x[1].status=='closed'
+                ? new Date(1000*x[1].closetm)
+                : x[1].descr.close);
+        else if(x[1][args[1]]) sortedA[i+1]=x;
+        else if(x[1].descr[args[1]]) sortedA[i+1]=x;
+        });
+    if(sortedA.length > 0) {
+        sortedA.sort((a,b) => {
+            if(a[1].descr[args[1]]) {
+                a = a[1].descr[args[1]];
+                b = b[1].descr[args[1]];
+            } else {
+                a = a[1][args[1]];
+                b = b[1][args[1]];
+            }
+            return isNaN(a)
+                ? a.localeCompare(b)
+                : a - b;
+        });
+        sortedA.forEach((x,i) => {
+            let ldo = x[1].descr.order;
+            console.log(i+1, x[1].descr[args[1]]
+                ? x[1].descr[args[1]] : x[1][args[1]],
+                ldo,x[1].userref,x[1].descr.close);
+        });
+    };
 }
 
 async function refnum(opensA,oid,newRef) {
@@ -547,7 +613,7 @@ async function refnum(opensA,oid,newRef) {
 }
 
 async function deleverage(opensA,oid,undo=false) {
-    let o, oRef;
+    let o, oRef, placed;
     if(!opensA[oid]) {
         console.log("Order "+oid+" not found.");
         return;
@@ -563,16 +629,18 @@ async function deleverage(opensA,oid,undo=false) {
         return;
     }
     if(!o.descr.close) {
-    await order(o.descr.type,/^([A-Z]+)USD/.exec(o.descr.pair)[1],
+    placed = await order(o.descr.type,/^([A-Z]+)USD/.exec(o.descr.pair)[1],
         o.descr.price,Math.round(10000*(Number(o.vol) - Number(o.vol_exec)))/10000,
         (undo ? '2' : 'none'),o.userref);
     } else {
-    await order(o.descr.type,/^([A-Z]+)USD/.exec(o.descr.pair)[1],
+    placed = await order(o.descr.type,/^([A-Z]+)USD/.exec(o.descr.pair)[1],
         o.descr.price,Math.round(10000*(Number(o.vol) - Number(o.vol_exec)))/10000,
         (undo ? '2' : 'none'),o.userref,
         /[0-9.]+$/.exec(o.descr.close)[0] );
     }
-    await kill(oid+1, opensA);
+    if(/^[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+$/.test(placed)) { // Depends on Exchange's TxID
+        await kill(oid+1, opensA);
+    }
 }
 
 
@@ -748,25 +816,6 @@ async function runOnce(cmdList) {
     auto_on_hold = false;
 }
 
-process.stdin.on('readable', () => {
-    // clearInterval(auto);
-    let cmd = '',
-        waiter = 0;
-        data = '';
-    while(null != (data = process.stdin.read())) cmd += data;
-    if(/^quit/.test(cmd)) {
-        process.exit(0);
-    } else {
-        clearTimeout(waiter);
-        waiter = setTimeout(() => {
-            // Do we need to stop this listener from listening while runOnce runs?
-            if(cmdList.length > 0) runOnce(cmdList).catch((err) => { catcher(496,err); });
-            cmdList = [];
-            },100);
-        cmdList.push(cmd);
-    }
-});
-
 function catcher(line,err) {
     if(/ETIMEDOUT/.test(err.code)) return; // We can ignore timeout errors.
     console.log("Line "+line+";\n",err);
@@ -814,3 +863,23 @@ async function openSocket() {
 
 runOnce(['report']).catch((err) => { catcher(578,err); });
 console.log("Safemode is on.  `safe` toggles it.");
+
+process.stdin.on('readable', () => {
+    // clearInterval(auto);
+    let cmd = '',
+        waiter = 0;
+        data = '';
+    while(null != (data = process.stdin.read())) cmd += data;
+    if(/^quit/.test(cmd)) {
+        process.exit(0);
+    } else {
+        clearTimeout(waiter);
+        waiter = setTimeout(() => {
+            // Do we need to stop this listener from listening while runOnce runs?
+            if(cmdList.length > 0) runOnce(cmdList).catch((err) => { catcher(496,err); });
+            cmdList = [];
+            },100);
+        cmdList.push(cmd);
+    }
+});
+
