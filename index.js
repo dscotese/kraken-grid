@@ -122,24 +122,26 @@ async function listOpens(portfolio = null, isFresh=false) {
             r2 = await kapi(['ClosedOrders',{ofs:50}]),
             r3 = await kapi(['ClosedOrders',{ofs:100}]),
             closed = {...response.result.closed, ...r2.result.closed, ...r3.result.closed };
-        ts150 = closed[Object.keys(closed).pop()].closetm;
-        for(o in closed) {
-            let oo = closed[o],
-                od = oo.descr,
-                op = od.price,
-                rv = oo.vol-oo.vol_exec,
-                ur = oo.userref;
-                gp = gPrices.find(x => x.userref==ur);
-            if(ur>0) {
-                if(!gp) {
-                    gp = {userref:ur,buy:'?',sell:'?', bought: 0, sold: 0};
-                    gp[od.type] = op;
-                    gp[(od.type=='buy') ? 'bought' : 'sold'] = Number(rv);
-                    gPrices.push(gp);
-                    if(verbose) console.log(gp.userref,'('+od.type+')','buy:',gp.buy,'sell:',gp.sell);
-                } else {
-                    gp[(od.type=='buy') ? 'bought' : 'sold'] += Number(rv);
-                    gp[od.type] = op;
+        if(closed) {
+            ts150 = closed[Object.keys(closed).pop()].closetm;
+            for(o in closed) {
+                let oo = closed[o],
+                    od = oo.descr,
+                    op = od.price,
+                    rv = oo.vol-oo.vol_exec,
+                    ur = oo.userref;
+                    gp = gPrices.find(x => x.userref==ur);
+                if(ur>0) {
+                    if(!gp) {
+                        gp = {userref:ur,buy:'?',sell:'?', bought: 0, sold: 0};
+                        gp[od.type] = op;
+                        gp[(od.type=='buy') ? 'bought' : 'sold'] = Number(rv);
+                        gPrices.push(gp);
+                        if(verbose) console.log(gp.userref,'('+od.type+')','buy:',gp.buy,'sell:',gp.sell);
+                    } else {
+                        gp[(od.type=='buy') ? 'bought' : 'sold'] += Number(rv);
+                        gp[od.type] = op;
+                    }
                 }
             }
         }
