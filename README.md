@@ -31,6 +31,7 @@ C _must be_ a `Counter` as shown by executing `list`.  D is a _difference_ in am
 #### more
 The semantics are the same as for `less`
 
+### Processing
 #### report
 This is the default command, meaning that if you don't enter a command, but you hit enter, this command will execute.  It does several things:
 1. Retrieves balances for the cryptos listed under `buy` and reports the values in a table:
@@ -46,21 +47,6 @@ XLTC ...
    3.  extend the grid if there are only buys or only sells remaining for the crypto identified in each order.
    4.  identify any orders that are gone or new using Kraken's Order ID and for new orders, it also describes them.
 
-#### list [SEARCH]
-This simply prints out a list of all the open orders the code last retrieved (it does NOT retrieve them again, so...) It may have orders in it that have already been executed or which you canceled.  Each order is presented as:
-`Counter K trade amount pair @ limit price [with A:B leverage] userref [close position @ limit price]`
-...where:
-* `Counter` gives you a handle to use for other commands like delev and kill.
-* `K` is `Killed` if you used the kill command to cancel an order and the bot hasn't yet updated the list. For existing orders, `K` is missing.
-* `Trade` is either `buy` or `sell`.
-* `Amount` is the number of coins.
-* `Pair` is symbol (see `buy`) with the 'USD' suffix.
-* `Price` is the price for this trade.
-* The corresponding bracketed items will be missing for an order with no leverage or without a conditional close.
-* `userref` is a user-reference number created when you use the `buy` or `sell` command.  It starts with 1 for buys and 2 for sells, followed by two digits that identify the cryptocurrency pair, and then the price without the decimal point and with leading zeroes.  Note that this causes collisions in very rare cases like a price of $35.01 and another price for the same crypto of $350.10.  I expect this to be too rare to fix at this time.
-
-If you enter anything for [SEARCH], the list will only display lines that contain what you entered, except in one case, `C`.  If it's just the `C`, it will retrieve the last 50 orders that are no longer open (Filled, Cancelled, or Expired), but only list those that actually executed (Filled).  If you add the userref after `C`, then it will fetch only orders with that userref, which means the buys and sells between one set of prices. Use `set` for a list of the userrefs for the grid points.  Such orders also include the time at which the order filled completely.
-
 #### set
 This lists the `userref`s and prices at which buys and sells have been (and will be) placed.
 `set R S P`
@@ -75,9 +61,6 @@ This automatically and repeatedly executes the second step of `report` and then 
 
 #### manual
 This stops the automatic calling of `report`.  The bot will do nothing until you give it a new command.
-
-#### margin
-Whether or not you use this command, the bot will try to use leverage when there isn't enough USD or crypto.  Whether or not it succeeds, it will still be able to report how much you are long or short for each supported crypto.  Reporting that is all this command does.
 
 #### kill
 `kill X`
@@ -95,11 +78,38 @@ The semantics are the same as for `delev`.
 `refnum C R`
 C _must be_ a `Counter` as shown by executing `list`, and it must be an order that was entered without a userref.  It will cancel the existing order and create a new one with the specified userref `R`.  All orders added by the bot (automatically and manually) have a userref.  This function is to allow you to enter an order at trade.kraken.com using the same price and no conditional close so that the bot will include it into the existing grid point with the same userref (use `set` to make sure both the buy and sell prices are known for the userref) as R.  If you use `refnum` to assign the reference number of an order that is at a different price, the behavior is undefined.
 
+### Information
+Whenever the bot finishes doing something, it prints the time and date and then three indicators, A, R, and S, each of which may be just a dot. For example, 
+`2022-08-18T23:24:04.772Z   AR.` 
+The presence of A means that it's in auto mode (see `auto` above).  The R indicates risky mode, meaning some errors will be ignored rather than stopping the bot.  The S indicates safe mode, where the bot doesn't actually create or cancel trades, whether in auto mode or in response to explicit commands.
+
+#### list [SEARCH]
+This simply prints out a list of all the open orders the code last retrieved (it does NOT retrieve them again, so...) It may have orders in it that have already been executed or which you canceled.  Each order is presented as:
+`Counter K trade amount pair @ limit price [with A:B leverage] userref [close position @ limit price]`
+...where:
+* `Counter` gives you a handle to use for other commands like delev and kill.
+* `K` is `Killed` if you used the kill command to cancel an order and the bot hasn't yet updated the list. For existing orders, `K` is missing.
+* `Trade` is either `buy` or `sell`.
+* `Amount` is the number of coins.
+* `Pair` is symbol (see `buy`) with the 'USD' suffix.
+* `Price` is the price for this trade.
+* The corresponding bracketed items will be missing for an order with no leverage or without a conditional close.
+* `userref` is a user-reference number created when you use the `buy` or `sell` command.  It starts with 1 for buys and 2 for sells, followed by two digits that identify the cryptocurrency pair, and then the price without the decimal point and with leading zeroes.  Note that this causes collisions in very rare cases like a price of $35.01 and another price for the same crypto of $350.10.  I expect this to be too rare to fix at this time.
+
+If you enter anything for [SEARCH], the list will only display lines that contain what you entered, except in one case, `C`.  If it's just the `C`, it will retrieve the last 50 orders that are no longer open (Filled, Cancelled, or Expired), but only list those that actually executed (Filled).  If you add the userref after `C`, then it will fetch only orders with that userref, which means the buys and sells between one set of prices. Use `set` for a list of the userrefs for the grid points.  Such orders also include the time at which the order filled completely.
+
+#### margin
+Whether or not you use this command, the bot will try to use leverage when there isn't enough USD or crypto.  Whether or not it succeeds, it will still be able to report how much you are long or short for each supported crypto.  Reporting that is all this command does.
+
+### Configuration
 #### verbose
 There is a little bit of logic in the code to spit out a lot more information when verbose is on.  It's off by default and this command just toggles it.
 
 #### safe
 When the bot starts, it is in "safe" mode, which means that it will not __actually__ add or cancel any orders.  The idea is that it won't do anything, but instead just show you what it would do if __safe__ were off.  Your have to enter `safe` to turn this off so that the bot will actually do things.  It allows for startup with a lot less risk with a possibly buggy bot.
+
+#### risky
+If the bot encounters an error, it goes into manual mode (see `auto` above).  We have identified some such errors (like a timeout) as innocuous, and so you can tell the bot to ignore them by issuing this command. 
 
 #### ws - EXPERIMENTAL
 This connects to Kraken's WebSockets, which, I have to warn you, send you something about every second, and sometimes silently disconnects.
