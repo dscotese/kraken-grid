@@ -1,6 +1,6 @@
 {
   "name": "kraken-grid",
-  "version": "1.0.6",
+  "version": "1.1.0",
   "description": "Bot repeatedly buys & sells on kraken from a conditional close order.",
   "main": "index.js",
   "bin": "./index.js",
@@ -24,8 +24,8 @@
   },
   "homepage": "https://github.com/dscotese/kraken-grid#readme",
   "dependencies": {
+    "cryptex": "^1.0.1",
     "kraka-djs": "^1.0.2",
-    "kraken-api": "^1.0.1",
     "prompt-sync": "^4.2.0",
     "ws": "^8.4.0"
   }

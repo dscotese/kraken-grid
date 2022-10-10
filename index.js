@@ -1,23 +1,8 @@
 #!/usr/bin/env node
-const fs = require('fs');
-const prompt = require('prompt-sync')({sigint: true});
+const ss           = require('./safestore'); // Asks for password, stores API info with it
+const KrakenClient = require('kraka-djs'); // Implements the Kraken API
+let kraken;
 
-let homeDir = process.env.APPDATA
-        || (process.platform == 'darwin'
-            ? process.env.HOME + '/Library/Preferences'
-            : process.env.HOME + "/.local/share"),
-    keyFile = homeDir+'/keys.txt';
-
-if(!fs.existsSync(keyFile)) {
-    const key = prompt("Enter your API key: ");
-    const secret = prompt('Enter your API secret: ');
-    fs.writeFileSync(keyFile,key+' '+secret);
-}
-
-const myKeys       = fs.readFileSync(keyFile,{encoding:'utf8', flag:'r'});
-const [key,secret] = myKeys.split(' ');
-const KrakenClient = require('kraka-djs');
-const kraken       = new KrakenClient(key, secret);
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -755,7 +740,7 @@ let stopNow = false,
     risky = false,
     cmdList = [],
     safeMode = true,
-    USDPairs = 'XBTUSD,XMRUSD,BCHUSD,DASHUSD,EOSUSD,ETHUSD,LTCUSD,USDTUSD,USTUSD,LUNAUSD'.split(',');
+    USDPairs = 'XBTUSD,XMRUSD,BCHUSD,DASHUSD,EOSUSD,ETHUSD,LTCUSD,USDTUSD,USTUSD,ETHWUSD'.split(',');
     auto_on_hold = false;
     cli = {'apl': 0};
 async function runOnce(cmdList) {
@@ -763,6 +748,10 @@ async function runOnce(cmdList) {
         cdx = 0;
     auto_on_hold = auto>0;
     
+    if(!kraken) {
+        let p = await ss.safestore.read();
+        kraken = new KrakenClient(p.key, p.secret);
+    }
     console.log("Got "+(cmds.length)+" commands...");
     while(cdx < cmds.length) {
         let args = cmds[cdx++].split(' ').map((x) => { return x.trim(); });
