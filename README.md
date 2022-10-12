@@ -13,6 +13,12 @@ If you install kraken-grid globally (put `-g` after `install`), you can run it f
 ## Usage
 At the prompt that kraken-grid presents (>), you can enter one of these commands:
 
+### Changing your password
+When you start the bot, it asks for a password.  If you enter the wrong password (or there is no password yet), it will assume that you want to set a new password and ask you to enter your API keys from Kraken again.  You can simply enter 'x' to start over if you want to keep your old password and think you mistyped it.
+
+### Mistyped passwords
+If you think you mistyped your password, just enter x as described above.
+
 ### buy
 `buy [XMR|XBT|ETH|DASH|EOS|LTC|BCH] price amount makeClose`
 
