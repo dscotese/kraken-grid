@@ -11,40 +11,46 @@ This was developed with NodeJS running in the BASH shell provided by Windows 10.
 If you install kraken-grid globally (put `-g` after `install`), you can run it from anywhere, though you may have to reload your command line interpreter.  Please note that it will save a file `keys.txt` to your home folder. 
 
 ## Usage
-At the prompt that kraken-grid presents (>), you can enter one of these commands:
 
-### Changing your password
+In this section, prospective documentaiton is marked with an asterisk* to indicate features that are being added.  If all is correctly updated, such asterisks will only ever appear in this readme file on branches, and those branches will be where the features are being developed.  This gives devs a handy way to find the specs for a new feature.
+
+### Changing your password*
 When you start the bot, it asks for a password.  If you enter the wrong password (or there is no password yet), it will assume that you want to set a new password and ask you to enter your API keys from Kraken again.  You can simply enter 'x' to start over if you want to keep your old password and think you mistyped it.
 
-### Mistyped passwords
+### Mistyped passwords*
 If you think you mistyped your password, just enter x as described above.
 
-### buy
-`buy [XMR|XBT|ETH|DASH|EOS|LTC|BCH] price amount makeClose`
+### Command Line Interface
+At the prompt that kraken-grid presents (>), you can enter one of these commands:
 
+### Trading
+#### buy
+`buy [XMR|XBT|ETH|DASH|EOS|LTC|BCH] price amount makeClose`
 makeClose is interpreted as a Boolean.  I never tested `0` but I assume 0 means false (the default).  If makeCLose evaluates to true, the code will create this buy with a conditional close at the last price it saw.  If you don't want the code to place a trade with a conditional close, leave makeCLose off or pass `false` for it.
 
 If you want to use other cryptos, there is a line in `report()` and a line in `handleArgs()` which both need to be changed by adding the symbol.  There's another line in report that assumes that the initial X in _every_ symbol is extraneous.  This is true for the four I hold, XMR, ETH, XBT, and LTC, but check [Kraken's AssetPairs](https://api.kraken.com/0/public/Assets) to see if it's true for any you add.
 
-### sell
+#### sell
 The semantics are the same as for `buy`
 
-### report
-This is the default command, meaning that if you don't enter a command, but you hit enter, this command will execute.  It does several things:
-1. Retrieves balances for the cryptos listed under `buy` and reports the values in a table:
-```
-ZUSD    AMT       undefined
-XXBT    AMT       PRICE
-XLTC ...
-...
-```
-2. Retrieves the list of open orders, which is immediately processed to:
-   1.  replace conditional closes resulting from partial executions with a single conditional close which, itself, has a conditional close to continue buying and selling between the two prices, but only up to the amount originally specified, and _only_ for orders with a User Reference Number (such as all orders placed through this program).
-   2.  fill out the internal record of buy/sell prices using the open orders and their conditional closes (see `set` and `reset`).
-   3.  extend the grid if there are only buys or only sells remaining for the crypto identified in each order.
-   4.  identify any orders that are gone or new using Kraken's Order ID and for new orders, it also describes them.
+#### kill
+`kill X`
+X can be an Order ID from Kraken (recognized by the presence of dashes), a userref (which often identifies more than one order, and, importantly, _both_ the initial buy or sell, _and_ the series of sells and buys resulting from partial executions), or a `Counter` as shown from `list`.  This cancels the order or orders.  `list` will still show such orders, prefixed with `Killed`, until `report` runs again to update the internal record of open orders.
 
-### list [SEARCH]
+#### delev
+`delev C`
+C _must be_ a `Counter` as shown by executing `list`.  If the identified order uses leverage, this command will first create an order without any leverage to replace it, and then kill the one identified. The order that was killed will still be in the list, prefixed with `Killed:` ***NOTE: The new order often (or always?) appears at the top of `list` after this, so the `Counter`s identifying other orders may change.
+
+#### addlev
+`addlev C`
+The semantics are the same as for `delev`.
+
+### Information Gathering
+#### assets*
+`assets [F]`
+This provides you with a list of assets in each account (see `asset` under bot management), a list of all all assets combined across accounts with your chosen allocation for each one, and if F is anything, all listed assets will contain F in their ticker.
+
+#### list [SEARCH]
 This simply prints out a list of all the open orders the code last retrieved (it does NOT retrieve them again, so...) It may have orders in it that have already been executed or which you canceled.  Each order is presented as:
 `Counter K trade amount pair @ limit price [with A:B leverage] userref [close position @ limit price]`
 ...where:
@@ -59,50 +65,66 @@ This simply prints out a list of all the open orders the code last retrieved (it
 
 If you enter anything for [SEARCH], the list will only display lines that contain what you entered, except in one case, `C`.  If it's just the `C`, it will retrieve the last 50 orders that are no longer open (Filled, Cancelled, or Expired), but only list those that actually executed (Filled).  If you add the userref after `C`, then it will fetch only orders with that userref, which means the buys and sells between one set of prices. Use `set` for a list of the userrefs for the grid points.  Such orders also include the time at which the order filled completely.
 
-### set
-This lists the `userref`s and prices at which buys and sells have been (and will be) placed.
-`set R S P`
-R _must be_ a userref, S _must be_ either `buy` or `sell`, and P is the price you want to add or replace) for that grid point.  If the bot fails to determine either the buy price or the sell price, it displays a ?, and this will prevent the creation of a new order as described under `refnum`.  This command allows you to fix that so that Step 2.1 under `report` will work properly as described under `refnum`. 
-
-### reset
-This erases the list of `userref`s and prices at which buys and sells will be placed, but that list gets immediately rebuilt because it performs the second step in `report`.
-
-### auto
-`auto N`
-This automatically and repeatedly executes the second step of `report` and then waits N seconds.  N defaults to 60 but when you call auto with a new value for it, it is updated. 
-
-### manual
-This stops the automatic calling of `report`.  The bot will do nothing until you give it a new command.
-
-### margin
+#### margin
 Whether or not you use this command, the bot will try to use leverage when there isn't enough USD or crypto.  Whether or not it succeeds, it will still be able to report how much you are long or short for each supported crypto.  Reporting that is all this command does.
 
-### kill
-`kill X`
-X can be an Order ID from Kraken (recognized by the presence of dashes), a userref (which often identifies more than one order, and, importantly, _both_ the initial buy or sell, _and_ the series of sells and buys resulting from partial executions), or a `Counter` as shown from `list`.  This cancels the order or orders.  `list` will still show such orders, prefixed with `Killed`, until `report` runs again to update the internal record of open orders.
-
-### delev
-`delev C`
-C _must be_ a `Counter` as shown by executing `list`.  If the identified order uses leverage, this command will first create an order without any leverage to replace it, and then kill the one identified. The order that was killed will still be in the list, prefixed with `Killed:` ***NOTE: The new order often (or always?) appears at the top of `list` after this, so the `Counter`s identifying other orders may change.
-
-### addlev
-`addlev C`
-The semantics are the same as for `delev`.
-
-### refnum
-`refnum C R`
-C _must be_ a `Counter` as shown by executing `list`, and it must be an order that was entered without a userref.  It will cancel the existing order and create a new one with the specified userref `R`.  All orders added by the bot (automatically and manually) have a userref.  This function is to allow you to enter an order at trade.kraken.com using the same price and no conditional close so that the bot will include it into the existing grid point with the same userref (use `set` to make sure both the buy and sell prices are known for the userref) as R.  If you use `refnum` to assign the reference number of an order that is at a different price, the behavior is undefined.
+#### report
+This is the default command, meaning that if you don't enter a command, but you hit enter, this command will execute.  It does several things:
+1. Retrieves balances for the cryptos listed under `buy` and reports the values in a table:
+```
+ZUSD    AMT       undefined
+XXBT    AMT       PRICE
+XLTC ...
+...
+```
+2. Retrieves the list of open orders, which is immediately processed to:
+   1.  replace conditional closes resulting from partial executions with a single conditional close which, itself, has a conditional close to continue buying and selling between the two prices, but only up to the amount originally specified, and _only_ for orders with a User Reference Number (such as all orders placed through this program).
+   2.  fill out the internal record of buy/sell prices using the open orders and their conditional closes (see `set` and `reset`).
+   3.  extend the grid if there are only buys or only sells remaining for the crypto identified in each order.
+   4.  identify any orders that are gone or new using Kraken's Order ID and for new orders, it also describes them.
 
 ### verbose
 There is a little bit of logic in the code to spit out a lot more information when verbose is on.  It's off by default and this command just toggles it.
 
-### safe
+### Bot Management
+#### asset*
+`asset S U [P]` allows you to describe your savings to the bot so that it can automatically trade without you entering any trades yourself.
+
+* `S` is a symbol and if it is found in the list of asset tickers from the exchange (only Kraken at the time of writing), the bot will take into account that you hold U units of this asset, but not on the exchange.
+* `U` is the number of units that you'd like the bot to record.  This information is saved to disk (as a JSON object) after being encrypted with your password.  If you call asset on the same symbol twice, the bot will ask you to confirm that you want to overwrite the old value.
+* `P` (optional) If you enter a number (any more than two decimal places will be ignored) it is interpreted as the percentage of your savings you would like this asset to be.  Again, if such an allocation is already recorded, the both will ask you to confirm that you want to update it.  If P is not a number, it is considered to be an account label.  If there is no such account, the bot will confirm that you mean to create one.  If you hold cryptos in two different wallets, W1 and W2, you can tell the bot how much is in each one and it will keep separate records for them.  When P is a number, your default currency allocation will be adjusted so that the full allocation adds up to 100%.
+
+#### trade*
+`trade T` tells the bot to create market trades if any asset is more than T% different from what your allocation says it should be across all of your savings.  We recommend that you use the `safe` instruction first so that the bot will only report what trades it would place without actually placing them.
+
+#### set
+`set R S P`
+This lists the `userref`s and prices at which buys and sells have been (and will be) placed.
+R _must be_ a userref, S _must be_ either `buy` or `sell`, and P is the price you want to add or replace) for that grid point.  If the bot fails to determine either the buy price or the sell price, it displays a ?, and this will prevent the creation of a new order as described under `refnum`.  This command allows you to fix that so that Step 2.1 under `report` will work properly as described under `refnum`. 
+
+#### reset
+This erases the list of `userref`s and prices at which buys and sells will be placed, but that list gets immediately rebuilt because it performs the second step in `report`.
+
+#### auto
+`auto N`
+This automatically and repeatedly executes the second step of `report` and then waits N seconds.  N defaults to 60 but when you call auto with a new value for it, it is updated. 
+
+#### manual
+This stops the automatic calling of `report`.  The bot will do nothing until you give it a new command.
+
+#### refnum
+`refnum C R`
+C _must be_ a `Counter` as shown by executing `list`, and it must be an order that was entered without a userref.  It will cancel the existing order and create a new one with the specified userref `R`.  All orders added by the bot (automatically and manually) have a userref.  This function is to allow you to enter an order at trade.kraken.com using the same price and no conditional close so that the bot will include it into the existing grid point with the same userref (use `set` to make sure both the buy and sell prices are known for the userref) as R.  If you use `refnum` to assign the reference number of an order that is at a different price, the behavior is undefined.
+
+#### safe
 When the bot starts, it is in "safe" mode, which means that it will not __actually__ add or cancel any orders.  The idea is that it won't do anything, but instead just show you what it would do if __safe__ were off.  Your have to enter `safe` to turn this off so that the bot will actually do things.  It allows for startup with a lot less risk with a possibly buggy bot.
 
-### ws - EXPERIMENTAL
+### Experimental features (Not Recommended and not well tested)
+#### ws - EXPERIMENTAL
 This connects to Kraken's WebSockets, which, I have to warn you, send you something about every second, and sometimes silently disconnects.
 
 ## Internals
+
 ### Userref
 When you place an order through trade.kraken.com or through kraken.com, it will have a `userref` of zero.  It will be ignored for the purposes of grid trading.  When you place an order through the bot, it will have a userref.
 
