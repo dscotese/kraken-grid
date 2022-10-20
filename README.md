@@ -87,13 +87,20 @@ XLTC ...
 There is a little bit of logic in the code to spit out a lot more information when verbose is on.  It's off by default and this command just toggles it.
 
 ### Bot Management
+#### alloc*
+`alloc S P [A]` allows you to specify how you want your savings allocated.
+
+* `S` is a symbol and if it is found in the list of asset tickers from the exchange (only Kraken at the time of writing), the bot will record `P` as the percentage allocation target for your savings.
+* `P` must be a number (any more than two decimal places will be ignored). It is interpreted as the percentage of your entire savings you would like this asset to be.  If such an allocation is already recorded (and `A` is not present and "false"), the bot will ask you to confirm that you want to update it.  Your default currency allocation will be adjusted so that the full allocation adds up to 100%.
+* `A` is for Ask. (optional) It must be the string 'false' if it is present because it prevents the bot from asking before overwriting existing data.
+
 #### asset*
-`asset S U [P] [V]` allows you to describe your savings to the bot so that it can automatically trade without you entering any trades yourself.
+`asset S U [L] [A]` allows you to describe your savings to the bot so that it can automatically trade without you entering any trades yourself.
 
 * `S` is a symbol and if it is found in the list of asset tickers from the exchange (only Kraken at the time of writing), the bot will take into account that you hold U units of this asset, but not on the exchange.
 * `U` is the number of units that you'd like the bot to record.  This information is saved to disk (as a JSON object) after being encrypted with your password.  If you call asset on the same symbol twice, the bot will ask you to confirm that you want to overwrite the old value.
-* `P` (optional) If you enter a number (any more than two decimal places will be ignored) it is interpreted as the percentage of your entire savings you would like this asset to be.  Again, if such an allocation is already recorded, the bot will ask you to confirm that you want to update it.  If P is not a number, it is considered to be an account label.  If there is no such account, the bot will confirm that you mean to create one.  If you hold cryptos in two different wallets, W1 and W2, you can tell the bot how much is in each one and it will keep separate records for them.  When P is a number, your default currency allocation will be adjusted so that the full allocation adds up to 100%.
-* 'V' (optional) must be the string 'true' if it is present because it prevents the bot from asking before overwriting eisting data.
+* `L` is for Label. (optional) This string will be used as an account label.  If there is no such account, the bot will confirm that you mean to create one.  If you hold cryptos in two different wallets, W1 and W2, you can tell the bot how much is in each one and it will keep separate records for them.  THe default account will be used if `L is missing, and its label is "default".
+* `A` is for Ask. (optional) It must be the string 'false' if it is present because it prevents the bot from asking before overwriting existing data.
 
 #### trade*
 `trade T` tells the bot to create market trades if any asset is more than T% different from what your allocation says it should be across all of your savings.  We recommend that you use the `safe` instruction first so that the bot will only report what trades it would place without actually placing them.
