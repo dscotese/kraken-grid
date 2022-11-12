@@ -4,11 +4,18 @@ A bot that extends grid trading once you use it to create a grid using orders wi
 This was developed with NodeJS running in the BASH shell provided by Windows 10.  I believe it's using "Windows Subsystem for Linux" and that there are some oddities because of this.  I don't see them as odd because I'm not familiar enough with Linux yet.
 
 ## Installation
-1. Get your API key and secret from Kraken.
+1. Get your API key and secret from Kraken. Otherwise, you will have to go through this process again if you want to run kraken on a machine that doesn't have these keys yet, or if you forget your password.
+   - 1.1 Click the box in the upper right corner on kraken.com after you log in that has your name in it.
+   - 1.2 Click the "Security" item in the dropdown box.
+   - 1.3 Click "API" in the list of options under Security.
+   - 1.4 Choose the "Add Key" link.
+   - 1.5 We recommend that you give your key a better description.
+   - 1.6 We recommend that you record this set of codes (a key and a private key, called "Secret" in kraken-grid).
 2. Install [NodeJS](https://nodejs.org/)
-3. Run `npm install kraken-grid`
+3. Run `npm g install kraken-grid` from a command line ("Command Prompt", "Terminal Window", or "Shell").
+4. If Node installed kraken-grid successfully, you can now run `kraken-grid` from the command line on your computer.  It will ask you for a password.  If it has no previous record of a password being entered into kraken-grid, then it will also ask you for the API key and secret ("private key" is what Kraken calls the secret).  Your password is used to encrypt information that kraken-grid stores on your computer, like the API keys.
 
-If you install kraken-grid globally (put `-g` after `install`), you can run it from anywhere, though you may have to reload your command line interpreter.  Please note that it will save a file `keys.txt` to your home folder. 
+This software will save a file `keys.txt` to your home folder. 
 
 ## Usage
 
