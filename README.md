@@ -7,14 +7,16 @@ This was developed with NodeJS running in the BASH shell provided by Windows 10.
 
 ## Installation
 1. Get your API key and secret from Kraken. Otherwise, you will have to go through this process again if you want to run kraken on a machine that doesn't have these keys yet, or if you forget your password.
-   - 1.1 Click the box in the upper right corner on kraken.com after you log in that has your name in it.
-   - 1.2 Click the "Security" item in the dropdown box.
-   - 1.3 Click "API" in the list of options under Security.
-   - 1.4 Choose the "Add Key" link.
-   - 1.5 We recommend that you give your key a better description.
-   - 1.6 We recommend that you record this set of codes (a key and a private key, called "Secret" in kraken-grid).
+   - Click the box in the upper right corner on kraken.com after you log in that has your name in it.
+   - Click the "Security" item in the dropdown box.
+   - Click "API" in the list of options under Security.
+   - Choose the "Add Key" link on the new page.  It's in the upper right corner of the "Custom API Keys" box.
+   - We recommend that you give your key a better description.
+   - We recommend that you record this set of codes (a key and a private key, called "Secret" in kraken-grid).
+   - Select "Query Funds" from the **Funds** section, and ALL the items in the **Orders & Trades** section.  The bot doesn't need any other permissions.  It does have code to use the "WebSockets API" but it is experimental and doesn't yet do anything useful.
+   - Click "Save" at the bottom.  If you made any error (such as forgetting to check the "Query Funds" permission) you will have to start again from the first step in this list.
 2. Install [NodeJS](https://nodejs.org/)
-3. Run `npm g install kraken-grid` from a command line ("Command Prompt", "Terminal Window", or "Shell").
+3. Run `npm -g install kraken-grid` from a command line ("Command Prompt", "Terminal Window", or "Shell").
 4. If Node installed kraken-grid successfully, you can now run `kraken-grid` from the command line on your computer.  It will ask you for a password.  If it has no previous record of a password being entered into kraken-grid, then it will also ask you for the API key and secret ("private key" is what Kraken calls the secret).  Your password is used to encrypt information that kraken-grid stores on your computer, like the API keys.
 
 This software will save a file `keys.txt` to your home folder. 
