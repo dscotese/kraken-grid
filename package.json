@@ -5,7 +5,20 @@
   "main": "index.js",
   "bin": "./index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "ava"
+  },
+  "ava": {
+    "files": [
+      "test/**/*",
+      "!test/exclude-files-in-this-directory",
+      "!**/exclude-files-with-this-name.*"
+    ],
+    "failFast": true,
+    "failWithoutAssertions": false,
+    "environmentVariables": {
+      "MY_ENVIRONMENT_VARIABLE": "some value"
+    },
+    "verbose": true
   },
   "repository": {
     "type": "git",
@@ -24,9 +37,17 @@
   },
   "homepage": "https://github.com/dscotese/kraken-grid#readme",
   "dependencies": {
+    "body-parser": "^1.20.2",
+    "concat-stream": "^2.0.0",
     "cryptex": "^1.0.1",
-    "kraka-djs": "^1.0.2",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "http-server": "^14.1.1",
+    "kraka-djs": "^1.0.3",
     "prompt-sync": "^4.2.0",
     "ws": "^8.4.0"
+  },
+  "devDependencies": {
+    "ava": "^4.3.3"
   }
 }
