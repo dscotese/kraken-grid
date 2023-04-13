@@ -6,6 +6,8 @@ This was developed with NodeJS running in the BASH shell provided by Windows 11.
 ## Upgrading
 This version stores your API key and secret using your password.  This information is stored without encryption in previous versions, but this one will read that file, use the data as default values when it prompts you for the API Key and secret, and replace it with the encrypted data.  I recommend finding your keys.txt file in your home directory and making a copy of it just in case.  If you forget your password, you must re-enter the API keys to reset it.
 
+**Please note** * that an asterisk in this ReadMe indicates a change that is NOT on the main branch yet.  I copy this readme from branches when I find things that need to be added to the readme but the code in the branch isn't ready yet.  So if you're looking at this from the main branch, the asterisked items probably do NOT yet apply.
+
 ## Installation
 1. Get your API key and secret from Kraken. Otherwise, you will have to go through this process again if you want to run kraken on a machine that doesn't have these keys yet, or if you forget your password.
    - 1.1 Click the box in the upper right corner on kraken.com after you log in that has your name in it.
@@ -16,12 +18,12 @@ This version stores your API key and secret using your password.  This informati
    - 1.6 We recommend that you record this set of codes (a key and a private key, called "Secret" in kraken-grid).
 2. Install [NodeJS](https://nodejs.org/)
 3. Run `npm g install kraken-grid` from a command line ("Command Prompt", "Terminal Window", or "Shell").
+
 4. If Node installed kraken-grid successfully, you can now run `kraken-grid` from the command line on your computer.  It will ask you for a password.  If it has no previous record of a password being entered into kraken-grid, then it will also ask you for the API key and secret ("private key" is what Kraken calls the secret).  Your password is used to encrypt information that kraken-grid stores on your computer, like the API keys.
 
 This software will save a file `keys.txt` to your home folder. 
 
 ## Usage
-
 In this section, prospective documentaiton is marked with an asterisk* to indicate features that are being added.  If all is correctly updated, such asterisks will only ever appear in this readme file on branches, and those branches will be where the features are being developed.  This gives devs a handy way to find the specs for a new feature.
 
 ### Changing your password*
@@ -32,6 +34,7 @@ If you think you mistyped your password, just enter x as described above.
 
 ### Command Line Interface
 At the prompt that kraken-grid presents (>), you can enter one of these commands:
+
 
 ### Trading
 #### buy
@@ -118,7 +121,7 @@ This feature currently only affects your desired allocation by reading the price
 #### allocation
 `allocation [F]` will display your current actual allocation across all the assets you have entered (see `asset` below) as well as the assets you have on the exchange, including any positions you hold.  F can be ? to review what the command does, or "fresh" to have the code get new prices from the exchange.
 
-#### asset
+#### asset*
 `asset S U [L] [A]` allows you to describe your savings to the bot so that it can automatically trade without you entering any trades yourself.
 
 * `S` is a symbol and if it is found in the list of asset tickers from the exchange (only Kraken at the time of writing), the bot will take into account that you hold U units of this asset, but not on the exchange.
@@ -142,7 +145,6 @@ Example: You have a limit sell order at 45000 for 0.015 BTC and another above th
 #### more
 `more C A F`
 Increase the amount of crypto to be traded. Otherwise, this command is the same as less.#### trade*
-`trade T` tells the bot to create market trades if any asset is more than T% different from what your allocation says it should be across all of your savings.  We recommend that you use the `safe` instruction first so that the bot will only report what trades it would place without actually placing them.
 
 #### set
 `set R S P`
@@ -182,9 +184,9 @@ This connects to Kraken's WebSockets, which, I have to warn you, send you someth
 When you place an order through trade.kraken.com or through kraken.com, it will have a `userref` of zero.  It will be ignored for the purposes of grid trading.  When you place an order through the bot, it will have a userref.
 
 ### Partial Execution
-Because grid orders have conditional closes (at a price I'll call C, for close, where I'll call the price on the opening order O), a new trade is created each time a partial execution occurs, but any such new trades do not have conditional closes (which would need to have C and O swapped).  These conditional closes all have the same userref as the order that produced them. The bot detects this, sums the amount executed at price O, cancels the new orders created by the partial executions, and creates a new order for the sum at price C using the same userref and with a conditional close of its own that uses price O (see how C and O are now swapped?).  Rarely, only part of an order will have executed (at price O) and the price will move back to C and cause the conditional close(s) to execute.  If they were combined and thus already have their own conditional close (at O), new orders will appear at O, in addition to the original.  At trade.kraken.com, this looks like it will be trading too much at O, but that is because the partial execution reduced the size of the original trade, and trade.kraken.com still shows the original trade amount.  You can click the trade on trade.kraken.com to verify that the sum of the new order at O and the origianl one add to the right amount.  You got a round trip on less volume than the bot was set to try, because the market didn't fully execute your original order. All is well.
+Because grid orders have conditional closes (at a price I'll call C, for close, where I'll call the price on the opening order O), a new trade is created each time a partial execution occurs, but any such new trades do not have conditional closes (which would need to have C and O swapped).  These conditional closes all have the same userref as the order that produced them. The bot detects this, sums the amount executed at price O, cancels the new orders created by the partial executions, and creates a new order for the sum at price C using the same userref and with a conditional close of its own that uses price O (see how C and O are now swapped?).  Rarely, only part of an order will have executed (at price O) and the price will move back to C and cause the conditional close(s) to execute.  If they were combined and thus already have their own conditional close (at O), new orders will appear at O, in addition to the original.  At trade.kraken.com, this looks like it will be trading too much at O, but that is because the partial execution reduced the size of the original trade, and trade.kraken.com still shows the original trade amount.  You can click the trade on trade.kraken.com to verify that the sum of the new order at O and the original one add to the right amount.  You got a round trip on less volume than the bot was set to try, because the market didn't fully execute your original order. All is well.
 
 ## HELP!
-This code is messy and monolithic.  It works for me and I didn't want to keep waiting until I cleaned it up to publish it.  I haven't yet put enough thought into how (and whether) I would break it up into smaller files with specific purposes, so I'd love to see proposals.  One of the major motivations I have for publishing it is that as more people use a strategy like "grid trader" to balance their savings, the prices of the cryptos with which they do it will become more stable.
+This code is messy.  It works for me and I didn't want to keep waiting until I cleaned it up to publish it.  One of the major motivations I have for publishing it is that as more people use a strategy like "grid trader" to balance their savings, the prices of the cryptos with which they do it will become more stable.
 
 All calls to @nothingisdead's [Kraken-API](https://github.com/nothingisdead/npm-kraken-api) (which I have copied and renamed to kraka-djs to add CancelAll) are made through a function I called `kapi` so that any other exchange could be used by updating that funtion to translate Kraken's APIs to those of other exchanges.
