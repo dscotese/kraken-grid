@@ -1,0 +1,11 @@
+td, th {
+  width: 60;
+  border: 1px solid;
+}
+table {
+  border-collapse: collapse;
+  text-align: left;
+}
+#Diff td, #Prices td {
+  color: blue;
+}
