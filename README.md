@@ -96,7 +96,7 @@ XLTC ...
    3.  extend the grid if there are only buys or only sells remaining for the crypto identified in each order.
    4.  identify any orders that are gone or new using Kraken's Order ID and for new orders, it also describes them.
 
-### verbose
+#### verbose
 There is a little bit of logic in the code to spit out a lot more information when verbose is on.  It's off by default and this command just toggles it.
 
 ### Bot Management
