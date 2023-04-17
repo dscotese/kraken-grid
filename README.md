@@ -119,9 +119,11 @@ There is a little bit of logic in the code to spit out a lot more information wh
 `trade T` tells the bot to create market trades if any asset is more than T% different from what your allocation says it should be across all of your savings.  We recommend that you use the `safe` instruction first so that the bot will only report what trades it would place without actually placing them.
 
 #### set
-`set R S P`
+`set [R S P]`
 This lists the `userref`s and prices at which buys and sells have been (and will be) placed.
-R _must be_ a userref, S _must be_ either `buy` or `sell`, and P is the price you want to add or replace) for that grid point.  If the bot fails to determine either the buy price or the sell price, it displays a ?, and this will prevent the creation of a new order as described under `refnum`.  This command allows you to fix that so that Step 2.1 under `report` will work properly as described under `refnum`. 
+If present, R _must be_ a userref, S _must be_ either `buy` or `sell`, and P is the price you want to add or replace for that grid point.  If the bot fails to determine either the buy price or the sell price, it displays a ?, and this will prevent the creation of a new order as described under `refnum`.  This command allows you to fix that so that Step 2.1 under `report` will work properly as described under `refnum`. 
+
+By itself, `set` will fill out the table of userrefs by requesting closed trades every couple seconds for all the userrefs it finds in the open orders.  Each userref identifies a pair of prices between which the bot will make round trips as the market allows.  It reports the total profit (which is often wrong, I think because margin trades, when settled, end up getting counted twice), and the date of the earliest of the last 150 closed trades as if the profit was made since that time, which is also wrong.  This is issue [#31](https://github.com/dscotese/kraken-grid/issues/31)
 
 #### reset
 This erases the list of `userref`s and prices at which buys and sells will be placed, but that list gets immediately rebuilt because it performs the second step in `report`.
