@@ -1,1 +1,3 @@
 node-modules/
+node-modules\
+node-modules\.bin\

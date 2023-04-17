@@ -107,7 +107,7 @@ function Web(man) {
             ktks = tkrs ? Object.keys(tkrs) : [],
             ret = "",rows = [], // rows is an associative array of object arrays.
             tkr,amt,ki,label,tkrl,sav; // ktks is "Known Tickers"
-        rows[''] = [{key:'AAAA',val:"<th id='tol' title='Total Value'>"
+        rows[''] = [{key:'AAAA',val:"<th title='Total Value'>"
             +sigdig(total,10,2)+"</th>"}].concat(ktks.map((e,i,a) => { 
                 return { key:e, val:"<th>"+weblink(e)+"</th>" }; }));
         rows['ZTotal'] = [{key:'AAAA',val:"<th>Totals</th>"}];
@@ -163,7 +163,7 @@ function Web(man) {
         let ret = "<table id='alloc'><tr><th colspan='"
             + (1+Object.keys(tkrs).length) 
             + "'>Allocation Last Update: " + bot.portfolio.lastUpdate
-            + "</th></tr>\n<tr id='tkrs'><th title='Balance Tolerance'>"+tol+"</th>",
+            + "</th></tr>\n<tr id='tkrs'><th id='tol' title='Balance Tolerance'>"+tol+"</th>",
             total = man.getTotal(),
             current="<tr id='current'><th>Current</th>",
             desired="<tr id='desired'><th>Desired</th>",

@@ -79,12 +79,15 @@ module.exports = function Balancer (target) {
             bAmt   = (toBuy/curP)/(qisn ? 1 : 3),       // Amount to buy.
             sP = sigdig(curP*(1+move)/qf,6,po.pair_decimals),
             bP = sigdig((curP/(1+move))/(qisn ? 1 : port[po.quote][1]),6,po.pair_decimals);
-        // We have the amount to sell and buy AFTER being in balance,
-        // but if we aren't in balance, we need to buy or sell less.
-        // ----------------------------------------------------------
+        // We have the amount to sell and buy BEFORE being in balance,
+        // but if we get in balance by selling or buying p.amt, that 
+        // trade will be added to the buy or sell, so remove it for now.
+        // -------------------------------------------------------------
         curP = p.price;
-        if(p.type == 'buy') bAmt -= p.amt;
-        if(p.type == 'sell') sAmt -= p.amt;
+console.log({pamt:p.amt, bAmt, sAmt});
+        if(p.type == 'buy') sAmt -= p.amt;
+        if(p.type == 'sell') bAmt -= p.amt;
+console.log({pamt:p.amt, bAmt, sAmt});
         bAmt = sigdig(bAmt,6,po.lot_decimals);
         sAmt = sigdig(sAmt,6,po.lot_decimals);
         console.log('buy',po.base,bP,bAmt,curP);

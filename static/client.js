@@ -39,11 +39,13 @@ $(function() {
     $("th#tol").on('click',(data) => {
         let tol = Number(data.target.innerHTML);
         newTol = prompt("Set balancing tolerance to:",tol);
-        data.target.innerHTML = tol;
-        // Update the commands
-        $("#Diff td").attr('title',(i,ov) => {
-            return ov.replace(/[0-9]+/,tol);
-        });
+        if(newTol) {
+            data.target.innerHTML = newTol;
+            // Update the commands
+            $("#Prices td").attr('title',(i,ov) => {
+                return ov.replace(/[0-9.]+/,newTol);
+            });
+        }
     });
 });
 
