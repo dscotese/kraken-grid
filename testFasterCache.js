@@ -21,7 +21,7 @@ function TFC(verbose = false) {
     const base = "TFC";
     const fs = require('fs');
     const path = require('path');
-    const lastFile = path.join(base,"lastFile.txt");
+    let lastFile = path.join(base,"lastFile.txt");
     const blockFile = path.join(base,"blockFile.json");
     // The idFile contains a series of JSON objects, {h...: fName+args},
     // as well as the trailing comma. The comma gets stripped to create
@@ -123,6 +123,10 @@ function TFC(verbose = false) {
     // isCached if the call changes any of the arguments.
     // -----------------------------------------------------------
     function store(fNameOrID,argsOrReply,reply=false) {
+        if(!process.TESTING) {
+            console.log("Caching requires procees.TESTING to evaluate to true.");
+            return;
+        }
         let ri = reply 
             ? hashArg(JSON.stringify({fnName:fNameOrID,args:argsOrReply})) 
             : fNameOrID;
