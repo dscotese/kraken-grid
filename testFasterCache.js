@@ -47,7 +47,6 @@ function TFC(verbose = false) {
             cached = JSON.parse(fs.readFileSync(path.join(base,slf)));
         }
     } catch(err) { if('ENOENT' != err.code) throw err; }
-    fs.writeFile(lastFile,lf,(err)=>{if(err)throw(err);});
 
     try {
         let recorded = JSON.parse('['+fs.readFileSync(idFile).slice(0,-2)+']');
@@ -134,6 +133,12 @@ function TFC(verbose = false) {
         fs.writeFile(path.join(base, lf), asBuffer, (err) => {
             if(err) throw err;
         });
+        // Now that we've stored something in it, record its name
+        // ------------------------------------------------------
+        if(lastFile > '') {
+            fs.writeFile(lastFile,lf,(err)=>{if(err)throw(err);});
+            lastFile = '';  //Protect it from being overwritten.
+        }
         if(verbose) console.log("Items in cache:",Object.keys(cached));
     }
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 process.TESTING = process.TESTING || !(/init.js$/.test(process.argv[1]));
 console.log("filename is ",process.argv[1]);
 const Manager = require('./manager.js');

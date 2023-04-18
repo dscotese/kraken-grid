@@ -24,14 +24,14 @@ $(function() {
             ask = "Send `"+cmd+"` to bot (y/n)?",
             yn = prompt(ask,'n');
         if(yn && yn.toLowerCase() == 'y') 
-            botExec(cmd,r => { alert(r); location.reload(); });
+            botExec(cmd);
     });
 
     $("#Prices td").on('click',(data) => {
         let t = data.target,
             cmd = t.getAttribute('title'),
-            ask = "Send `"+cmd+"` to bot (y/n)?",
-            yn = prompt(ask,'n');
+            ask = "Send this command to bot?",
+            yn = prompt(ask,cmd);
         if(yn && yn.toLowerCase() == 'y') 
             botExec(cmd,r => { alert(r); location.reload(); });
     });
@@ -47,8 +47,18 @@ $(function() {
             });
         }
     });
+    $('md-block').on('md-render',() => {
+        $('#Doc code').on('click',(data) => {
+            let t = data.target,
+                txt = t.innerHTML,
+                yn = prompt("Send a command to the bot?",txt);
+            if(yn) {
+                botExec(yn,alert);
+            }
+        });
+    });
 });
 
-function botExec(cmd,cb) {
+function botExec(cmd,cb=(r)=>{alert(r);location.reload()}) {
     $.post('/',{data:cmd},cb);
 }

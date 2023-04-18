@@ -4,6 +4,7 @@ const path = require("path");
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const Bot = require('./bot.js');
+const fs = require('fs');
 function Web(man) {
     const Savings = require('./savings.js');
     let BeOff = true,
@@ -66,10 +67,17 @@ function Web(man) {
     app.get('/', async (req, res, next) => {
         logged = ""; //"<!-- " + {req,res,next} + " -->";
         let tol = typeof(req.body.tol) == 'undefined' ? "0.025" : req.body.tol;
-        res.send(head() + AssetsTable() + '<hr/>' + await AllocTable(tol));
+        res.send(head() + AssetsTable() + '<hr/>' + await AllocTable(tol)
+            + Documentation());
         logged = "<!-- Reset at 63 -->";
         next();
     });  
+
+    let rf = fs.readFileSync("./README.md",{encoding:'utf8'});
+    const readme = rf.substr(rf.lastIndexOf("## Usage"));
+    function Documentation() {
+        return "<div id='Doc'><md-block>"+readme+"</md-block><div>";
+    }
 
     app.post('/', async (req, res, next) => {
         let cmd = [ req.body.data ];
@@ -87,7 +95,8 @@ function Web(man) {
     }
 
     function head(whatElse='') {return "<!DOCTYPE html><head>" + getJQ()
-        + "<script type='text/javascript' src='/js/client.js'></script>\n"
+        + "<script type='module' src='https://md-block.verou.me/md-block.js'></script>\n"
+        + "<script type='text/javascript' src='/js/client.js' defer='defer'></script>\n"
         + "<link rel='stylesheet' href='/js/main.css'>\n"
         + whatElse + "</head>\n"; }
 
@@ -110,7 +119,6 @@ function Web(man) {
         rows[''] = [{key:'AAAA',val:"<th title='Total Value'>"
             +sigdig(total,10,2)+"</th>"}].concat(ktks.map((e,i,a) => { 
                 return { key:e, val:"<th>"+weblink(e)+"</th>" }; }));
-        rows['ZTotal'] = [{key:'AAAA',val:"<th>Totals</th>"}];
         // Add exchange assets to list of "Savings Accounts"
         for(h = 0; h <= Savs.length; ++h) {
             ki = 0;
@@ -132,7 +140,9 @@ function Web(man) {
                 } else tkrs[tkr] += amt;    // Totals for ticker indices.
             }
         }
+        rows['ZTotal'] = [{key:'AAAA',val:"<th>Totals</th>"}];
         ktks = ktks.sort();
+        for(t of ktks) rows['ZTotal'].push({key:t,val:"<th>"+sigdig(tkrs[t],8,2)+"</th>"});
         for(r in rows) { 
             rows[r].sort((a,b)=> { return a.key<b.key ? -1 : 1; });
             let asString = "",rs;

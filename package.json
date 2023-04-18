@@ -1,9 +1,9 @@
 {
   "name": "kraken-grid",
-  "version": "1.1.0",
+  "version": "1.2.3",
   "description": "Bot repeatedly buys & sells on kraken from a conditional close order.",
-  "main": "index.js",
-  "bin": "./index.js",
+  "main": "init.js",
+  "bin": "./init.js",
   "scripts": {
     "test": "ava"
   },
@@ -42,6 +42,7 @@
     "cryptex": "^1.0.1",
     "express": "^4.18.2",
     "express-session": "^1.17.3",
+    "glob": "^10.1.0",
     "http-server": "^14.1.1",
     "kraka-djs": "^1.0.3",
     "prompt-sync": "^4.2.0",
