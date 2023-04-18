@@ -73,9 +73,9 @@ function Web(man) {
         next();
     });  
 
-    let rf = fs.readFileSync("./README.md",{encoding:'utf8'});
-    const readme = rf.substr(rf.lastIndexOf("## Usage"));
     function Documentation() {
+        let rf = fs.readFileSync("./README.md",{encoding:'utf8'}),
+            readme = rf.substr(rf.lastIndexOf("## Usage"));
         return "<div id='Doc'><md-block>"+readme+"</md-block><div>";
     }
 
