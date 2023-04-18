@@ -5,6 +5,11 @@ The current published main branch is NOT production ready.  Please use caution a
 
 This was developed with NodeJS running in the BASH shell provided by Windows 10.  I believe it's using "Windows Subsystem for Linux" and that there are some oddities because of this.  I don't see them as odd because I'm not familiar enough with Linux yet.
 
+**DANGER**
+Well, not really.  I just realized that the testFasterCache.js file is storing information about your account on your computer without encrypting it.  This is intentional because I wanted to test faster by having local answers to queries that normally have to go through Kraken.  The essential problem is that it saves this information whether or not you are testing and I need to rewrite it so that when you're not testing, either it doesn't save it or else it encrypts it first.
+
+I haven't done that yet.
+
 **Please note** * that an asterisk in this ReadMe indicates a change that is NOT on the main branch yet.  I copy this readme from branches when I find things that need to be added to the readme but the code in the branch isn't ready yet.  So if you're looking at this from the main branch, the asterisked items probably do NOT yet apply.
 
 ## Installation
