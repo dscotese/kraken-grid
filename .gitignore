@@ -2,3 +2,4 @@ node-modules/
 node_modules
 TFC
 package-lock.json
+*.swp
