@@ -86,6 +86,7 @@ function Web(man) {
     // console.log( "Received "+cmd);
         res.send(logged);
         console.log = log_original;
+        next();
     });
 
     function getJQ() { 

@@ -31,6 +31,8 @@ This software will save a file `keys.txt` to your home folder.
 ## Usage
 
 ### Web UI
+`web [on|off]` This turns the web User Interface on or off.
+
 This readme is displayed below the main content of the web User Interface.  It contains `code that looks like this` which you can click to send commands to the bot.  You should get an alert containing the bot's response, but this feature is under development, and so that might not work.  You can always copy the command from the prompt and paste it into the console where you issued the `web on` command.
 
 In this section, prospective documentaiton is marked with an asterisk* to indicate features that are being added.  If all is correctly updated, such asterisks will only ever appear in this readme file on branches, and those branches will be where the features are being developed.  This gives devs a handy way to find the specs for a new feature.

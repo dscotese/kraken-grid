@@ -53,7 +53,7 @@ $(function() {
                 txt = t.innerHTML,
                 yn = prompt("Send a command to the bot?",txt);
             if(yn) {
-                botExec(yn,alert);
+                botExec(yn);
             }
         });
     });
