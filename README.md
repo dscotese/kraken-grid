@@ -26,7 +26,11 @@ This software will save a file `keys.txt` to your home folder.
 ### Web UI
 `web [on|off]` This turns the web User Interface on or off.
 
-This readme is displayed below the main content of the web User Interface.  It contains `code that looks like this` which you can click to send commands to the bot.  You should get an alert containing the bot's response, but this feature is under development, and so that might not work.  You can always copy the command from the prompt and paste it into the console where you issued the `web on` command.
+This readme is displayed in the web User Interface.  It contains `code that looks like this` which you can click to send commands to the bot.  If you just tried it, check the console and you will see that it's asking you to "Try code raw"... 
+* Answering with anything that starts with a y will send it to kraken which will reject it.  The error also causes the bot to abandon `auto` mode if it was in auto mode.
+* All other answers will cause process.TESTING to be set to the first word of the command ("code" in this case) and also turn on caching, which saves Kraken's responses in cleartext on your machine.  To prevent that, send the bot `notest` and answer no to trying it raw.  This will set process.TESTING back to false.
+
+For commands that do not prompt you in the console, you should get an alert containing the response.  You can always copy the command from the prompt and paste it into the console where you issued the `web on` command.
 
 In this section, prospective documentaiton is marked with an asterisk* to indicate features that are being added.  If all is correctly updated, such asterisks will only ever appear in this readme file on branches, and those branches will be where the features are being developed.  This gives devs a handy way to find the specs for a new feature.
 
