@@ -767,40 +767,47 @@ console.log({psym,market});
         }
     }
 
-    async function set(p,ur,type,price) {
-        if(ur) {
+    async function set(p,ur,typeOrCount=1,price) {
+        let keepGoing = (ur == '~');
+        if(ur && !keepGoing && price) {
             let gp = p['G'].find(g => g.userref==ur);
             if(!gp) {
                 gp = {userref:Number(ur),buy:'?',sell:'?'};
                 p['G'].push(gp);
             }
             console.log(405,gp);
-            gp[type] = price;
+            gp[typeOrCount] = price;
         }
         p['G'].sort((a,b) => a.userref-b.userref);
-        let profits = 0, retrieved = false, f, data, drc, datad, dbgcount;
-        p['G'].forEach(async (x,xin) => {
+        let profits = 0, f, data, drc, datad, count, once = false,
+            since = ts150;
+        await Promise.all(p['G'].map(async (x,xin) => {
+            since = ts150;
             f = toDec(((x.sell-x.buy)*Math.min(x.bought,x.sold)),2);
-            if(!isNaN(f) && f > 0) profits += f;
-            else if(!retrieved && !x.open) { // We do this once for each call to set
+            if(!isNaN(f) && (once || x.since)) profits += f;
+            else if(!once && !x.open) { // We do this once for each call to set
                            // and remember which grid points are in play so need to stay.
-                retrieved = true;
+                once = true;
                 data = await kapi(['ClosedOrders',{userref:x.userref}]),
                 drc = data.result ? data.result.closed : false;
                 x.bought = 0; x.sold = 0;
                 if(drc) {
-                    dbgcount = data.result.count;
+                    count = data.result.count;
                     for(d in drc) {
                         data = drc[d];
-                        if(data.status == 'closed') {
+                        if(data.status == 'closed' 
+                            && data.descr.ordertype != 'settle-position') {
                             datad = data.descr;
+                            since = Math.min(since,data.closetm);
+                            x.since = since;
                             x[datad.type=='buy'?'bought':'sold'] += Number(data.vol_exec);
                             if(isNaN(x.buy) || isNaN(x.sell) && datad.close) {
                                 x[datad.type] = data.price;
                                 x[datad.type=='buy'?'sell':'buy'] =
                                     Number(datad.close.match(/[0-9.]+/)[0]);
                             }
-                        }
+                        } else if(data.descr.ordertype == 'settle-position') 
+                            console.log({settled:data});
                     }
                     f = toDec(((x.sell-x.buy)*Math.min(x.bought,x.sold)),2);
                     data = p['O'].find(o => {return o.userref==x.userref;});
@@ -811,16 +818,20 @@ console.log({psym,market});
                         profits += f;   // Profits from just-retrieved trades.
                         x.open = true;  // If f was 0 but we did find it in open orders (p['O']).
                     }
-                    console.log("Retrieved",dbgcount,"more closed orders.");
-                    setTimeout(()=>{set(p,ur,type,price);},2000); //Keep collecting.
+                    console.log("Retrieved",count,"more closed orders.");
+                    if(keepGoing && --typeOrCount>0) 
+                        setTimeout(()=>{set(p,'~',typeOrCount);},2000); //Keep collecting.
                 } else console.log(...data.error);
             }
+            let s2 = (new Date((x.since>1?x.since:since)*1000)).toLocaleString();
             console.log(x.userref+': '+x.buy+'-'+x.sell
                 + ((x.bought+x.sold)>0
-                    ? (", bought "+toDec(x.bought,2)+" and sold "+toDec(x.sold,2)+' for ' + f)
+                    ? (", bought "+toDec(x.bought,2)
+                        +" and sold "+toDec(x.sold,2)+' for ' + f
+                        +" since " + s2)
                     : '' ));
-        });
-        console.log("That's "+toDec(profits,2)+" since "+new Date(ts150*1000));
+        }));
+        console.log("That's "+toDec(profits,2)+" altogether.");
     }
 
     function toDec(n,places) {

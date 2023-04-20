@@ -22,6 +22,12 @@ This version stores your API key and secret using your password.  This informati
 This software will save a file `keys.txt` to your home folder. 
 
 ## Usage
+
+### Web UI
+`web [on|off]` This turns the web User Interface on or off.
+
+This readme is displayed below the main content of the web User Interface.  It contains `code that looks like this` which you can click to send commands to the bot.  You should get an alert containing the bot's response, but this feature is under development, and so that might not work.  You can always copy the command from the prompt and paste it into the console where you issued the `web on` command.
+
 In this section, prospective documentaiton is marked with an asterisk* to indicate features that are being added.  If all is correctly updated, such asterisks will only ever appear in this readme file on branches, and those branches will be where the features are being developed.  This gives devs a handy way to find the specs for a new feature.
 
 ### Changing your password
@@ -89,9 +95,11 @@ This simply prints out a list of all the open orders the code last retrieved (it
 If you enter anything for [Search], the list will only display lines that contain what you entered, except in one case, `C`.  If it's just the `C`, it will retrieve the last 50 orders that are no longer open (Filled, Cancelled, or Expired), but only list those that actually executed (Filled).  If you add the userref after `C`, then it will fetch only orders with that userref, which means the buys and sells between one set of prices. Use `set` for a list of the userrefs for the grid points.  Such orders also include the time at which the order filled completely.
 
 #### margin
+`margin`
 Whether or not you use this command, the bot will try to use leverage when there isn't enough USD or crypto.  Whether or not it succeeds, it will still be able to report how much you are long or short for each supported crypto.  Reporting that is all this command does.
 
 #### report
+`report`
 This is the default command, meaning that if you don't enter a command, but you hit enter, this command will execute.  It does several things:
 1. Retrieves balances for the cryptos listed under `buy` and reports the values in a table:
 ```
@@ -110,6 +118,7 @@ XLTC ...
 `show` displays some bot internals which will only be useful to you if you understand the code enough to figure out what passing a parameter to it does.
 
 #### verbose
+`verbose`
 There is a little bit of logic in the code to spit out a lot more information when verbose is on.  It's off by default and this command just toggles it.
 
 #### web
@@ -120,7 +129,7 @@ There is a little bit of logic in the code to spit out a lot more information wh
 `adjust Ticker AllocPct PctPriceRange`
 This feature currently only affects your desired allocation by reading the price history of the selected asset and moving up to AllocPct percent from USD in your savings to the allocation for that asset based on where the current price is within the most recent range that is P% wide.  As you go back in time through the price history, the ratio between the highest and lowest price (high over low) slowly increases, so that at some point, the high will be more than 100+P percent of the low.  If the current price is near the bottom of the range, it makes sense to buy a little more, or increase your allocation.
 
-EXAMPLE: Suppose you have some Litecoin and chose for it to be (at least) 20% of your savings.  You can issue `adjust LTC 5 25`. This will cause lower prices of LTC to increase that 20% allocation for LTC.  How much it goes up depends on where the current price is within the most recent price range in which the highest price was (100 + PctPriceRange =) 125% of the lowest price.  Suppose LTC is at 100, was recently as low as 95, and before that it was at 200.  The most recent price range in which the high was 125% of the low is from 95 to 95*1.25, or 118.75.  The current price of 100 is (100/(118.75-95) = ) 4.2% from the bottom of the range, or 95.8% from the top of the range. The bot will therefore add 95.8% of the (AllocPct =) 5% to your 20% and thus aim to have LTC be (20 + 5*0.958 =) 24.79% of your savings, and USD be 4.79% less than usual.
+EXAMPLE: Suppose you have some Litecoin and chose for it to be (at least) 20% of your savings.  You can issue `adjust LTC 5 25`. This will cause lower prices of LTC to increase that 20% allocation for LTC.  How much it goes up depends on where the current price is within the most recent price range in which the highest price was (100 + PctPriceRange =) 125% of the lowest price.  Suppose LTC is at 100, was recently as low as 95, and before that it was at 200.  The most recent price range in which the high was 125% of the low is from 95 to 95x1.25, or 118.75.  The current price of 100 is (100/(118.75-95) = ) 4.2% from the bottom of the range, or 95.8% from the top of the range. The bot will therefore add 95.8% of the (AllocPct =) 5% to your 20% and thus aim to have LTC be (20 + 5x0.958 =) 24.79% of your savings, and USD be 4.79% less than usual.
 
 As LTC bumps around near the price of 100, you will be trading more of it and thus make more profit from round trips.
 
@@ -166,6 +175,7 @@ _Collecting profit data:_ If you issue `set ~ [N]` the bot will go through the g
 `risky` is intended to give you access to features that are, well, risky!
 
 #### reset
+`reset`
 This erases the list of `userref`s and prices at which buys and sells will be placed, but that list gets immediately rebuilt because it performs the second step in `report`.
 
 #### auto
@@ -185,6 +195,7 @@ When the bot starts, it is in "safe" mode, which means that it will not __actual
 
 ### Experimental features (Not Recommended and not well tested)
 #### ws - EXPERIMENTAL
+`ws`
 This connects to Kraken's WebSockets, which, I have to warn you, send you something about every second, and sometimes silently disconnects.
 
 ## Internals

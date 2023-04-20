@@ -403,7 +403,7 @@ function Manager(b) {
         // ---------------------
         portfolio.Savings.forEach(sav => {total.add(savings(sav))});
         
-        console.log(total.list("OffExchange", true));
+    // console.log(total.list("OffExchange", true));
         // Add Exchange assets to total.
         // -----------------------------
         for(sym in portfolio) {
