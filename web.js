@@ -67,8 +67,8 @@ function Web(man) {
     app.get('/', async (req, res, next) => {
         logged = ""; //"<!-- " + {req,res,next} + " -->";
         let tol = typeof(req.body.tol) == 'undefined' ? "0.025" : req.body.tol;
-        res.send(head() + AssetsTable() + '<hr/>' + await AllocTable(tol)
-            + Documentation());
+        res.send(head() + Documentation() + AssetsTable() 
+            + await AllocTable(tol));
         logged = "<!-- Reset at 63 -->";
         next();
     });  
@@ -76,7 +76,7 @@ function Web(man) {
     function Documentation() {
         let rf = fs.readFileSync("./README.md",{encoding:'utf8'}),
             readme = rf.substr(rf.lastIndexOf("## Usage"));
-        return "<div id='Doc'><md-block>"+readme+"</md-block><div>";
+        return "<div id='Doc'><md-block>"+readme+"</md-block></div>";
     }
 
     app.post('/', async (req, res, next) => {
@@ -121,6 +121,7 @@ function Web(man) {
             +sigdig(total,10,2)+"</th>"}].concat(ktks.map((e,i,a) => { 
                 return { key:e, val:"<th>"+weblink(e)+"</th>" }; }));
         // Add exchange assets to list of "Savings Accounts"
+        for(t in tkrs) { tkrs[t] = 0; };
         for(h = 0; h <= Savs.length; ++h) {
             ki = 0;
             sav = h == Savs.length
@@ -133,7 +134,7 @@ function Web(man) {
                 [tkr,amt] = [assets[a].ticker,assets[a].amount];
                 rows[label].push({key:tkr,
                     val:"<td tkr='"+tkr+"' acct='"+label+"' amt='"+amt+"'>"+amt+"</td>"});
-                if(!tkrs[tkr]) {
+                if(isNaN(tkrs[tkr])) {
                     tkrs[tkr]=amt;          // Initialized.
                     rows[''].push({key:tkr, val:"<th>" + weblink(tkr) + "</th>"});
                     ktks.push(tkr);

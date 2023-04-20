@@ -1,16 +1,18 @@
 td, th {
-  width: 60;
   border: 1px solid;
 }
 table {
   border-collapse: collapse;
   text-align: left;
+  float: right;
 }
 #Diff td, #Prices td {
   color: blue;
 }
 #Doc {
     overflow: scroll;
-    max-height: 1000px;
-    max-width: 800px;
+    height: 500px;
+    width: 400px;
+    resize: both;
+    float: left;
 }

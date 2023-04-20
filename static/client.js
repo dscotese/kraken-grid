@@ -17,25 +17,7 @@ $(function() {
                 (r) => {alert(r); location.reload();});
         }
     });
-    
-    $("#Diff td").on('click',(data) => {
-        let t = data.target,
-            cmd = t.getAttribute('title'),
-            ask = "Send `"+cmd+"` to bot (y/n)?",
-            yn = prompt(ask,'n');
-        if(yn && yn.toLowerCase() == 'y') 
-            botExec(cmd);
-    });
-
-    $("#Prices td").on('click',(data) => {
-        let t = data.target,
-            cmd = t.getAttribute('title'),
-            ask = "Send this command to bot?",
-            yn = prompt(ask,cmd);
-        if(yn && yn.toLowerCase() == 'y') 
-            botExec(cmd,r => { alert(r); location.reload(); });
-    });
-
+    $("#Diff td,#Prices td").on('click',(e)=>t2Command(e));
     $("th#tol").on('click',(data) => {
         let tol = Number(data.target.innerHTML);
         newTol = prompt("Set balancing tolerance to:",tol);
@@ -59,6 +41,13 @@ $(function() {
     });
 });
 
-function botExec(cmd,cb=(r)=>{alert(r);location.reload()}) {
-    $.post('/',{data:cmd},cb);
+function t2Command(e) {
+    let t = e.target,
+        def = t.getAttribute('title'),
+        cmd = prompt("Send command to bot?",def);
+    if(cmd) botExec(cmd);
+}
+
+function botExec(cmd) {
+    $.post('/',{data:cmd},(r) => { alert(r); location.reload();});
 }
