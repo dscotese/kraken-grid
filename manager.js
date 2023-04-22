@@ -368,7 +368,7 @@ function Manager(b) {
                 }
             } else {
                 ret = await handleArgs(bot, bot.portfolio, args, 0);
-                console.log(ret);
+                if(bot.FLAGS.verbose) console.log(ret);
             }
             //}
             // Wait a sec for the nonce

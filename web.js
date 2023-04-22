@@ -67,11 +67,35 @@ function Web(man) {
     app.get('/', async (req, res, next) => {
         logged = ""; //"<!-- " + {req,res,next} + " -->";
         let tol = typeof(req.body.tol) == 'undefined' ? "0.025" : req.body.tol;
-        res.send(head() + Documentation() + AssetsTable() 
+        res.write(head() + Documentation() + AssetsTable() 
             + await AllocTable(tol));
+        marshalOrders(res);
+        res.end();
         logged = "<!-- Reset at 63 -->";
         next();
-    });  
+    }); 
+
+    function marshalOrders(res) {
+        res.write("<script type='text/javascript'>\nconst orders=\n"
+            + "JSON.parse('" + JSON.stringify(bot.portfolio['O']) 
+            + "');\n</script>\n<table><tr><th>ID</th><th>Type</th><th>Units</th>"
+            + "<th>Pair</th><th>Price</th><th>UserRef</th><th>Close</th></tr>");
+        let oo, od, odo, parsed;
+        bot.portfolio['O'].forEach((o,i) => {
+            oo = o[1];
+            od = oo.descr;
+            odo = od.order;
+            parsed = odo.split(' ');
+            ret += "\n<tr>" + tag('td',Number(i+1)) + tag('td',parsed[0]) 
+                + tag('td',parsed[1])+tag('td',parsed[2]) + tag('td',parsed[5])
+                + tag('td',oo.userref) + tag('td',od.close.match(/[0-9.]+$/)) + '</tr>';
+        });
+        res.write(ret + "</table>");
+    }
+
+    function tag(name,inner) { 
+        return '<'+name+'>'+inner+'</'+name+'>';
+    }
 
     function Documentation() {
         let rf = fs.readFileSync("./README.md",{encoding:'utf8'}),
@@ -183,7 +207,6 @@ function Web(man) {
             prices = "<tr id='Prices'><th>Prices</th>",
             c,d,del,tt,price;
         for(t in tkrs) { 
-console.log(t);
             ret += "<th>"+t+"</th>";
             current += "<td>"+(c=await getAlloc(t,allocs.current))+"%</td>";
             desired += "<td>"+(d=await getAlloc(t,allocs.desired))+"%</td>";

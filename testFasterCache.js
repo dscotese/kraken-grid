@@ -42,7 +42,7 @@ function TFC(verbose = false) {
         .toJSON().replaceAll(':','-').slice(0,-5)+".json";
 
     try {
-        if( slf = fs.readFileSync(lastFile).toString() ) {
+        if( slf = fs.readFileSync(lastFile).toString().trim() ) {
             console.log("Trying Cache:",slf);
             cached = JSON.parse(fs.readFileSync(path.join(base,slf)));
         }
@@ -87,7 +87,7 @@ function TFC(verbose = false) {
 
     // Pass an array of IDs to prevent calls from being cached.
     // --------------------------------------------------------
-    function noCache(IDs) { dontCache = IDs; }
+    function noCache(IDs) { dontCache.concat(IDs); }
 
     // Pass an array of IDS that were sent to noCache so they
     // will be cached again.

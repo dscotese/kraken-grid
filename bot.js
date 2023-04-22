@@ -543,7 +543,6 @@ console.log("Creating Exchange Savings:",assets);
         let lev = 'none',
             pnum = portfolio.Numeraire,
             psym = Bot.findPair(market,pnum,1).base;
-console.log({psym,market});
         if(buysell == 'buy') {
             if(1*price > 1*portfolio[psym][1] && posP)
                 return "Buying "+market+" @ "+price+" isn't a limit order.";
@@ -853,7 +852,13 @@ console.log({psym,market});
             ? (Array.from(portfolio.Pairs)).sort().join().replace(/,,+|^,|,$/g,',') 
             : 'XXBTZUSD'}]);
 
-        let price, ts, zeroes = [];
+        let price, ts, zeroes = [], mCosts = [];
+        // Sometimes the first request for balances lists a quote from
+        // a margin position  after the position's crypto, and this
+        // means portfolio[quote-symbol] doesn't yet exist, so we can't
+        // adjust it to reflect the position.  We keep track of those
+        // position costs in mCosts.
+        // ------------------------------------------------------------
         for( const p in bal.result ) {
             let sym = p,
                 amt = toDec(bal.result[p],4),q;
@@ -866,17 +871,21 @@ console.log({psym,market});
                     price = 1;
                 }
                 price = toDec(price,(sym=='EOS'?4:2));
-                portfolio[sym]=[amt,price,amt,amt]; // holdings w/reserves, price, holdings w/o reserves
+                portfolio[sym]=[amt,price,amt,amt];
+                // holdings w/reserves, price, holdings w/o reserves
                 // [3] will include reserves and margin:
                 if(mar[sym]) {
                     portfolio[sym][0] = toDec(portfolio[sym][0]+mar[sym].open,4);
                     portfolio[sym][3] = amt + Number(mar[sym].open);
                     q = Bot.findPair(mar[sym].pair,'',1).quote;
-                    portfolio[q][3]+=(mar[sym].open < 0 ? 1 : -1)*mar[sym].cost;
+                    mCosts[q]+=(mar[sym].open < 0 ? 1 : -1)*mar[sym].cost 
+                        + (mCosts[q] || 0);
                 }
                 if(showBalance) console.log(p+"\t"+w(portfolio[sym][0],16)+price);
             } else zeroes.push(p);
         }
+        for(sym in mCosts) { portfolio[sym][3] += mCosts[sym]; }
+
         // The price of the numeraire is always 1
         // --------------------------------------
         portfolio[portfolio.Numeraire][1] = 1;
@@ -901,7 +910,12 @@ console.log({psym,market});
         cli.apl = 2;
     }
 
-    function w(n,x) { let s = n.toString(); return s+' '.repeat(x-s.length); }
+    function w(n,x) { 
+        let s = n.toString(); 
+        return x>s.length 
+            ? s+' '.repeat(x-s.length)
+            : s; 
+        }
 
     async function marginReport(show = true) {
         let positions = await kapi(['OpenPositions',{consolidation:"market",ctr:2}]);
@@ -912,14 +926,12 @@ console.log({psym,market});
                     pair = Bot.findPair(pos.pair,'',1),
                     sym = pair.base,
                     cost = Number(pos.cost);
-console.log("sym is",sym);
                 vol = toDec(vol,8);
                 brief[sym] = {
                     open:       vol,
                     pair:        pos.pair,
                     cost:       cost,
                     margin:     pos.margin };
-console.log("brief is",brief,"and sym is",sym);
             });
             if(show) console.log(475,brief);
         }
