@@ -78,19 +78,7 @@ function Web(man) {
     function marshalOrders(res) {
         res.write("<script type='text/javascript'>\nconst orders=\n"
             + "JSON.parse('" + JSON.stringify(bot.portfolio['O']) 
-            + "');\n</script>\n<table><tr><th>ID</th><th>Type</th><th>Units</th>"
-            + "<th>Pair</th><th>Price</th><th>UserRef</th><th>Close</th></tr>");
-        let oo, od, odo, parsed;
-        bot.portfolio['O'].forEach((o,i) => {
-            oo = o[1];
-            od = oo.descr;
-            odo = od.order;
-            parsed = odo.split(' ');
-            ret += "\n<tr>" + tag('td',Number(i+1)) + tag('td',parsed[0]) 
-                + tag('td',parsed[1])+tag('td',parsed[2]) + tag('td',parsed[5])
-                + tag('td',oo.userref) + tag('td',od.close.match(/[0-9.]+$/)) + '</tr>';
-        });
-        res.write(ret + "</table>");
+            + "');\n</script>\n<div id='oDiv'></div>");
     }
 
     function tag(name,inner) { 

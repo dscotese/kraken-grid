@@ -124,7 +124,8 @@ function TFC(verbose = false) {
     // -----------------------------------------------------------
     function store(fNameOrID,argsOrReply,reply=false) {
         if(!process.TESTING) {
-            console.log("Caching requires process.TESTING to evaluate to true.");
+            if(verbose) 
+                console.log("Caching requires process.TESTING to evaluate to true.");
             return;
         }
         let ri = reply 
