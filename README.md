@@ -13,7 +13,8 @@ This version stores your API key and secret using your password.  This informati
    - 1.3 Click "API" in the list of options under Security.
    - 1.4 Choose the "Add Key" link.
    - 1.5 We recommend that you give your key a better description.
-   - 1.6 We recommend that you record this set of codes (a key and a private key, called "Secret" in kraken-grid).
+   - 1.6 Check the "Query Funds" box under "Funds" and all the boxes under "Orders & Trades".
+   - 1.7 We recommend that you record this set of codes (a key and a private key, called "Secret" in kraken-grid).
 2. Install [NodeJS](https://nodejs.org/)
 3. Run `npm -g install kraken-grid` from a command line ("Command Prompt", "Terminal Window", or "Shell").
 
