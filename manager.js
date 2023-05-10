@@ -360,7 +360,8 @@ function Manager(b) {
                 else console.log({Portfolio:bot.portfolio,Bot});
             } else if(args[0] == 'web') {
                 if(args[1]) {
-                    if(args[1].toUpperCase() == 'ON') web.start();
+                    if(args[1].toUpperCase() == 'ON') 
+                        args[2]?web.start(args[2]):web.start();
                     else if(args[1].toUpperCase() == 'OFF') web.stop();
                 } else {
                     console.log("Usage: web [on|off]\n"

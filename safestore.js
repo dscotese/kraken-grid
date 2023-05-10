@@ -1,8 +1,10 @@
-function Safestore(pwp = 'abc123', fn = 'keys') {
+function Safestore(pwp = 'abc123') {
     console.log(process.TESTING
         ? "Running in TEST mode."
         : "Running in PRODUCTION mode.");
 
+    const tfc = require('./testFasterCache.js')(process.TESTING);
+    let fn = tfc.hashArg(pwp);
     const fs = require('fs');
     const path = require('path');
     const cryptex = require('cryptex');
@@ -16,6 +18,10 @@ function Safestore(pwp = 'abc123', fn = 'keys') {
     const pw = (!process.TESTING || !fs.existsSync(keyFile))
         ? prompt("Enter your password (or a new one): ",{echo:'*'})
         : pwp;
+    if(pw != pwp) { // New Password means new file.
+        fn = tfc.hashArg(pw);
+        keyFile = path.join(homeDir,(process.TESTING ? 'test' : '') + fn + '.txt');
+    }
 
     let file = keyFile,
         persistent;

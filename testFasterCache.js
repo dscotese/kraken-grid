@@ -17,8 +17,8 @@
     are safe from stringify's failures to faithfully represent some JS
     objects.
 */
-function TFC(verbose = false) {
-    const base = "TFC";
+function TFC(verbose = false,id = '') {
+    const base = "TFC"+id;
     const fs = require('fs');
     const path = require('path');
     let lastFile = path.join(base,"lastFile.txt");

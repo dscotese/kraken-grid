@@ -22,7 +22,7 @@ async function OpenEx(base = 'ZUSD', cacheSeconds = 3600) {
     return {price};
 }
 if(!Bot.extra.OpenEx_app_id) {
-    Bot.s.save({OpenEx_app_id:prompt('Enter your OpenExchangeRates App ID:')});
+    Bot.s.save({OpenEx_app_id:prompt('Enter your OpenExchangeRates App ID:','N/A')});
 }
 const app_id = Bot.extra.OpenEx_app_id;
 module.exports = function (Savings) {
