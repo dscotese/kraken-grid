@@ -1,5 +1,27 @@
 const $ = jQuery;
-
+var data, tkrs = [];
+let G = galloc($('#myCanvas')[0].getContext("2d"));
+// To get the thumbnails for cryptos, I:
+// 1. Visited https://min-api.cryptocompare.com/data/v2/pair/mapping/exchange?e=Kraken
+//    which requires one more parameter (api_key).  Visit the site to get one if you want your
+//    own list.  The result was assigned as the value of ccsyms.
+// 2. Executed this Javascript in the console of my browser:
+//  usym = new Set();
+//  ccsyms.Data.current.forEach((s)=>{
+//      if(s.exchange_fsym != s.fsym) usym.add(s.exchange_fsym+':'+s.fsym);
+//  });
+//  kccmap = {};
+//  Array.from(usym).forEach((s)=>{
+//      let [kraken,cc] = s.split(':'); kccmap[kraken]=cc;
+//  });
+//  JSON.stringify(kccmap);
+// 3. Assigned the resulting string to kccmap in the function here get the cryptocompare
+//    symbol for the cryptos displayed in the pie charts so that I could call
+//    https://data-api.cryptocompare.com/asset/v1/data/by/symbol?asset_symbol=DOGE (also
+//    with that api_key) to get Data.URI out of the returned object and use that value
+//    at the end of https://api.coingecko.com/api/v3/coins/ to get another object
+//    o so that I could get the thumbnail image URL with o.image.thumb.  That URL is
+//    the src of a hidden image element which is used in createPattern.
 function setCookie(cname, cvalue, exdays) {
     const d = new Date();
     d.setTime(d.getTime() + (exdays*24*60*60*1000));
@@ -23,26 +45,177 @@ function getCookie(cname) {
     return "";
 }
 
-
-$(function() {
-    let wst=0, docXY = getCookie('DocXY'),
+/*
+function useThumb(ktick, cb) {
+    const kccmap = {"XETC":"ETC","XETH":"ETH","XICN":"ICN",
+        "XLTC":"LTC","XMLN":"MLN","XXBT":"BTC","XXDG":"DOGE",
+        "XXLM":"XLM","XXMR":"XMR","XXRP":"XRP","XZEC":"ZEC",
+        "XBT":"BTC","XDG":"DOGE","LUNA":"LUNC","UST":"USTC",
+        "LUNA2":"LUNA","PARA":"PARALL","REPV2":"REP"};
+    $.getJSON('https://data-api.cryptocompare.com/asset/v1/data/by/symbol?asset_symbol='
+        + kccmap[ktick], function (data) => { cb(data.
+*/
+function setSize(id) {
+    let docXY = getCookie(id+'XY'),
         [docw,doch] = docXY.split('.'),
-        jqdd = $('#Doc'),
+        jqdd = $('#'+id),
         docdiv = jqdd[0];
         sw = docdiv.offsetWidth-docdiv.clientWidth,
         sh = docdiv.offsetHeight-docdiv.clientHeight;
+    docw = Math.max(docw,200);
+    doch = Math.max(doch,200);
     jqdd.width(Number(docw) + sw);
-    jqdd.height(Number(doch) + sh);
- 
-    (new ResizeObserver( (entries) => { 
-        window.clearTimeout(wst); 
-        wst = window.setTimeout( () => {
-            docw = entries[0].contentRect.width;
-            doch = entries[0].contentRect.height;
-            setCookie("DocXY",docw+'.'+doch,3650);
-            },1000);
-        })).observe($('#Doc')[0]);
+    if(!['LDiv'].includes(id)) jqdd.height(Number(doch) + sh);
+}
 
+$(function() {
+    ['Doc','GDiv','LDiv'].forEach(setSize);
+    let wst=0,
+         ro = new ResizeObserver( (entries) => { 
+            window.clearTimeout(wst); 
+            let e = entries[0],
+                id = e.target.id;
+            wst = window.setTimeout( () => {
+                docw = e.contentRect.width;
+                doch = e.contentRect.height;
+                setCookie(id+"XY",docw+'.'+doch,3650);
+                if(e.target.id == 'GDiv') PieDiv();
+                },1000);
+            if(e.target.id == 'GDiv') PieDiv();
+            console.log("Resize ",id);
+        });
+    ro.observe($('#Doc')[0]);
+    ro.observe($('#GDiv')[0]);
+    ro.observe($('#LDiv')[0]);
+    $('md-block').on('md-render',() => {
+        $('#Doc code').on('click',(data) => {
+            let t = data.target,
+                txt = t.innerHTML,
+                yn = prompt("Send a command to the bot?",txt);
+            if(yn) {
+                botExec(yn);
+            }
+        });
+    });
+    armAssets();
+    armAlloc();
+    window.setInterval(getData, 60000);
+    getData();
+});
+
+function getData() {
+    $.ajax({
+        url: '/data', 
+        dataType: 'json',
+        success: (dataR) => { useData(dataR); },
+        error: (jqXHR, textStatus, error) => { throw error; }
+        });
+}
+
+function PieDiv() { //canvasHolder=false) { // Pass the JQuery object that selects the div.
+    canvasHolder = false;
+    let can = $('#myCanvas')[0],
+        c = data.current,
+        d = data.desired,
+        w = Number($('#GDiv')[0].style.width.match(/[0-9]+/)[0]),
+        h = Number($('#GDiv')[0].style.height.match(/[0-9]+/)[0]),
+        Cslices = [],
+        Dslices = [];
+    $(can)[0].width=w;
+    $(can)[0].height=h;
+    G.clear();
+    G.pie(Object.keys(d),Object.values(d),-w/4,0, true);
+    G.pie([],Object.values(c),w/4,0, false);
+}
+
+function useData(d) {
+    data = d;
+    let assets  = AssetsTable(),
+        allocs  = AllocTable(),
+        ords    = OrderTable();
+    PieDiv();
+    $('#LDiv').html('').append(a1 = document.createElement("div"));
+    $('#RDiv').html('').append(o1 = document.createElement("div"));
+    $('#LDiv').append(a2 = document.createElement("div"));
+    a1.innerHTML = assets;
+    a2.innerHTML = allocs;
+    o1.innerHTML = ords;
+    armAssets();
+    armAlloc();
+    armOrderTable();
+}
+    
+function sigdig(x,sig=6,dp=6) {
+    let sd = Math.min(dp,Math.floor(sig-Math.log10(Math.abs(x)))),
+        mag = 10**sd;
+    return Math.round(mag*x)/mag;
+}
+
+function weblink(tkr) {
+    if(tkr == data.numer) return data.numer;
+    return "<a href='https://trade.kraken.com/charts/KRAKEN:" +
+        (tkr[0] == 'X' && tkr.length == 4
+            ? tkr.substr(1) : tkr) +
+        "-" + data.numer.substr(1)
+        +"' target='chart'>"+tkr+"</a>";
+}
+
+function AssetsTable() {
+    let Savs = data.savings,assets,
+        total = data.total,
+        tbody = "",
+        ktks = tkrs ? Object.keys(tkrs) : [],
+        ret = "",rows = [], // rows is an associative array of object arrays.
+        tkr,amt,ki,label,tkrl,sav; // ktks is "Known Tickers"
+    rows[''] = [{key:'AAAA',val:"<th title='Total Value'>"
+        +sigdig(total,10,2)+"</th>"}].concat(ktks.map((e,i,a) => {
+            return { key:e, val:"<th>"+weblink(e)+"</th>" }; }));
+    // Add exchange assets to list of "Savings Accounts"
+    for(t in tkrs) { tkrs[t] = 0; };
+    for(h = 0; h <= Savs.length; ++h) {
+        ki = 0;
+        sav = h == Savs.length
+            ? data.exsaves
+            : Savs[h];
+        label = sav.label;
+        assets = sav.assets.sort((a,b)=>{return a.ticker<b.ticker?-1:1;});
+        rows[label] = [{key:'AAAA',val:"<th>"+label+"</th>"}];
+        for(a = 0; a < assets.length; ++a) {
+            [tkr,amt] = [assets[a].ticker,assets[a].amount];
+            rows[label].push({key:tkr,
+                val:"<td tkr='"+tkr+"' acct='"+label+"' amt='"+amt+"'>"+amt+"</td>"});
+            if(isNaN(tkrs[tkr])) {
+                tkrs[tkr]=amt;          // Initialized.
+                rows[''].push({key:tkr, val:"<th>" + weblink(tkr) + "</th>"});
+                ktks.push(tkr);
+                ki += 1;
+            } else tkrs[tkr] += amt;    // Totals for ticker indices.
+        }
+    }
+    rows['ZTotal'] = [{key:'AAAA',val:"<th>Totals</th>"}];
+    ktks = ktks.sort();
+    for(t of ktks) rows['ZTotal'].push({key:t,val:"<th>"+sigdig(tkrs[t],8,2)+"</th>"});
+    for(r in rows) {
+        rows[r].sort((a,b)=> { return a.key<b.key ? -1 : 1; });
+        let asString = "",rs;
+        ki = 0;
+        for(s in rows[r]) {
+            rs = rows[r][s];
+            if(rs.key != 'AAAA') {
+                while(ki<ktks.length && ktks[ki++] != rs.key) asString += "<td></td>";
+            }
+            asString += rs.val;
+        }
+        // <td>s needed at the end
+        let tail = ktks.length - ktks.findIndex(e=>{return e==rows[r].at(-1).key;});
+        asString += "<td></td>".repeat(tail-1);
+        tbody += "<tr>" + asString + "</tr>\n";
+    }
+    ret = "<table id='assets'>"+tbody+"</table>";
+    return ret;
+}
+
+function armAssets() {
     $("#assets td").on('click',(data) => {
         let t = data.target,
             acct = t.getAttribute('acct'),
@@ -59,6 +232,39 @@ $(function() {
                 (r) => {alert(r); location.reload();});
         }
     });
+}
+
+async function getAlloc(tkr,alloc) {
+    let ret = await alloc.atarg(tkr); //lloc.assets.find(a=>{return a.ticker==tkr;});
+    return ret ? sigdig(100*ret,5,2) : 0;
+}
+function AllocTable(tol) {
+    let ret = "<table id='alloc'><tr><th colspan='"
+        + (1+Object.keys(tkrs).length)
+        + "'>Allocation Last Update: " + new Date
+        + "</th></tr>\n<tr id='tkrs'><th id='tol' title='Balance Tolerance'>"+tol+"</th>",
+        current="<tr id='current'><th>Current</th>",
+        desired="<tr id='desired'><th>Desired</th>",
+        diff = "<tr id='Diff'><th>Difference</th>",
+        prices = "<tr id='Prices'><th>Prices</th>",
+        c,d,del,tt,price;
+    for(t in tkrs) {
+        ret += "<th>"+t+"</th>";
+        current += "<td>"+(c=data.current[t])+"%</td>";
+        desired += "<td>"+(d=data.desired[t])+"%</td>";
+        price = data.tickers[t][1];
+        prices += "<td title='balance "+tol+' '+t+"'>"+price+"</td>";
+        del = d-c;
+        tt = (del > 0 ? 'buy ' : 'sell ')+t+' '+price+' '
+            +(sigdig((Math.abs(del/100)*data.total/price),6,8));
+        diff += "<td title='"+tt+"'>"+sigdig(del,5,2)+"</td>";
+    };
+    ret += "</tr>\n"+current+"</tr>\n"+desired+"</tr>\n"+diff+"</tr>\n"
+        + prices + "</tr></table>";
+    return ret;
+}
+
+function armAlloc() {
     $("#Diff td,#Prices td").on('click',(e)=>t2Command(e));
     $("th#tol").on('click',(data) => {
         let tol = Number(data.target.innerHTML);
@@ -71,27 +277,26 @@ $(function() {
             });
         }
     });
-    $('md-block').on('md-render',() => {
-        $('#Doc code').on('click',(data) => {
-            let t = data.target,
-                txt = t.innerHTML,
-                yn = prompt("Send a command to the bot?",txt);
-            if(yn) {
-                botExec(yn);
-            }
-        });
-    });
-    $('#oDiv')[0].innerHTML = OrderTable();
-    armOrderTable();
-});
+}
 
-var ordSort = '';
+var ordSort = 'ID';
 function OrderTable() {
-    let oo, od, odo, parsed, ret = "<table><tr><th>ID</th><th>Type</th><th>Units</th>"
+    let neg = (ordSort[0]=='-'),
+        oo, od, odo, parsed, ret = "<table id='oDiv'><tr><th>ID</th><th>Type</th>"
+            + "<th>Units</th>"
             + "<th>Pair</th><th>Price</th><th>UserRef</th><th>Close</th></tr>";
-    orders.forEach((o,i) => {
+    data.orders.forEach((o,i) => {
         oo = o[1];
         oo['ID'] = oo['ID'] || i+1;
+    });
+    data.orders.sort((a,b) => {
+        let aval = orderCompare(ordSort, a),
+            bval = orderCompare(ordSort, b);
+        return (neg ? -1 : 1) * (aval < bval ? -1 :
+            (aval == bval ? 0 : 1));
+    });
+    data.orders.forEach((o,i) => {
+        oo = o[1];
         od = oo.descr;
         odo = od.order;
         parsed = odo.split(' ');
@@ -110,12 +315,6 @@ function armOrderTable() {
         if(!rowCommand(e)) {
             let neg = e.target.innerHTML == ordSort;
             ordSort = (neg ? '-' : '') + e.target.innerHTML;
-            orders.sort((a,b) => {
-                let aval = orderCompare(ordSort, a),
-                    bval = orderCompare(ordSort, b);
-                return (neg ? -1 : 1) * (aval < bval ? -1 :
-                    (aval == bval ? 0 : 1));
-            });
             $('#oDiv')[0].innerHTML = OrderTable();
             armOrderTable();
         }
@@ -125,9 +324,11 @@ function armOrderTable() {
 function rowCommand(e) {
     if(!['less','more','kill','addlev','delev'].includes(e.target.innerHTML)) return false;
     let t = e.target,
+        fc = t.parentNode.firstChild,
+        KID = fc.getAttribute('title').split(',')[0],
         ID = t.parentNode.firstChild.innerHTML,
         cmd = t.innerHTML,
-        params = ' ' + ID + ' ' + (['less','more'].includes(cmd)
+        params = ' ' + (cmd=='kill'?KID:ID) + ' ' + (['less','more'].includes(cmd)
             ? "(amt) all?" : "");
         t.setAttribute('title',cmd + params);
     t2Command(e);
@@ -136,14 +337,17 @@ function rowCommand(e) {
 
 function orderCompare(th, order) {
     // ID	Type	Units	Pair	Price	UserRef	Close
+    let od = order[1].descr;
     switch(th[0]=='-' ? th.substr(1) : th) {
         case 'ID' : return order[1].opentm;
-        case 'Type' : return order[1].descr.type;
+        case 'Type' : return od.type;
         case 'Units' : return Number(order[1].vol);
-        case 'Pair' : return order[1].descr.pair;
-        case 'Price' : return Number(order[1].descr.price);
+        case 'Pair' : return od.pair;
+        case 'Price' : return Number(od.price);
         case 'UserRef' : return order[1].userref;
-        case 'Close' : return Number(order[1].descr.close.match(/[0-9.]+$/)[0]);
+        case 'Close' : return od.close>""
+            ? Number(od.close.match(/[0-9.]+$/)[0])
+            : 'NA';
     }
     return 0;
 }
@@ -156,5 +360,5 @@ function t2Command(e) {
 }
 
 function botExec(cmd) {
-    $.post('/',{data:cmd},(r) => { alert(r); location.reload();});
+    $.post('/',{data:cmd},(r) => { alert(r); getData();});
 }

@@ -36,6 +36,7 @@ if(FLAGS.verbose) console.log(p);
             portfolio.Allocation = Allocation(
                 (p.Alloc && (0<Object.keys(p.Alloc).length)) ? p.Alloc : false); 
             portfolio.Pairs = new Set(Array.isArray(p.Pairs) ? p.pairs : []);
+            portfolio.Tickers = new Set();
             portfolio.Numeraire = p.Numeraire || 'ZUSD';
             portfolio.limits = p.limits ? p.limits : [0,-1];
             portfolio.lastUpdate = p.lastUpdate ? p.lastUpdate : null;
@@ -55,7 +56,6 @@ if(FLAGS.verbose) console.log(p);
                 assets.push({ticker:key,amount:toDec(portfolio[key][3],4)});
             }
         }
-console.log("Creating Exchange Savings:",assets);
         return Savings({assets,label:'OnExchange'});
     }
 
@@ -136,7 +136,7 @@ console.log("Creating Exchange Savings:",assets);
 
     function whoami() { return whoami.caller.name; }
 
-    const tfc = require('./testFasterCache.js')(process.TESTING);
+    const tfc = require('./testFasterCache.js')(process.TESTING,process.argv[2]);
     async function kapi(arg,sd=5) {
         let ret;
         if(['args',whoami()].includes(process.TESTING)) console.log(whoami(),"called with ",arguments);
@@ -270,9 +270,10 @@ console.log("Creating Exchange Savings:",assets);
                 r3 = await kapi(['ClosedOrders',{ofs:100}]),
                 closed = {...response.result.closed, 
                     ...r2.result.closed, 
-                    ...r3.result.closed };
-            if(closed) {
-                ts150 = closed[Object.keys(closed).pop()].closetm;
+                    ...r3.result.closed },
+                closedIDs = Object.keys(closed);
+            if(closed && closedIDs.length > 0) {
+                ts150 = closed[closedIDs.pop()].closetm;
                 for(var o in closed) {
                     let oo = closed[o],
                         od = oo.descr,
@@ -872,6 +873,7 @@ console.log("Creating Exchange Savings:",assets);
                 }
                 price = toDec(price,(sym=='EOS'?4:2));
                 portfolio[sym]=[amt,price,amt,amt];
+                portfolio.Tickers.add(sym);
                 // holdings w/reserves, price, holdings w/o reserves
                 // [3] will include reserves and margin:
                 if(mar[sym]) {
@@ -884,6 +886,11 @@ console.log("Creating Exchange Savings:",assets);
                 if(showBalance) console.log(p+"\t"+w(portfolio[sym][0],16)+price);
             } else zeroes.push(p);
         }
+        // A new account might not have any units of the numeraire.  Mine didn't.
+        // The code relies on the existing balance to create the property in
+        // the portfolio, so we do it manually if it isn't there yet.
+        // ----------------------------------------------------------------------
+        if(!portfolio[portfolio.Numeraire]) portfolio[portfolio.Numeraire] = [0,1,0,0];
         for(sym in mCosts) { portfolio[sym][3] += mCosts[sym]; }
 
         // The price of the numeraire is always 1
