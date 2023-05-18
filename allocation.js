@@ -225,7 +225,7 @@ module.exports = (j=false) => { // Allocation object constructor
         // Check limits
         // ------------
         let sumTotal = nPrice*amt, of = 0;
-        if(sumTotal > bot.portfolio.limits[1]) {
+        if(sumTotal > bot.portfolio.limits[1] && bot.portfolio.limits[1]!=-1) {
             of = amt;
             amt = amt*bot.portfolio.limits[1]/(1.001*sumTotal); // allow 1/1000 leeway
             console.log(sumTotal,"is more than",bot.portfolio.limits[1]+
@@ -391,18 +391,21 @@ module.exports = (j=false) => { // Allocation object constructor
                 ? '\t' + compare.name + '\tdiff' + '\t'
                 : '') + "Total: "+total;
         assets.forEach((a) => {
-// console.log("Getting",a);
+ // console.log("Getting",a);
             get(a.ticker);  // Forces an update
             let t = Math.round(1000*a.target)/10,
                 at = atargs[a.ticker],
-                atd = Math.round(1000*at)/10,
-                ctarg = compare ? compare.alloc.get(a.ticker).target : 0,
-                diff = compare ? pct(ctarg - at) : 0,
-                trade = (diff < 0 ? 'Buy ' : 'Sell ') + 
-                    Math.round(Math.abs(diff)*total*100)/10000;
-            str = str + "\n" + a.ticker + "\t" + t + "%\t" + atd + '%\t'
-                +(a.adjust ? ranges[a.ticker].map(price7) : '\t') + '\t'
-                +(compare ? pct(ctarg)+'%\t'+trade : '');
+                atd = Math.round(1000*at)/10;
+            if(compare) {
+                let cagt = compare.alloc.get(a.ticker),
+                    ctarg = (cagt && compare) ? cagt.target : 0,
+                    diff = compare ? pct(ctarg - at) : 0,
+                    trade = (diff < 0 ? 'Buy ' : 'Sell ') + 
+                        Math.round(Math.abs(diff)*total*100)/10000;
+                str = str + "\n" + a.ticker + "\t" + t + "%\t" + atd + '%\t'
+                    +(a.adjust ? ranges[a.ticker].map(price7) : '\t') + '\t'
+                    +(compare ? pct(ctarg)+'%\t'+trade : '');
+            } else str = str + "\n" + a.ticker + "\t" + t + "%\t" + atd + '%';
         });
         return str;
     }

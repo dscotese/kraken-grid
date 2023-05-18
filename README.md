@@ -1,3 +1,56 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [kraken-grid BETA](#kraken-grid-beta)
+  - [Upgrading](#upgrading)
+  - [Installation](#installation)
+  - [Usage](#usage)
+    - [Web UI](#web-ui)
+    - [Changing your password](#changing-your-password)
+    - [Mistyped passwords](#mistyped-passwords)
+    - [Command Line Interface](#command-line-interface)
+    - [Trading](#trading)
+      - [buy](#buy)
+      - [sell](#sell)
+      - [kill](#kill)
+      - [limits](#limits)
+      - [less](#less)
+      - [more](#more)
+      - [delev](#delev)
+      - [addlev](#addlev)
+    - [Information Gathering](#information-gathering)
+      - [assets](#assets)
+      - [list [Search]](#list-search)
+      - [margin](#margin)
+      - [report](#report)
+      - [show](#show)
+      - [verbose](#verbose)
+      - [web](#web)
+    - [Bot Management](#bot-management)
+      - [adjust](#adjust)
+      - [alloc* (Not implemented)](#alloc-not-implemented)
+      - [allocate](#allocate)
+      - [allocation](#allocation)
+      - [asset](#asset)
+      - [balance](#balance)
+      - [set](#set)
+      - [quit](#quit)
+      - [risky](#risky)
+      - [reset](#reset)
+      - [auto](#auto)
+      - [manual](#manual)
+      - [refnum](#refnum)
+      - [safe](#safe)
+    - [Experimental features (Not Recommended and not well tested)](#experimental-features-not-recommended-and-not-well-tested)
+      - [ws - EXPERIMENTAL](#ws---experimental)
+  - [Internals](#internals)
+    - [Userref](#userref)
+    - [Partial Execution](#partial-execution)
+  - [HELP!](#help)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 # kraken-grid BETA
 A bot that extends grid trading once you use it to create a grid using orders with conditional closes.
 
@@ -30,6 +83,21 @@ This software will save a file `keys.txt` to your home folder.
 This readme is displayed in the web User Interface.  It contains `code that looks like this` which you can click to send commands to the bot.  If you just tried it, check the console and you will see that it's asking you to "Try code raw"... 
 * Answering with anything that starts with a y will send it to kraken which will reject it.  The error also causes the bot to abandon `auto` mode if it was in auto mode.
 * All other answers will cause process.TESTING to be set to the first word of the command ("code" in this case) and also turn on caching, which saves Kraken's responses in cleartext on your machine.  To prevent that, send the bot `notest` and answer no to trying it raw.  This will set process.TESTING back to false.
+
+Three tables and two pie charts are displayed in the web page.  Some of the cells in the tables have blue enties because you can click them:
+* In the Orders table:
+  * Column headers will sort by that column.
+  * [less](#less), [more](#more), [kill](#kill), [addlev](#addlev), and [delev](#delev) can be used to alter orders as described if you follow those links.
+* In the Allocation table:
+  * Entries in the Desired row can be clicked to adjust your allocation.
+  * Entries in the Difference row can be used to execute trades to become more balanced.  Note that this does not account for limit orders such as what the [balance](#balance) command places, or if you include a close price on a buy or sell.
+  * The cell under "Allocation" shows a tolerance for being out of balance which you can change by clicking it.
+  * Entries in the Prices row can be used to issue a balance command using the tolerance.
+* In the Assets table:
+  * Each asset can be clicked to open a second tab or window (named "chart") with the chart from the exchange.  If you have assets that are not on the exchange, it will open whatever page the exchange displays when the URL is formed for such a chart.
+  * The data cells can be clicked to update how much of that asset you have in that account.  If you'd like to add a new account, simply change the name in the proposed command.
+
+The pie pieces in the corresponding pie charts can be used for the same purposes as you find in the list above.
 
 For commands that do not prompt you in the console, you should get an alert containing the response.  You can always copy the command from the prompt and paste it into the console where you issued the `web on` command.
 

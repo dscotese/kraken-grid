@@ -9,7 +9,7 @@ table {
     border-collapse: collapse;
     text-align: left;
 }
-#Diff td, #Prices td {
+#Diff td, #Prices td, #tol, #desired td, #oDiv th, #assets td  {
     color: blue;
 }
 #Doc {
@@ -33,10 +33,20 @@ div {
 #GDiv {
     width: auto;
     resize: both;
+    overflow: hidden;
 }
 #myCanvas {
-    width: inherit;
-    height: inherit;
     resize: both;
     border: 1px solid #000000;
+}
+#gtop {
+    display: flex;
+    justify-content: space-around;
+    overflow: hidden;
+    resize: none;
+}
+#notice {
+    margin: auto;
+    background: green;
+    color: white;
 }

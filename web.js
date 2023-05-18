@@ -33,6 +33,7 @@ function Web(man) {
     }));
 
     app.use("/js",express.static(path.join(__dirname, 'static')));
+    app.use("/img",express.static(path.join(__dirname, 'static')));
 
     function stop() { 
         if(server) server.close();
@@ -51,7 +52,6 @@ function Web(man) {
     app.use(bodyParser.urlencoded({ extended: false }));
 
     app.get('/', async (req, res, next) => {
-        await bot.report();   // Refresh so we have the latest info.
         logged = ""; //"<!-- " + {req,res,next} + " -->";
         let tol = typeof(req.body.tol) == 'undefined' ? "0.025" : req.body.tol;
 /*        res.write(head() + Documentation() + AssetsTable() 
@@ -70,6 +70,7 @@ function Web(man) {
     });
 
     app.get('/data', async (req, res, next) => {
+        logged = "Reset at 73";
         await bot.report(false);
         // I planned to remove AssetsTable, but it creates the tkrs array.
         // ---------------------------------------------------------------
@@ -97,7 +98,8 @@ function Web(man) {
             tickers: tt,
             total:   man.getTotal(),
             current: current,
-            desired: desired
+            desired: desired,
+            FLAGS: bot.FLAGS
         }));
     });
 
@@ -106,9 +108,9 @@ function Web(man) {
     }
 
     function Documentation() {
-        let rf = fs.readFileSync("./README.md",{encoding:'utf8'}),
-            readme = rf.substr(rf.lastIndexOf("## Usage"));
-        return "<div id='Doc'><md-block>"+readme+"</md-block></div>";
+        let rf = fs.readFileSync("./README.md",{encoding:'utf8'}); //,
+//            readme = rf.substr(rf.lastIndexOf("## Usage"));
+        return "<div id='Doc'><md-block>"+rf+"</md-block></div>";
     }
 
     app.post('/', async (req, res, next) => {
@@ -207,6 +209,7 @@ function Web(man) {
     async function Allocations() {
         let allocs = await man.doCommands(["allocation"]),
             current = {}, desired = {};
+        allocs.desired.assets.forEach(a=>{if(!tkrs[a.ticker]) tkrs[a.ticker] = 0;});
         for(t in tkrs) {
             current[t] = await getAlloc(t, allocs.current);
             desired[t] = await getAlloc(t, allocs.desired);
@@ -217,7 +220,9 @@ function Web(man) {
     async function AllocTable(tol) {
         let allocs = await man.doCommands(["allocation"]),
             ca = allocs.current,
-            da = allocs.desired;
+            da = allocs.desired,
+            lacks = {};
+        da.assets.forEach(a=>{if(!tkrs[a.ticker]) tkrs[a.ticker] = 0;});
         let ret = "<div><table id='alloc'><tr><th colspan='"
             + (1+Object.keys(tkrs).length) 
             + "'>Allocation Last Update: " + bot.portfolio.lastUpdate

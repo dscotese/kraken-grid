@@ -87,7 +87,7 @@ function Savings(j=false) { // Constructor for savings
         if(!already && !Savings.tickers.includes(ticker) 
             && (ask && !badTickerOK(ticker)))
             return false;
-        if(!already && amount != 0) {
+        if(!already && (add || amount != 0)) {
             assets.push({ticker:ticker,amount:Number(amount)});
         } else {
             if( !already && amount == 0 ) {

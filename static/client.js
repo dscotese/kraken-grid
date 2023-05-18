@@ -1,27 +1,7 @@
 const $ = jQuery;
-var data, tkrs = [];
+var data=false, tkrs = [], auto, genTol;
 let G = galloc($('#myCanvas')[0].getContext("2d"));
-// To get the thumbnails for cryptos, I:
-// 1. Visited https://min-api.cryptocompare.com/data/v2/pair/mapping/exchange?e=Kraken
-//    which requires one more parameter (api_key).  Visit the site to get one if you want your
-//    own list.  The result was assigned as the value of ccsyms.
-// 2. Executed this Javascript in the console of my browser:
-//  usym = new Set();
-//  ccsyms.Data.current.forEach((s)=>{
-//      if(s.exchange_fsym != s.fsym) usym.add(s.exchange_fsym+':'+s.fsym);
-//  });
-//  kccmap = {};
-//  Array.from(usym).forEach((s)=>{
-//      let [kraken,cc] = s.split(':'); kccmap[kraken]=cc;
-//  });
-//  JSON.stringify(kccmap);
-// 3. Assigned the resulting string to kccmap in the function here get the cryptocompare
-//    symbol for the cryptos displayed in the pie charts so that I could call
-//    https://data-api.cryptocompare.com/asset/v1/data/by/symbol?asset_symbol=DOGE (also
-//    with that api_key) to get Data.URI out of the returned object and use that value
-//    at the end of https://api.coingecko.com/api/v3/coins/ to get another object
-//    o so that I could get the thumbnail image URL with o.image.thumb.  That URL is
-//    the src of a hidden image element which is used in createPattern.
+// The thumbnails for cryptos were collected from https://api.coingecko.com/api/v3/coins/
 function setCookie(cname, cvalue, exdays) {
     const d = new Date();
     d.setTime(d.getTime() + (exdays*24*60*60*1000));
@@ -29,7 +9,7 @@ function setCookie(cname, cvalue, exdays) {
     document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
 }
 
-function getCookie(cname) {
+function getCookie(cname, def="") {
     let name = cname + "=",
         decodedCookie = decodeURIComponent(document.cookie),
         ca = decodedCookie.split(';');
@@ -42,7 +22,7 @@ function getCookie(cname) {
             return c.substring(name.length, c.length);
         }
     }
-    return "";
+    return def;
 }
 
 /*
@@ -70,6 +50,10 @@ function setSize(id) {
 
 $(function() {
     ['Doc','GDiv','LDiv'].forEach(setSize);
+    genTol = Number(getCookie('genTol',"0.025"));
+    $("#GDiv").prepend("<div id='gtop'><a href='javascript:useData(data);'>Redraw</a>"
+        +"<span id='notice'></span>"
+        +"<a href='javascript:getData(data);'>Refresh</a></div>");
     let wst=0,
          ro = new ResizeObserver( (entries) => { 
             window.clearTimeout(wst); 
@@ -79,10 +63,9 @@ $(function() {
                 docw = e.contentRect.width;
                 doch = e.contentRect.height;
                 setCookie(id+"XY",docw+'.'+doch,3650);
-                if(e.target.id == 'GDiv') PieDiv();
+                if(e.target.id == 'GDiv' && data) useData(data);
                 },1000);
             if(e.target.id == 'GDiv') PieDiv();
-            console.log("Resize ",id);
         });
     ro.observe($('#Doc')[0]);
     ro.observe($('#GDiv')[0]);
@@ -99,39 +82,114 @@ $(function() {
     });
     armAssets();
     armAlloc();
-    window.setInterval(getData, 60000);
+    auto = window.setInterval(getData, 60000);
     getData();
+    $('#myCanvas').on('click',mousePie);
 });
 
+function stopRefresh() { window.clearInterval(auto); }
+
 function getData() {
+    $('#notice').html("Refreshing...");
     $.ajax({
         url: '/data', 
         dataType: 'json',
         success: (dataR) => { useData(dataR); },
-        error: (jqXHR, textStatus, error) => { throw error; }
+        error: (jqXHR, textStatus, error) => {
+            window.clearTimeout(auto);
+            alert("Auto refresh stopping because:\n" + JSON.stringify(textStatus,error)); 
+            },
+        complete: () => { $('#notice').html(''); }
+    });
+}
+var imgs = [],
+    colors = [];
+
+function setColors(d) {
+    let i;
+    if(colors.length!=Object.keys(d).length 
+        || -1 != colors.findIndex(c => !(c instanceof CanvasPattern))) {
+        colors = [];
+        Object.keys(d).forEach(k => {
+            if(!imgs[k]) {
+                i = document.createElement("img");
+                i.setAttribute('src',imgByKtick[k]);
+                imgs[k] = i;
+            }
+            try {
+                colors[k] = G.context.createPattern(imgs[k],'repeat');
+            } catch(e) { 
+                console.log(k,e); 
+                let randColor = '#' + Math.floor(
+                    0x404040 + Math.random()*0xBFBFBF).toString(16);
+                colors.push(randColor);
+            }
         });
+    }
 }
 
 function PieDiv() { //canvasHolder=false) { // Pass the JQuery object that selects the div.
     canvasHolder = false;
-    let can = $('#myCanvas')[0],
-        c = data.current,
-        d = data.desired,
-        w = Number($('#GDiv')[0].style.width.match(/[0-9]+/)[0]),
-        h = Number($('#GDiv')[0].style.height.match(/[0-9]+/)[0]),
-        Cslices = [],
-        Dslices = [];
-    $(can)[0].width=w;
-    $(can)[0].height=h;
-    G.clear();
-    G.pie(Object.keys(d),Object.values(d),-w/4,0, true);
-    G.pie([],Object.values(c),w/4,0, false);
+    let d = data.desired,
+        docdiv = $('#GDiv')[0];
+        sw = docdiv.offsetWidth-docdiv.clientWidth,
+        w = Number(docdiv.style.width.match(/[0-9]+/)[0]),
+        h = Number(docdiv.style.height.match(/[0-9]+/)[0]),
+        slices = [];    // Associative array [name:[value,color]]
+
+    Object.keys(data.tickers).forEach((t) => {
+        slices[t] = [d[t],colors[t]];
+    });
+    
+    G.desired = G.pie(slices,-w/4,0);
+    let underPie = G.desired.radius/2;
+    G.desired.markup("Target Allocation",0,underPie)
+        .markup("Total: "+sigdig(data.total,6,2)+' '+data.numer, 0, underPie+20);
+}
+
+function mousePie(e) {
+    let cmd = false;
+    if(G.desired.paths) {
+        let dps = G.desired.paths;
+        for(k in dps) { // iterate over tickers, the keys
+            if(G.context.isPointInPath(dps[k], e.offsetX, e.offsetY)) {
+                let def = data.desired[k];
+                cmd = prompt("Update allocation percentage?",
+                    "allocate "+k+' '+def);
+            }
+        }
+    }
+    if(G.bns.paths) {
+        let bps = G.bns.paths;
+        for(k in bps) {
+            if(G.context.isPointInPath(bps[k], e.offsetX, e.offsetY)) {
+                let del = G.bns.slices[k][0],
+                    price = data.tickers[k][1],
+                    amt = sigdig((Math.abs(del/100)*data.total/price),6,8);
+                cmd = prompt("Send this trade to the bot?",
+                    (del<0?"sell ":"buy ")+k+' '+price+' '+amt);
+            }
+        }
+    }
+    if(cmd) botExec(cmd);
 }
 
 function useData(d) {
     data = d;
+    let can = $('#myCanvas')[0],
+        docdiv = $('#GDiv')[0];
+        sw = docdiv.offsetWidth-docdiv.clientWidth,
+        sh = docdiv.offsetHeight-docdiv.clientHeight,
+        w = Number(docdiv.style.width.match(/[0-9]+/)[0]),
+        h = Number(docdiv.style.height.match(/[0-9]+/)[0]);
+    can.width=w-sw-2;
+    can.height=h-sh-25;
+    // G.clear();
+    tkrs = [];
+    Object.keys(data.tickers).forEach(t => {tkrs[t] = 0;});
+    setColors(data.desired);
     let assets  = AssetsTable(),
-        allocs  = AllocTable(),
+        allocs  = AllocTable(genTol), // Since this computes differences, it makes the pie too.
         ords    = OrderTable();
     PieDiv();
     $('#LDiv').html('').append(a1 = document.createElement("div"));
@@ -221,44 +279,50 @@ function armAssets() {
             acct = t.getAttribute('acct'),
             amt = t.getAttribute('amt'),
             tkr = t.getAttribute('tkr'),
+            cmd = "asset "+tkr+' '+newVal+' '+acct+' false',
             ask = "Update "+acct+' from '+amt+tkr+ "?";
         if( acct == 'OnExchange' ) {
             alert("These amounts will be updated upon refresh.");
             return;
         }
-        let newVal = prompt(ask,amt);
-        if(newVal && newVal != amt) {
-            botExec("asset "+tkr+' '+newVal+' '+acct+' false',
-                (r) => {alert(r); location.reload();});
-        }
+        cmd = prompt(ask,cmd);
+        if(cmd) botExec(cmd);
     });
 }
 
-async function getAlloc(tkr,alloc) {
-    let ret = await alloc.atarg(tkr); //lloc.assets.find(a=>{return a.ticker==tkr;});
-    return ret ? sigdig(100*ret,5,2) : 0;
-}
-function AllocTable(tol) {
+function AllocTable(tol = genTol) {
     let ret = "<table id='alloc'><tr><th colspan='"
         + (1+Object.keys(tkrs).length)
-        + "'>Allocation Last Update: " + new Date
+        + "'>Allocation Last Update: " + (new Date()).toLocaleTimeString()
         + "</th></tr>\n<tr id='tkrs'><th id='tol' title='Balance Tolerance'>"+tol+"</th>",
         current="<tr id='current'><th>Current</th>",
         desired="<tr id='desired'><th>Desired</th>",
         diff = "<tr id='Diff'><th>Difference</th>",
+        diffs = [],
+        gHeight = Number($('#GDiv')[0].style.height.match(/[0-9]+/)[0]),
+        gWidth = Number($('#GDiv')[0].style.width.match(/[0-9]+/)[0]),
         prices = "<tr id='Prices'><th>Prices</th>",
-        c,d,del,tt,price;
+        c,d,del,tt,price,imbalance = 0, slices=[];
     for(t in tkrs) {
         ret += "<th>"+t+"</th>";
         current += "<td>"+(c=data.current[t])+"%</td>";
-        desired += "<td>"+(d=data.desired[t])+"%</td>";
+        desired += "<td"+(t==data.numer ? '' 
+            : " title='allocate "+t+" "+data.desired[t]+"'") +">"
+            + (d=data.desired[t])+"%</td>";
         price = data.tickers[t][1];
         prices += "<td title='balance "+tol+' '+t+"'>"+price+"</td>";
-        del = d-c;
+        slices[t] = [(del = d-c),colors[t]];
+        if(del>0) imbalance += del;
         tt = (del > 0 ? 'buy ' : 'sell ')+t+' '+price+' '
             +(sigdig((Math.abs(del/100)*data.total/price),6,8));
         diff += "<td title='"+tt+"'>"+sigdig(del,5,2)+"</td>";
     };
+    imbalance *= data.total/100;
+    G.bns = G.pie(slices,gWidth/4,0, -25);
+    let underPie = G.bns.radius/2;
+    G.bns.markup("Buys and Sells for Balance",0,underPie)
+        .markup("Total: "+sigdig(imbalance,6,2)+' '+data.numer ,0,underPie+20);
+
     ret += "</tr>\n"+current+"</tr>\n"+desired+"</tr>\n"+diff+"</tr>\n"
         + prices + "</tr></table>";
     return ret;
@@ -268,13 +332,17 @@ function armAlloc() {
     $("#Diff td,#Prices td").on('click',(e)=>t2Command(e));
     $("th#tol").on('click',(data) => {
         let tol = Number(data.target.innerHTML);
-        newTol = prompt("Set balancing tolerance to:",tol);
+        newTol = prompt("Set balancing tolerance percentage to:",genTol);
         if(newTol) {
-            data.target.innerHTML = newTol;
-            // Update the commands
-            $("#Prices td").attr('title',(i,ov) => {
-                return ov.replace(/[0-9.]+/,newTol);
-            });
+            if(isNaN(newTol)) alert("Tolerance must be a number.");
+            else {
+                data.target.innerHTML = newTol;
+                setCookie('genTol',newTol);
+                // Update the commands
+                $("#Prices td").attr('title',(i,ov) => {
+                    return ov.replace(/[0-9.]+/,newTol);
+                });
+            }
         }
     });
 }
