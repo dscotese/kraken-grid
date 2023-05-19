@@ -965,9 +965,10 @@ if(FLAGS.verbose) console.log(p);
             return toDec(ret, 2);
         }
         let pair = Bot.findPair(tkr,portfolio.Numeraire),
-            newPrice = await kapi(["Ticker",{pair: pair}]);
-        return newPrice.result[pair].c[0];        
-        throw 'No way to get price for '+tkr;
+            newPrice = pair ? await kapi(["Ticker",{pair: pair}]) : false;
+        if(newPrice) return newPrice.result[pair].c[0];
+        console.log( 'No way to get price for '+tkr );
+        return 0;
     }
 
     return({order, set, listOpens, deleverage, w, ExchangeSavings,

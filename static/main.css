@@ -46,7 +46,6 @@ div {
     resize: none;
 }
 #notice {
-    margin: auto;
     background: green;
     color: white;
 }

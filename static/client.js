@@ -25,16 +25,6 @@ function getCookie(cname, def="") {
     return def;
 }
 
-/*
-function useThumb(ktick, cb) {
-    const kccmap = {"XETC":"ETC","XETH":"ETH","XICN":"ICN",
-        "XLTC":"LTC","XMLN":"MLN","XXBT":"BTC","XXDG":"DOGE",
-        "XXLM":"XLM","XXMR":"XMR","XXRP":"XRP","XZEC":"ZEC",
-        "XBT":"BTC","XDG":"DOGE","LUNA":"LUNC","UST":"USTC",
-        "LUNA2":"LUNA","PARA":"PARALL","REPV2":"REP"};
-    $.getJSON('https://data-api.cryptocompare.com/asset/v1/data/by/symbol?asset_symbol='
-        + kccmap[ktick], function (data) => { cb(data.
-*/
 function setSize(id) {
     let docXY = getCookie(id+'XY'),
         [docw,doch] = docXY.split('.'),
@@ -53,6 +43,9 @@ $(function() {
     genTol = Number(getCookie('genTol',"0.025"));
     $("#GDiv").prepend("<div id='gtop'><a href='javascript:useData(data);'>Redraw</a>"
         +"<span id='notice'></span>"
+        +"<span id='safe' class='setting'></span>"
+        +"<span id='verbose' class='setting'></span>"
+        +"<span id='risky' class='setting'></span>"
         +"<a href='javascript:getData(data);'>Refresh</a></div>");
     let wst=0,
          ro = new ResizeObserver( (entries) => { 
@@ -85,6 +78,7 @@ $(function() {
     auto = window.setInterval(getData, 60000);
     getData();
     $('#myCanvas').on('click',mousePie);
+    $(".setting").on('click',(e) => {botExec(e.target.getAttribute('id'))});
 });
 
 function stopRefresh() { window.clearInterval(auto); }
@@ -201,6 +195,12 @@ function useData(d) {
     armAssets();
     armAlloc();
     armOrderTable();
+    let f = data.FLAGS,jqs;
+    for(s in f) {
+        jqs = $('span#'+ s);
+        jqs.html(s+" is "+(f[s]?'on':'off'));
+        jqs.css( "background", f[s]?"pink":"white" );
+    }
 }
     
 function sigdig(x,sig=6,dp=6) {
@@ -279,11 +279,15 @@ function armAssets() {
             acct = t.getAttribute('acct'),
             amt = t.getAttribute('amt'),
             tkr = t.getAttribute('tkr'),
-            cmd = "asset "+tkr+' '+newVal+' '+acct+' false',
+            cmd = "asset "+tkr+' '+amt+' '+acct+' false',
             ask = "Update "+acct+' from '+amt+tkr+ "?";
         if( acct == 'OnExchange' ) {
-            alert("These amounts will be updated upon refresh.");
-            return;
+            ask = "Edit this command to add an asset.\n"
+                + "If the Ticker is for something not on the\n"
+                + "exchange, change false to true or else\n"
+                + "the bot will ask for confirmation in the\n"
+                + "console.";
+            cmd = "asset Ticker Units Account false";
         }
         cmd = prompt(ask,cmd);
         if(cmd) botExec(cmd);
@@ -329,7 +333,7 @@ function AllocTable(tol = genTol) {
 }
 
 function armAlloc() {
-    $("#Diff td,#Prices td").on('click',(e)=>t2Command(e));
+    $("#Diff td,#Prices td, #desired td").on('click',(e)=>t2Command(e));
     $("th#tol").on('click',(data) => {
         let tol = Number(data.target.innerHTML);
         newTol = prompt("Set balancing tolerance percentage to:",genTol);

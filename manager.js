@@ -166,6 +166,10 @@ function Manager(b) {
                     console.log("Non-existent account:",label);
                     return;
                 }
+                if(isNaN(args[2])) {
+                    console.log(args[2],"is not a number.");
+                    return;
+                }
                 account = savings({
                     label:label,
                     assets:[{ticker:tkr,amount:Number(args[2])}]
@@ -186,6 +190,10 @@ function Manager(b) {
                     account.remove(args[2]); //tkr might be different/an alt.
                     bot.save();
                 }
+                return;
+            }
+            if(isNaN(args[2])) {
+                console.log(args[2],"is not a number.");
                 return;
             }
             if(account.updateAsset(args[1],Number(args[2]),args[4]!=='false')) {

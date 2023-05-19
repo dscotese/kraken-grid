@@ -115,7 +115,8 @@ function Web(man) {
 
     app.post('/', async (req, res, next) => {
         let cmd = [ req.body.data ];
-        console.log = log; //logged = "<!-- Reset at 73 -->";
+        console.log = log; 
+        logged = "<!-- Reset at 119 -->";
         await man.doCommands( cmd );
     // console.log( "Received "+cmd);
         res.send(logged);
