@@ -1,5 +1,5 @@
 node-modules/
 node_modules
-TFC
+TFC*
 package-lock.json
 *.swp
