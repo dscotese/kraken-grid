@@ -1,3 +1,60 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [kraken-grid BETA](#kraken-grid-beta)
+  - [Upgrading](#upgrading)
+  - [Installation](#installation)
+  - [Usage](#usage)
+    - [Web UI](#web-ui)
+      - [Orders table](#orders-table)
+      - [Allocation table](#allocation-table)
+      - [Assets table](#assets-table)
+      - [Pie Charts](#pie-charts)
+    - [Changing your password](#changing-your-password)
+    - [Mistyped passwords](#mistyped-passwords)
+    - [Command Line Interface](#command-line-interface)
+    - [Trading](#trading)
+      - [buy](#buy)
+      - [sell](#sell)
+      - [kill](#kill)
+      - [limits](#limits)
+      - [less](#less)
+      - [more](#more)
+      - [delev](#delev)
+      - [addlev](#addlev)
+    - [Information Gathering](#information-gathering)
+      - [assets](#assets)
+      - [list [Search]](#list-search)
+      - [margin](#margin)
+      - [report](#report)
+      - [show](#show)
+      - [verbose](#verbose)
+      - [web](#web)
+    - [Bot Management](#bot-management)
+      - [adjust](#adjust)
+      - [alloc* (Not implemented)](#alloc-not-implemented)
+      - [allocate](#allocate)
+      - [allocation](#allocation)
+      - [asset](#asset)
+      - [balance](#balance)
+      - [set](#set)
+      - [quit](#quit)
+      - [risky](#risky)
+      - [reset](#reset)
+      - [auto](#auto)
+      - [manual](#manual)
+      - [refnum](#refnum)
+      - [safe](#safe)
+    - [Experimental features (Not Recommended and not well tested)](#experimental-features-not-recommended-and-not-well-tested)
+      - [ws - EXPERIMENTAL](#ws---experimental)
+  - [Internals](#internals)
+    - [Userref](#userref)
+    - [Partial Execution](#partial-execution)
+  - [HELP!](#help)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 # kraken-grid BETA
 A bot that extends grid trading once you use it to create a grid using orders with conditional closes.
 
@@ -13,7 +70,8 @@ This version stores your API key and secret using your password.  This informati
    - 1.3 Click "API" in the list of options under Security.
    - 1.4 Choose the "Add Key" link.
    - 1.5 We recommend that you give your key a better description.
-   - 1.6 We recommend that you record this set of codes (a key and a private key, called "Secret" in kraken-grid).
+   - 1.6 Check the "Query Funds" box under "Funds" and all the boxes under "Orders & Trades".
+   - 1.7 We recommend that you record this set of codes (a key and a private key, called "Secret" in kraken-grid).
 2. Install [NodeJS](https://nodejs.org/)
 3. Run `npm -g install kraken-grid` from a command line ("Command Prompt", "Terminal Window", or "Shell").
 
@@ -27,12 +85,28 @@ This software will save a file `keys.txt` to your home folder.
 `web [on|off]` This turns the web User Interface on or off.
 
 This readme is displayed in the web User Interface.  It contains `code that looks like this` which you can click to send commands to the bot.  If you just tried it, check the console and you will see that it's asking you to "Try code raw"... 
-* Answering with anything that starts with a y will send it to kraken which will reject it.  The error also causes the bot to abandon `auto` mode if it was in auto mode.
+* Answering with anything that starts with a y will send it to kraken which will reject it.  The error also causes the bot to abandon [auto](#auto) mode if it was in auto mode.
 * All other answers will cause process.TESTING to be set to the first word of the command ("code" in this case) and also turn on caching, which saves Kraken's responses in cleartext on your machine.  To prevent that, send the bot `notest` and answer no to trying it raw.  This will set process.TESTING back to false.
 
-For commands that do not prompt you in the console, you should get an alert containing the response.  You can always copy the command from the prompt and paste it into the console where you issued the `web on` command.
+Three tables and two pie charts are displayed in the web page.  Some of the cells in the tables have blue entries because you can click them:
+#### Orders table
+  * Column headers will sort by that column.
+  * [less](#less), [more](#more), [kill](#kill), [addlev](#addlev), and [delev](#delev) can be used to alter orders as described if you follow those links.
+#### Allocation table
+  * Entries in the Desired row can be clicked to adjust your allocation.
+  * Entries in the Difference row can be used to execute trades to become more balanced.  Note that this does not account for limit orders such as what the [balance](#balance) command places, or if you include a close price on a buy or sell.
+  * The cell under "Allocation" shows a tolerance for being out of balance which you can change by clicking it.
+  * Entries in the Prices row can be used to issue a balance command using the tolerance.
+#### Assets table
+  * Each asset can be clicked to open a second tab or window (named "chart") with the chart from the exchange.  If you have assets that are not on the exchange, it will open whatever page the exchange displays when the URL is formed for such a chart.
+  * The data cells can be clicked to update how much of that asset you have in that account.  If you'd like to add a new account or asset, simply change the name or ticker in the proposed command.  The only account displayed at first is "OnExchange" and you can click the amounts to get a template [asset](#asset) command.
 
-In this section, prospective documentaiton is marked with an asterisk* to indicate features that are being added.  If all is correctly updated, such asterisks will only ever appear in this readme file on branches, and those branches will be where the features are being developed.  This gives devs a handy way to find the specs for a new feature.
+#### Pie Charts
+The pie pieces in the corresponding pie charts can be used for the same purposes as you find in the list above.
+
+For commands that do not prompt you in the console, you should get an alert containing the response.  You can always copy the command from the prompt and paste it into the console where you issued the [web](#web) on command.
+
+In this section, prospective documentaiton is marked with an asterisk\* to indicate features that are being added.  If all is correctly updated, such asterisks will only ever appear in this readme file on branches, and those branches will be where the features are being developed.  This gives devs a handy way to find the specs for a new feature.
 
 ### Changing your password
 When you start the bot, it asks for a password.  If you enter the wrong password (or there is no password yet), it will assume that you want to set a new password and ask you to enter your API keys from Kraken again.  You can simply enter 'x' to start over if you want to keep your old password and think you mistyped it.
@@ -47,15 +121,15 @@ At the prompt that kraken-grid presents (>), you can enter one of these commands
 ### Trading
 #### buy
 `buy Ticker Price Amount ClosePrice`
-If closePrice is not a number but evaluates to true, the code will create this buy with a conditional close at the last price it saw.  If it is 1, that might be because you want it to evaluate to true and close at the current price, or because you want to close at 1.  The bot plays it safe and closes at the current price.  To change that, you can use the `risky` command (see below).  If you don't want the code to place a trade with a conditional close, leave closePrice off or pass `false` for it.
+If closePrice is not a number but evaluates to true, the code will create this buy with a conditional close at the last price it saw.  If it is 1, that might be because you want it to evaluate to true and close at the current price, or because you want to close at 1.  The bot plays it safe and closes at the current price.  To change that, you can use the [risky](#risky) command (see below).  If you don't want the code to place a trade with a conditional close, leave closePrice off or pass `false` for it.
 
 #### sell
 `sell Ticker Price Amount ClosePrice`
-The semantics are the same as for `buy`
+The semantics are the same as for [buy](#buy)
 
 #### kill
 `kill X`
-X can be an Order ID from Kraken (recognized by the presence of dashes), a userref (which often identifies more than one order, and, importantly, _both_ the initial buy or sell, _and_ the series of sells and buys resulting from partial executions), or a `Counter` as shown from `list`.  This cancels the order or orders.  `list` will still show such orders, prefixed with `Killed`, until `report` runs again to update the internal record of open orders.
+X can be an Order ID from Kraken (recognized by the presence of dashes), a [userref](#userref) (which often identifies more than one order, and, importantly, _both_ the initial buy or sell, _and_ the series of sells and buys resulting from partial executions), or a `Counter` as shown from [list](#list).  This cancels the order or orders.  `list` will still show such orders, prefixed with `Killed`, until [report](#report) runs again to update the internal record of open orders.
 
 #### limits
 `limits AtLeast AtMost`
@@ -63,7 +137,7 @@ The bot starts out with no limits, using 0 as AtLeast and -1 as AtMost.  You can
 
 #### less
 `less Counter Amount All`
-C _must be_ a `Counter` as shown by executing `list`. This command reduces the amount of crypto in the limit order identified by C in list by amount, and if ALL (optional) is "all", update any other orders for the same crypto for which the current amount to be traded matches (to three decimal places, after rounding) the pre-adjusted amount of the identified trade.
+C _must be_ a `Counter` as shown by executing [list](#list). This command reduces the amount of crypto in the limit order identified by C in list by amount, and if ALL (optional) is "all", update any other orders for the same crypto for which the current amount to be traded matches (to three decimal places, after rounding) the pre-adjusted amount of the identified trade.
 Example: You have a limit sell order at 45000 for 0.015 BTC and another above that at 45900 for 0.015 BTC, each with its own conditional close. When you issue list they show up as numbers 3 and 6. You issue less 3 0.0025 all and that causes both orders (because of the "all" at the end) to be cancelled and replaced with new orders. The new orders have the same conditional closes, and the same prices, but their amounts are both 0.0125 (0.015 - 0.0025). If you issued `less 3 0.0025` without "all" at the end, then only the order numbered 3 would be replaced.
 
 #### more
@@ -72,16 +146,16 @@ Increase the amount of crypto to be traded. Otherwise, this command is the same 
 
 #### delev
 `delev Counter`
-C _must be_ a `Counter` as shown by executing `list`.  If the identified order uses leverage, this command will first create an order without any leverage to replace it, and then kill the one identified. The order that was killed will still be in the list, prefixed with `Killed:` ***NOTE: The new order often (or always?) appears at the top of `list` after this, so the `Counter`s identifying other orders may change.
+C _must be_ a `Counter` as shown by executing [list](#list).  If the identified order uses leverage, this command will first create an order without any leverage to replace it, and then kill the one identified. The order that was killed will still be in the list, prefixed with `Killed:` *NOTE: The new order often (or always?) appears at the top of `list` after this, so the `Counter`s identifying other orders may change.*
 
 #### addlev
 `addlev Counter`
-The semantics are the same as for `delev`.
+The semantics are the same as for [delev](#delev).
 
 ### Information Gathering
 #### assets
 `assets [Filter]`
-This provides you with a list of assets in each account (see `asset` under bot management), and if Filter is anything, only accounts and assets with the label or ticker Filter.
+This provides you with a list of assets in each account (see [asset](#asset) under bot management), and if Filter is anything, only accounts and assets with the label or ticker Filter.
 
 #### list [Search]
 This simply prints out a list of all the open orders the code last retrieved (it does NOT retrieve them again, so...) It may have orders in it that have already been executed or which you canceled.  Each order is presented as:
@@ -91,12 +165,12 @@ This simply prints out a list of all the open orders the code last retrieved (it
 * `K` is `Killed` if you used the kill command to cancel an order and the bot hasn't yet updated the list. For existing orders, `K` is missing.
 * `Trade` is either `buy` or `sell`.
 * `Amount` is the number of coins.
-* `Pair` is symbol (see `buy`) with the 'USD' suffix.
+* `Pair` is symbol (see [buy](#buy)) with the 'USD' suffix.
 * `Price` is the price for this trade.
 * The corresponding bracketed items will be missing for an order with no leverage or without a conditional close.
-* `userref` is a user-reference number created when you use the `buy` or `sell` command.  It starts with 1 for buys and 0 for sells (but since userrefs are integers, the 0 gets removed), followed by three digits that identify the cryptocurrency pair, and then the price without the decimal point and with leading zeroes.  Note that this causes collisions in very rare cases like a price of $35.01 and another price for the same crypto of $350.10.  I expect this to be too rare to fix at this time.
+* `userref` is a user-reference number created when you use the `buy` or [sell](#sell) command.  It starts with 1 for buys and 0 for sells (but since userrefs are integers, the 0 gets removed), followed by three digits that identify the cryptocurrency pair, and then the price without the decimal point and with leading zeroes.  Note that this causes collisions in very rare cases like a price of $35.01 and another price for the same crypto of $350.10.  I expect this to be too rare to fix at this time.
 
-If you enter anything for [Search], the list will only display lines that contain what you entered, except in one case, `C`.  If it's just the `C`, it will retrieve the last 50 orders that are no longer open (Filled, Cancelled, or Expired), but only list those that actually executed (Filled).  If you add the userref after `C`, then it will fetch only orders with that userref, which means the buys and sells between one set of prices. Use `set` for a list of the userrefs for the grid points.  Such orders also include the time at which the order filled completely.
+If you enter anything for [Search], the list will only display lines that contain what you entered, except in one case, `C`.  If it's just the `C`, it will retrieve the last 50 orders that are no longer open (Filled, Cancelled, or Expired), but only list those that actually executed (Filled).  If you add the [userref](#userref) after `C`, then it will fetch only orders with that userref, which means the buys and sells between one set of prices. Use [set](#set) for a list of the userrefs for the grid points.  Such orders also include the time at which the order filled completely.
 
 #### margin
 `margin`
@@ -105,7 +179,7 @@ Whether or not you use this command, the bot will try to use leverage when there
 #### report
 `report`
 This is the default command, meaning that if you don't enter a command, but you hit enter, this command will execute.  It does several things:
-1. Retrieves balances for the cryptos listed under `buy` and reports the values in a table:
+1. Retrieves balances for the cryptos you have on Kraken and reports the values in a table:
 ```
 ZUSD    AMT       undefined
 XXBT    AMT       PRICE
@@ -114,7 +188,7 @@ XLTC ...
 ```
 2. Retrieves the list of open orders, which is immediately processed to:
    1.  replace conditional closes resulting from partial executions with a single conditional close which, itself, has a conditional close to continue buying and selling between the two prices, but only up to the amount originally specified, and _only_ for orders with a User Reference Number (such as all orders placed through this program).
-   2.  fill out the internal record of buy/sell prices using the open orders and their conditional closes (see `set` and `reset`).
+   2.  fill out the internal record of buy/sell prices using the open orders and their conditional closes (see [set](#set) and [reset](#reset)).
    3.  extend the grid if there are only buys or only sells remaining for the crypto identified in each order.
    4.  identify any orders that are gone or new using Kraken's Order ID and for new orders, it also describes them.
 
@@ -126,7 +200,7 @@ XLTC ...
 There is a little bit of logic in the code to spit out a lot more information when verbose is on.  It's off by default and this command just toggles it.
 
 #### web
-`web S` is used to turn on (S = on) or off (S = off) the web interface.  This interface is rudimentary at this point, but it's more convenient for me than the command line.  They are best used together.
+`web S [port]` is used to turn on (S = on) or off (S = off) the web interface.  This interface is rudimentary at this point, but it's more convenient for me than the command line.  They are best used together.  If you don't specify a port, the website will be on port 8000.
 
 ### Bot Management
 #### adjust
@@ -150,27 +224,28 @@ Note: The bot does not (yet) adjust the volume on trades when the price of an ad
 `allocate` starts a process through which you can enter how you want your savings allocated (see [Balancing the Present](https://litmocracy.blogspot.com/2019/06/balancing-present.html), which is the motivation for this software).  It will ask if you want to erase your current allocation even if you don't have one.  When you have no allocation, it starts with the actual current allocation as a default and allows you to adjust it.  When you are satisfied with your allocation settings, enter N instead of a ticker to get back to the bot.
 
 #### allocation
-`allocation [F]` will display your current actual allocation across all the assets you have entered (see `asset` below) as well as the assets you have on the exchange, including any positions you hold.  F can be ? to review what the command does, or "fresh" to have the code get new prices from the exchange.
+`allocation [F]` will display your current actual allocation across all the assets you have entered (see [asset](#asset) below) as well as the assets you have on the exchange, including any positions you hold.  F can be ? to review what the command does, or "fresh" to have the code get new prices from the exchange.
 
 #### asset
 `asset Ticker Units Label Ask` allows you to describe your savings to the bot so that it can automatically trade without you entering any trades yourself.
 
 * `Ticker` is a symbol and if it is found in the list of asset tickers from the exchange (only Kraken at the time of writing), the bot will take into account that you hold U units of this asset, but not on the exchange.
-`REMOVE` can be used to eliminate a ticker from an account or to remove an entire account.
+
+* `asset REMOVE Ticker Label` can be used to eliminate a ticker from an account, and `asset REMOVE ACCOUNT Label` to remove an entire account.
 * `Units` is the number of units that you'd like the bot to record.  This information is saved to disk (as a JSON object) after being encrypted with your password.  If you call asset on the same symbol twice, the bot will ask you to confirm that you want to overwrite the old value.
 To `REMOVE` an entire account, issue `asset REMOVE ACCOUNT [Label]`
-* `Label` is for Label. (optional) This string will be used as an account label.  If there is no such account, the bot will confirm that you mean to create one (so if you're using the web UI, you will have to go back to the console).  If you hold cryptos in two different wallets, W1 and W2, you can tell the bot how much is in each one and it will keep separate records for them.  The "default" account will be used if `Label` is missing (its label is "default").
+* `Label` is for Label. (optional) This string will be used as an account label.  If there is no such account, the bot will create one.  If that was a mistake, you can use the REMOVE ACCOUNT feature described above.  If you hold cryptos in two different wallets, W1 and W2, you can tell the bot how much is in each one using the two different labels and it will keep separate records for them.  The "default" account will be used if `Label` is missing (its label is "default").
 * `Ask` is for Ask. (optional) It must be the string 'false' if it is present because it prevents the bot from asking before overwriting existing data.  This is handy if you make your own list of assets and would like to copy/paste it to the bot.
 
 #### balance
 `balance Tolerance Ticker`
-Tolerance is the tolerable difference between your desired allocation and your current allocation.  If you don't specify Ticker, the bot will identify the most out-of balance asset and propose a trade to balance it.  If Ticker is present, it will create a trade to balance that ticker along with a limit buy and a limit sell at prices TOL percent (this is a number between 0.00 and 100.00) above and below the current price.  These trades will then be used by the bot (in `auto` mode) to keep your savings in balance.
+Tolerance is the tolerable difference between your desired allocation and your current allocation.  If you don't specify Ticker, the bot will identify the most out-of balance asset and propose a trade to balance it.  If Ticker is present, it will create a trade to balance that ticker along with a limit buy and a limit sell at prices TOL percent (this is a number between 0.00 and 100.00) above and below the current price.  These trades will then be used by the bot (in [auto](#auto) mode) to keep your savings in balance.
 
 #### set
 `set [UserRef BuyOrSell Price]`
-This lists the `userref`s and prices at which buys and sells have been (and will be) placed.
-UserRef _must be_ a userref, BuyOrSell _must be_ either `buy` or `sell`, and P is the price you want to add (or replace) for that grid point.  If the bot fails to determine either the buy price or the sell price, it displays a ?, and this will prevent the creation of a new order as described under `refnum`.  This command allows you to fix that so that Step 2.1 under `report` will work properly as described under `refnum`.
-_Collecting profit data:_ If you issue `set ~ [N]` the bot will go through the grid points it knows about from open orders and query the exchange for any userrefs it finds in order to collect all the buys and sells that happened for those two prices.  Because the API rate is limited, it will make up to N requests to the exchange, one every 2 seconds until it has exhausted the known userrefs.  It remembers the results but will lose them when you terminate the program or run `reset`.
+This lists the [userref](#userref)s and prices at which buys and sells have been (and will be) placed.
+UserRef _must be_ a userref, BuyOrSell _must be_ either `buy` or `sell`, and P is the price you want to add (or replace) for that grid point.  If the bot fails to determine either the buy price or the sell price, it displays a ?, and this will prevent the creation of a new order as described under [refnum](#refnum).  This command allows you to fix that so that Step 2.1 under [report](#report) will work properly as described under `refnum`.
+_Collecting profit data:_ If you issue `set ~ [N]` the bot will go through the grid points it knows about from open orders and query the exchange for any userrefs it finds in order to collect all the buys and sells that happened for those two prices.  Because the API rate is limited, it will make up to N requests to the exchange, one every 2 seconds until it has exhausted the known userrefs.  It remembers the results but will lose them when you terminate the program or run [reset](#reset).
 
 #### quit
 `quit` terminates the program.
@@ -180,7 +255,7 @@ _Collecting profit data:_ If you issue `set ~ [N]` the bot will go through the g
 
 #### reset
 `reset`
-This erases the list of `userref`s and prices at which buys and sells will be placed, but that list gets immediately rebuilt because it performs the second step in `report`.
+This erases the list of [userref](#userref)s and prices at which buys and sells will be placed, but that list gets immediately rebuilt because it performs the second step in [report](#report).
 
 #### auto
 `auto [N]`
@@ -191,7 +266,7 @@ This stops the automatic calling of `report`.  The bot will do nothing until you
 
 #### refnum
 `refnum Counter UserReference`
-Counter _must be_ a `Counter` as shown by executing `list`, and it must be an order that was entered without a userref.  It will cancel the existing order and create a new one with the specified userref `UserReference`.  All orders added by the bot (automatically and manually) have a userref.  This function is to allow you to enter an order on Kraken's website using the same price and no conditional close so that the bot will include it into the existing grid point with the same userref (use `set` to make sure both the buy and sell prices are known for the userref) as UserReference.  If you use `refnum` to assign the reference number of an order that is at a different price, the behavior is undefined.
+Counter _must be_ a `Counter` as shown by executing [list](#list), and it must be an order that was entered without a [userref](#Userref).  It will cancel the existing order and create a new one with the specified userref `UserReference`.  All orders added by the bot (automatically and manually) have a userref.  This function is to allow you to enter an order on Kraken's website using the same price and no conditional close so that the bot will include it into the existing grid point with the same userref (use [set](#set) to make sure both the buy and sell prices are known for the userref) as UserReference.  If you use `refnum` to assign the reference number of an order that is at a different price, the behavior is undefined.
 
 #### safe
 `safe`
@@ -208,7 +283,7 @@ This connects to Kraken's WebSockets, which, I have to warn you, send you someth
 When you place an order through Kraken's website, it will have a `userref` of zero.  It will be ignored for the purposes of grid trading.  When you place an order through the bot, it will have a userref.
 
 ### Partial Execution
-Because grid orders have conditional closes (at a price I'll call C, for close, where I'll call the price on the opening order O), a new trade is created each time a partial execution occurs, but any such new trades do not have conditional closes (which would need to have C and O swapped).  These conditional closes all have the same userref as the order that produced them. The bot detects this, sums the amount executed at price O, cancels the new orders created by the partial executions, and creates a new order for the sum at price C using the same userref and with a conditional close of its own that uses price O (see how C and O are now swapped?).  Rarely, only part of an order will have executed (at price O) and the price will move back to C and cause the conditional close(s) to execute.  If they were combined and thus already have their own conditional close (at O), new orders will appear at O, in addition to the original.  At trade.kraken.com, this looks like it will be trading too much at O, but that is because the partial execution reduced the size of the original trade, and trade.kraken.com still shows the original trade amount.  You can click the trade on trade.kraken.com to verify that the sum of the new order at O and the original one add to the right amount.  You got a round trip on less volume than the bot was set to try, because the market didn't fully execute your original order. All is well.
+Because grid orders have conditional closes (at a price I'll call C, for close, where I'll call the price on the opening order O), a new trade is created each time a partial execution occurs, but any such new trades do not have conditional closes (which would need to have C and O swapped).  These conditional closes all have the same [userref](#Userref) as the order that produced them. The bot detects this, sums the amount executed at price O, cancels the new orders created by the partial executions, and creates a new order for the sum at price C using the same userref and with a conditional close of its own that uses price O (see how C and O are now swapped?).  Rarely, only part of an order will have executed (at price O) and the price will move back to C and cause the conditional close(s) to execute.  If they were combined and thus already have their own conditional close (at O), new orders will appear at O, in addition to the original.  At trade.kraken.com, this looks like it will be trading too much at O, but that is because the partial execution reduced the size of the original trade, and trade.kraken.com still shows the original trade amount.  You can click the trade on trade.kraken.com to verify that the sum of the new order at O and the original one add to the right amount.  You got a round trip on less volume than the bot was set to try, because the market didn't fully execute your original order. All is well.
 
 ## HELP!
 This code is messy.  It works for me and I didn't want to keep waiting until I cleaned it up to publish it.  One of the major motivations I have for publishing it is that as more people use a strategy like "grid trader" to balance their savings, the prices of the cryptos with which they do it will become more stable.

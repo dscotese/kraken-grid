@@ -166,6 +166,10 @@ function Manager(b) {
                     console.log("Non-existent account:",label);
                     return;
                 }
+                if(isNaN(args[2])) {
+                    console.log(args[2],"is not a number.");
+                    return;
+                }
                 account = savings({
                     label:label,
                     assets:[{ticker:tkr,amount:Number(args[2])}]
@@ -186,6 +190,10 @@ function Manager(b) {
                     account.remove(args[2]); //tkr might be different/an alt.
                     bot.save();
                 }
+                return;
+            }
+            if(isNaN(args[2])) {
+                console.log(args[2],"is not a number.");
                 return;
             }
             if(account.updateAsset(args[1],Number(args[2]),args[4]!=='false')) {
@@ -226,16 +234,29 @@ function Manager(b) {
             console.log(alisting);
             return {desired:d,current:c};
         } else if(args[0] == 'allocate') {
+            let a = await getAllocation(true);
             if(!args[1]) { 
                 console.log("This will let you start from scratch.\n"
-                    +"Use 'allocate (Ticker)' to adjust and 'allocation [X]' to\n"
-                    +"see your current (X=c) or desired (no X) allocation.\n");
-                let a = await getAllocation(true);
+                    +"Use 'allocate (Ticker) [+/-](amount)' to adjust and 'allocation' to\n"
+                    +"see your current and desired allocations.\n");
                 if(a) old = prompt("Erase current allocation (y/n)?")
                     .toLowerCase() == 'y';
                 if(!a || old) a = await getAllocation(false);
                 console.log(a.list());
                 await setAlloc(a);
+            } else if(isNaN(args[2]) || !Bot.tickers.includes(args[1])) {
+                console.log(args[2],"isn't a number or",args[1],
+                    "isn't a recognized ticker.");
+            } else {
+                let tkr = args[1],
+                    amt = Number(args[2])/100;
+                if(false == a) a = getAllocation(false);
+                if(amt<0 || args[2][0]=='+') { // Relative adjustment
+                    let rel = a.get(tkr).target;
+                    if(!isNaN(rel)) amt += rel;
+                }
+                a.addAsset(tkr,amt);
+                bot.save();
             }
         } else if(args[0] == 'balance') {
             if(args[1]) {
@@ -356,11 +377,13 @@ function Manager(b) {
             } else if(args[0] == 'margin') {
                 await bot.marginReport();
             } else if(args[0] == 'show') {
+                if(args[2]) console.log(args[2],{value:bot.portfolio[args[1]][args[2]]});
                 if(args[1]) console.log(args[1],{value:bot.portfolio[args[1]]});
                 else console.log({Portfolio:bot.portfolio,Bot});
             } else if(args[0] == 'web') {
                 if(args[1]) {
-                    if(args[1].toUpperCase() == 'ON') web.start();
+                    if(args[1].toUpperCase() == 'ON') 
+                        args[2]?web.start(args[2]):web.start();
                     else if(args[1].toUpperCase() == 'OFF') web.stop();
                 } else {
                     console.log("Usage: web [on|off]\n"
@@ -368,7 +391,7 @@ function Manager(b) {
                 }
             } else {
                 ret = await handleArgs(bot, bot.portfolio, args, 0);
-                console.log(ret);
+                if(bot.FLAGS.verbose) console.log(ret);
             }
             //}
             // Wait a sec for the nonce
@@ -397,6 +420,14 @@ function Manager(b) {
             console.log("350 refreshing...");
             await Bot.s.report(false);
         }
+        // If user added something to desired allocation and hasn't got
+        // any, we want to list it as 0 in "current" allocation.
+        portfolio.Allocation.assets.forEach(async a => { 
+            if(!portfolio[a.ticker] && a.target > 0) {
+                let p = await Bot.s.getPrice(a.ticker);
+                portfolio[a.ticker] = [0,p,0,0]; 
+            }
+        });
         let total = savings();
         let sym;
         // Add savings to total.
@@ -446,12 +477,10 @@ function Manager(b) {
                 answer = prompt("Change "+answer+" to what percentage "
                     + "(0.0-100.0 or use + or - for relative changes): ");
                 if(isNaN(answer)) console.log("Only numbers work here.");
-                else if(answer[0] == '+') {
-                    answer = Number(answer) + tik.target;
-                } else if(answer[0] == '-') {
-                    answer = tik.target - Number(answer);
+                else if(['+','-'].includes(answer[0])) {
+                    answer = Number(answer) + 100*tik.target;
                 }
-                alloc.addAsset(tik.ticker, answer/100);
+                if(!isNaN(answer)) alloc.addAsset(tik.ticker, answer/100);
             }
             console.log(alloc.list());
             portfolio.Allocation = alloc;

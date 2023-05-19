@@ -64,7 +64,7 @@ module.exports = function Balancer (target) {
             if(isNaN(cryptp)) console.log("Cryptp isNaN after atarg of ",a.ticker,
                 "was",(await target.atarg(a.ticker)));
         } // What percentage of the allocation is in crypto?
- // console.log({high,low,cryptp,qf,atargU,atargD,curVal}); //,curP,toSell,toBuy,sAmt,bAmt,sP,bP});
+  //console.log({high,low,cryptp,qf,atargU,atargD,curVal}); //,curP,toSell,toBuy,sAmt,bAmt,sP,bP});
         high = cryptp*high*(1+move) + (1-cryptp)*high;  // The crypto piece increased, plus the rest.
         low  = cryptp*low/(1+move) + (1-cryptp)*low;    // Crypto piece decreased, plus the rest.
         // We need to know
@@ -84,17 +84,17 @@ module.exports = function Balancer (target) {
         // trade will be added to the buy or sell, so remove it for now.
         // -------------------------------------------------------------
         curP = p.price;
-console.log({pamt:p.amt, bAmt, sAmt});
+//console.log({pamt:p.amt, bAmt, sAmt});
         if(p.type == 'buy') sAmt -= p.amt;
         if(p.type == 'sell') bAmt -= p.amt;
-console.log({pamt:p.amt, bAmt, sAmt});
+//console.log({pamt:p.amt, bAmt, sAmt});
         bAmt = sigdig(bAmt,6,po.lot_decimals);
         sAmt = sigdig(sAmt,6,po.lot_decimals);
         console.log('buy',po.base,bP,bAmt,curP);
         console.log('sell',po.base,sP,sAmt,curP);
         if(toSell < 0 || toBuy < 0) {
             console.log("We are too far out of balance.  Try after some of the trade above is done.");
- // console.log({high,low,cryptp,qf,atargU,atargD,curVal,curP,toSell,toBuy,sAmt,bAmt,sP,bP});
+  //console.log({high,low,cryptp,qf,atargU,atargD,curVal,curP,toSell,toBuy,sAmt,bAmt,sP,bP});
             return;
         }
         // Now we have the trade to balance (p) and the

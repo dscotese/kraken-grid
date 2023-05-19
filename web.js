@@ -7,7 +7,7 @@ const Bot = require('./bot.js');
 const fs = require('fs');
 function Web(man) {
     const Savings = require('./savings.js');
-    let BeOff = true,
+    let server,
         log_original = console.log,
         bot = Bot.s,
         sigdig = bot.portfolio.Allocation.sigdig,
@@ -32,56 +32,91 @@ function Web(man) {
         cookie: { secure: false }
     }));
 
-    app.use((req,res,next) => { if(!BeOff) next(); });
-
     app.use("/js",express.static(path.join(__dirname, 'static')));
+    app.use("/img",express.static(path.join(__dirname, 'static')));
 
     function stop() { 
-        BeOff = true; 
+        if(server) server.close();
+        server = false;
         if(log_original) console.log = log_original;
         console.log("WebServer is off."); 
     }
-    function start() { 
-        BeOff = false; 
+    function start(pport = port) { 
+        if(server) server.close();
+        server = app.listen(pport,(e) => { if(e) console.log("HTTP Server failed:",e); });
         // Trap the console.log function
         console.log = log;
-        log_original(`Server is running on http://${host}:${port}`); 
+        log_original(`Server is running on http://${host}:${pport}`); 
     }
 
     app.use(bodyParser.urlencoded({ extended: false }));
 
-    app.post('/login', async function (req, res, next) {
-        if(req.session.key) {
-            console.log("Already logged in.");
-            next();
-            return;
-        }
-        let login = await man.init(req.body.password);
-        if(login.key) {
-            req.session.key = login.key;
-            res.send("Key has been stored.");
-            next();
-        } else res.redirect('back');
-    });
-
     app.get('/', async (req, res, next) => {
         logged = ""; //"<!-- " + {req,res,next} + " -->";
         let tol = typeof(req.body.tol) == 'undefined' ? "0.025" : req.body.tol;
-        res.send(head() + Documentation() + AssetsTable() 
+/*        res.write(head() + Documentation() + AssetsTable() 
             + await AllocTable(tol));
+        marshalOrders(res);
+        res.write("\n<div id='pie'></div>");
+*/
+        res.write(head() + Documentation() 
+            + "<div id='GDiv'><canvas id='myCanvas'>"
+            + "Your browser doesn't support the HTML5 canvas.</canvas>"
+            + "</div><div id='LDiv'></div><div id='RDiv'></div>");
+        res.end();
+
         logged = "<!-- Reset at 63 -->";
         next();
-    });  
+    });
+
+    app.get('/data', async (req, res, next) => {
+        logged = "Reset at 73";
+        await bot.report(false);
+        // I planned to remove AssetsTable, but it creates the tkrs array.
+        // ---------------------------------------------------------------
+        AssetsTable(); // Called for side-effect of collecting tkrs from savings.
+        let [current,desired] = await Allocations(),
+        tt = {};
+        Array.from(bot.portfolio.Tickers)
+            .forEach((t)=>{tt[t]=bot.portfolio[t];
+        });
+        // Include tickers not on the exchange:
+        // ------------------------------------
+        await Promise.all(
+            Object.keys(tkrs).filter((k) => { return !Object.keys(tt).includes(k); })
+            .map(async (t) => {
+                let p = await bot.getPrice(t);
+                tt[t] = [tkrs[t],p];
+            })
+        );
+        res.send(JSON.stringify({
+            orders:  bot.portfolio.O,
+            grid:    bot.portfolio.G,
+            savings: bot.portfolio.Savings,
+            exsaves: bot.ExchangeSavings(),
+            numer:   bot.portfolio.Numeraire,
+            tickers: tt,
+            total:   man.getTotal(),
+            current: current,
+            desired: desired,
+            FLAGS: bot.FLAGS
+        }));
+    });
+
+    function tag(name,inner) { 
+        return '<'+name+'>'+inner+'</'+name+'>';
+    }
 
     function Documentation() {
-        let rf = fs.readFileSync("./README.md",{encoding:'utf8'}),
-            readme = rf.substr(rf.lastIndexOf("## Usage"));
-        return "<div id='Doc'><md-block>"+readme+"</md-block></div>";
+        let rf = fs.readFileSync("./README.md",{encoding:'utf8'}); //,
+//            readme = rf.substr(rf.lastIndexOf("## Usage"));
+        return "<div id='Doc'><md-block>"+rf+"</md-block></div>";
     }
 
     app.post('/', async (req, res, next) => {
         let cmd = [ req.body.data ];
-        console.log = log; //logged = "<!-- Reset at 73 -->";
+        console.log = log; 
+        logged = "<!-- Reset at 119 -->";
         await man.doCommands( cmd );
     // console.log( "Received "+cmd);
         res.send(logged);
@@ -97,7 +132,9 @@ function Web(man) {
 
     function head(whatElse='') {return "<!DOCTYPE html><head>" + getJQ()
         + "<script type='module' src='https://md-block.verou.me/md-block.js'></script>\n"
-        + "<script type='text/javascript' src='/js/client.js' defer='defer'></script>\n"
+        + "<script type='text/javascript' src='/js/gallocation.js' defer></script>\n"
+        + "<script type='text/javascript' src='/js/imgByKtick.js'></script>\n"
+        + "<script type='text/javascript' src='/js/client.js' defer></script>\n"
         + "<link rel='stylesheet' href='/js/main.css'>\n"
         + whatElse + "</head>\n"; }
 
@@ -161,7 +198,7 @@ function Web(man) {
             asString += "<td></td>".repeat(tail-1);
             tbody += "<tr>" + asString + "</tr>\n";
         }
-        ret = "<table id='assets'>"+tbody+"</table>";
+        ret = "<div><table id='assets'>"+tbody+"</table></div>";
         return ret;
     }
 
@@ -170,9 +207,24 @@ function Web(man) {
         return ret ? sigdig(100*ret,5,2) : 0;
     }
 
+    async function Allocations() {
+        let allocs = await man.doCommands(["allocation"]),
+            current = {}, desired = {};
+        allocs.desired.assets.forEach(a=>{if(!tkrs[a.ticker]) tkrs[a.ticker] = 0;});
+        for(t in tkrs) {
+            current[t] = await getAlloc(t, allocs.current);
+            desired[t] = await getAlloc(t, allocs.desired);
+        }
+        return [current,desired];
+    }
+
     async function AllocTable(tol) {
-        let allocs = await man.doCommands(["allocation"]);
-        let ret = "<table id='alloc'><tr><th colspan='"
+        let allocs = await man.doCommands(["allocation"]),
+            ca = allocs.current,
+            da = allocs.desired,
+            lacks = {};
+        da.assets.forEach(a=>{if(!tkrs[a.ticker]) tkrs[a.ticker] = 0;});
+        let ret = "<div><table id='alloc'><tr><th colspan='"
             + (1+Object.keys(tkrs).length) 
             + "'>Allocation Last Update: " + bot.portfolio.lastUpdate
             + "</th></tr>\n<tr id='tkrs'><th id='tol' title='Balance Tolerance'>"+tol+"</th>",
@@ -183,10 +235,9 @@ function Web(man) {
             prices = "<tr id='Prices'><th>Prices</th>",
             c,d,del,tt,price;
         for(t in tkrs) { 
-console.log(t);
             ret += "<th>"+t+"</th>";
-            current += "<td>"+(c=await getAlloc(t,allocs.current))+"%</td>";
-            desired += "<td>"+(d=await getAlloc(t,allocs.desired))+"%</td>";
+            current += "<td>"+(c=await getAlloc(t,ca))+"%</td>";
+            desired += "<td>"+(d=await getAlloc(t,da))+"%</td>";
             price = t==bot.portfolio.Numeraire ? 1 : await bot.getPrice(t);
             prices += "<td title='balance "+tol+' '+t+"'>"+price+"</td>";
             del = d-c;
@@ -195,7 +246,7 @@ console.log(t);
             diff += "<td title='"+tt+"'>"+sigdig(del,5,2)+"</td>";
         };
         ret += "</tr>\n"+current+"</tr>\n"+desired+"</tr>\n"+diff+"</tr>\n"
-            + prices + "</tr></table>";
+            + prices + "</tr></table></div>";
         return ret;
     }
 
@@ -209,7 +260,6 @@ console.log(t);
             +"</form>";
     }
 
-    app.listen(port,(e) => { if(e) console.log("HTTP Server failed:",e); });
     return {start,stop};
 }
 module.exports = Web;

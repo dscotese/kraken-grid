@@ -1,18 +1,51 @@
+html, body, #RDiv, #LDiv {
+    height: 100%;
+    width: 100%;
+}
 td, th {
-  border: 1px solid;
+    border: 1px solid;
 }
 table {
-  border-collapse: collapse;
-  text-align: left;
-  float: right;
+    border-collapse: collapse;
+    text-align: left;
 }
-#Diff td, #Prices td {
-  color: blue;
+#Diff td, #Prices td, #tol, #desired td, #oDiv th, #assets td  {
+    color: blue;
 }
 #Doc {
-    overflow: scroll;
-    height: 500px;
+    height: 100%;
     width: 400px;
-    resize: both;
     float: left;
+}
+div {
+    overflow: scroll;
+    resize: horizontal;
+}
+#RDiv {
+    float: right;
+    width: auto;
+    resize: none;
+}
+#LDiv {
+    float: left;
+    width: auto;
+}
+#GDiv {
+    width: auto;
+    resize: both;
+    overflow: hidden;
+}
+#myCanvas {
+    resize: both;
+    border: 1px solid #000000;
+}
+#gtop {
+    display: flex;
+    justify-content: space-around;
+    overflow: hidden;
+    resize: none;
+}
+#notice {
+    background: green;
+    color: white;
 }

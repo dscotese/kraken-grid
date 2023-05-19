@@ -17,8 +17,8 @@
     are safe from stringify's failures to faithfully represent some JS
     objects.
 */
-function TFC(verbose = false) {
-    const base = "TFC";
+function TFC(verbose = false,id = '') {
+    const base = "TFC"+id;
     const fs = require('fs');
     const path = require('path');
     let lastFile = path.join(base,"lastFile.txt");
@@ -42,7 +42,7 @@ function TFC(verbose = false) {
         .toJSON().replaceAll(':','-').slice(0,-5)+".json";
 
     try {
-        if( slf = fs.readFileSync(lastFile).toString() ) {
+        if( slf = fs.readFileSync(lastFile).toString().trim() ) {
             console.log("Trying Cache:",slf);
             cached = JSON.parse(fs.readFileSync(path.join(base,slf)));
         }
@@ -87,7 +87,7 @@ function TFC(verbose = false) {
 
     // Pass an array of IDs to prevent calls from being cached.
     // --------------------------------------------------------
-    function noCache(IDs) { dontCache = IDs; }
+    function noCache(IDs) { dontCache.concat(IDs); }
 
     // Pass an array of IDS that were sent to noCache so they
     // will be cached again.
@@ -124,7 +124,8 @@ function TFC(verbose = false) {
     // -----------------------------------------------------------
     function store(fNameOrID,argsOrReply,reply=false) {
         if(!process.TESTING) {
-            console.log("Caching requires process.TESTING to evaluate to true.");
+            if(verbose) 
+                console.log("Caching requires process.TESTING to evaluate to true.");
             return;
         }
         let ri = reply 

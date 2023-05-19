@@ -36,6 +36,7 @@ if(FLAGS.verbose) console.log(p);
             portfolio.Allocation = Allocation(
                 (p.Alloc && (0<Object.keys(p.Alloc).length)) ? p.Alloc : false); 
             portfolio.Pairs = new Set(Array.isArray(p.Pairs) ? p.pairs : []);
+            portfolio.Tickers = new Set();
             portfolio.Numeraire = p.Numeraire || 'ZUSD';
             portfolio.limits = p.limits ? p.limits : [0,-1];
             portfolio.lastUpdate = p.lastUpdate ? p.lastUpdate : null;
@@ -55,7 +56,6 @@ if(FLAGS.verbose) console.log(p);
                 assets.push({ticker:key,amount:toDec(portfolio[key][3],4)});
             }
         }
-console.log("Creating Exchange Savings:",assets);
         return Savings({assets,label:'OnExchange'});
     }
 
@@ -136,7 +136,7 @@ console.log("Creating Exchange Savings:",assets);
 
     function whoami() { return whoami.caller.name; }
 
-    const tfc = require('./testFasterCache.js')(process.TESTING);
+    const tfc = require('./testFasterCache.js')(process.TESTING,process.argv[2]);
     async function kapi(arg,sd=5) {
         let ret;
         if(['args',whoami()].includes(process.TESTING)) console.log(whoami(),"called with ",arguments);
@@ -183,22 +183,26 @@ console.log("Creating Exchange Savings:",assets);
         let cO = Number(closeO),
             p = Number(price),
             a = Number(amt),
+            qCost = p*a,
             ret = '',
             pairA = Bot.findPair(market,portfolio.Numeraire,-1),
             pair = pairA[0],
-            ticker = pairA[1].base,
-            quote = pairA[1].quote,
+            pairO = pairA[1],
+            ticker = pairO.base,
+            quote = pairO.quote,
             nuFactor = portfolio[quote][1], // Multiply to get value in Numeraire
-            maxInUSD = portfolio.limits[1],
-            d,notTrade = (maxInUSD != -1 && (p*a*nuFactor>maxInUSD) 
-                || (p*a*nuFactor>25 && FLAGS.safe));
+            maxInNum = portfolio.limits[1], // This is 
+            d,notTrade = (maxInNum != -1 && (qCost*nuFactor>maxInNum) 
+                || (qCost*nuFactor>25 && FLAGS.safe));
 
         if("undefined" == pair) 
             return market+" is not yet supported.";
+        if(pairO.ordermin > a || pairO.costmin > qCost)
+            return a+ticker+'@'+p+" is too small for the exchange.";
         if( cO == price ) cO = 0;
         if(uref==0) uref = makeUserRef(buysell, market, price);
 
-        console.log(27,(notTrade ? '(>$'+maxInUSD+' not safe, so NOT) ' : '')
+        console.log(27,(notTrade ? '(>$'+maxInNum+' not safe, so NOT) ' : '')
             +buysell+"ing "+a+" "+market+" at "+p+" with leverage "+lev
             +(cO==0 ? "" : " to close at "+(isNaN(cO)?closeO+' is NaN!':cO)) +" as "+uref);
         if( cO>0 && (buysell == 'buy' ? cO <= price : cO >= price) )
@@ -270,9 +274,10 @@ console.log("Creating Exchange Savings:",assets);
                 r3 = await kapi(['ClosedOrders',{ofs:100}]),
                 closed = {...response.result.closed, 
                     ...r2.result.closed, 
-                    ...r3.result.closed };
-            if(closed) {
-                ts150 = closed[Object.keys(closed).pop()].closetm;
+                    ...r3.result.closed },
+                closedIDs = Object.keys(closed);
+            if(closed && closedIDs.length > 0) {
+                ts150 = closed[closedIDs.pop()].closetm;
                 for(var o in closed) {
                     let oo = closed[o],
                         od = oo.descr,
@@ -543,7 +548,6 @@ console.log("Creating Exchange Savings:",assets);
         let lev = 'none',
             pnum = portfolio.Numeraire,
             psym = Bot.findPair(market,pnum,1).base;
-console.log({psym,market});
         if(buysell == 'buy') {
             if(1*price > 1*portfolio[psym][1] && posP)
                 return "Buying "+market+" @ "+price+" isn't a limit order.";
@@ -785,7 +789,7 @@ console.log({psym,market});
             since = ts150;
             f = toDec(((x.sell-x.buy)*Math.min(x.bought,x.sold)),2);
             if(!isNaN(f) && (once || x.since)) profits += f;
-            else if(!once && !x.open) { // We do this once for each call to set
+            else if(!once && !x.open && x.userref != 0) { // We do this once for each call to set
                            // and remember which grid points are in play so need to stay.
                 once = true;
                 data = await kapi(['ClosedOrders',{userref:x.userref}]),
@@ -801,13 +805,12 @@ console.log({psym,market});
                             since = Math.min(since,data.closetm);
                             x.since = since;
                             x[datad.type=='buy'?'bought':'sold'] += Number(data.vol_exec);
-                            if(isNaN(x.buy) || isNaN(x.sell) && datad.close) {
+                            if((isNaN(x.buy) || isNaN(x.sell)) && datad.close) {
                                 x[datad.type] = data.price;
                                 x[datad.type=='buy'?'sell':'buy'] =
                                     Number(datad.close.match(/[0-9.]+/)[0]);
                             }
-                        } else if(data.descr.ordertype == 'settle-position') 
-                            console.log({settled:data});
+                        }
                     }
                     f = toDec(((x.sell-x.buy)*Math.min(x.bought,x.sold)),2);
                     data = p['O'].find(o => {return o.userref==x.userref;});
@@ -853,7 +856,13 @@ console.log({psym,market});
             ? (Array.from(portfolio.Pairs)).sort().join().replace(/,,+|^,|,$/g,',') 
             : 'XXBTZUSD'}]);
 
-        let price, ts, zeroes = [];
+        let price, ts, zeroes = [], mCosts = [];
+        // Sometimes the first request for balances lists a quote from
+        // a margin position  after the position's crypto, and this
+        // means portfolio[quote-symbol] doesn't yet exist, so we can't
+        // adjust it to reflect the position.  We keep track of those
+        // position costs in mCosts.
+        // ------------------------------------------------------------
         for( const p in bal.result ) {
             let sym = p,
                 amt = toDec(bal.result[p],4),q;
@@ -866,16 +875,29 @@ console.log({psym,market});
                     price = 1;
                 }
                 price = toDec(price,(sym=='EOS'?4:2));
-                portfolio[sym]=[amt,price,amt,amt]; // holdings w/reserves, price, holdings w/o reserves
+                portfolio[sym]=[amt,price,amt,amt];
+                portfolio.Tickers.add(sym);
+                // holdings w/reserves, price, holdings w/o reserves
                 // [3] will include reserves and margin:
                 if(mar[sym]) {
                     portfolio[sym][0] = toDec(portfolio[sym][0]+mar[sym].open,4);
                     portfolio[sym][3] = amt + Number(mar[sym].open);
                     q = Bot.findPair(mar[sym].pair,'',1).quote;
-                    portfolio[q][3]+=(mar[sym].open < 0 ? 1 : -1)*mar[sym].cost;
+                    mCosts[q] =(mar[sym].open < 0 ? 1 : -1)*mar[sym].cost 
+                        + (mCosts[q] || 0);
                 }
                 if(showBalance) console.log(p+"\t"+w(portfolio[sym][0],16)+price);
             } else zeroes.push(p);
+        }
+        // A new account might not have any units of the numeraire.  Mine didn't.
+        // The code relies on the existing balance to create the property in
+        // the portfolio, so we do it manually if it isn't there yet.
+        // ----------------------------------------------------------------------
+        if(!portfolio[portfolio.Numeraire]) portfolio[portfolio.Numeraire] = [0,1,0,0];
+        for(sym in mCosts) { 
+            portfolio[sym][3] += mCosts[sym]; 
+            if( isNaN(mCosts[sym]) )
+                throw "Problem with "+sym+", "+mCosts[sym]+" in mCosts (895): ";
         }
         // The price of the numeraire is always 1
         // --------------------------------------
@@ -901,7 +923,12 @@ console.log({psym,market});
         cli.apl = 2;
     }
 
-    function w(n,x) { let s = n.toString(); return s+' '.repeat(x-s.length); }
+    function w(n,x) { 
+        let s = n.toString(); 
+        return x>s.length 
+            ? s+' '.repeat(x-s.length)
+            : s; 
+        }
 
     async function marginReport(show = true) {
         let positions = await kapi(['OpenPositions',{consolidation:"market",ctr:2}]);
@@ -912,14 +939,12 @@ console.log({psym,market});
                     pair = Bot.findPair(pos.pair,'',1),
                     sym = pair.base,
                     cost = Number(pos.cost);
-console.log("sym is",sym);
                 vol = toDec(vol,8);
                 brief[sym] = {
                     open:       vol,
                     pair:        pos.pair,
                     cost:       cost,
                     margin:     pos.margin };
-console.log("brief is",brief,"and sym is",sym);
             });
             if(show) console.log(475,brief);
         }
@@ -939,7 +964,11 @@ console.log("brief is",brief,"and sym is",sym);
             let ret = await Savings.pricers[tkr].price(tkr);
             return toDec(ret, 2);
         }
-        throw 'No way to get price for '+tkr;
+        let pair = Bot.findPair(tkr,portfolio.Numeraire),
+            newPrice = pair ? await kapi(["Ticker",{pair: pair}]) : false;
+        if(newPrice) return newPrice.result[pair].c[0];
+        console.log( 'No way to get price for '+tkr );
+        return 0;
     }
 
     return({order, set, listOpens, deleverage, w, ExchangeSavings,
