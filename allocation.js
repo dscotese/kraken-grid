@@ -57,16 +57,21 @@ module.exports = (j=false) => { // Allocation object constructor
         let bot=Bot.s,
             realPrice = await bot.getPrice(ticker); 
         if(move != 0) {
+            let atarg_orig = atargs[ticker],
+                ret;
             if(bot.portfolio.Numeraire == ticker) return atargs[ticker];
             bot.portfolio[ticker][1] = (move<0)
-                ? realPrice / (1-move)
+                ? realPrice / (1-move)  // move is negative!
                 : realPrice * (1+move);
             let range_orig = ranges[ticker] ? [ranges[ticker][0],ranges[ticker][1]] : false;
             get(ticker); // This updates ranges, which must be undone.
+            ret = atargs[ticker];
             // Undo range update that may have happened.
             // -----------------------------------------
             if(range_orig) ranges[ticker] = range_orig;
             bot.portfolio[ticker][1] = realPrice;
+            atargs[ticker] = atarg_orig;
+            return ret;
         }
 // console.log({move,ticker,realPrice,ret:atargs[ticker]});
         return atargs[ticker];

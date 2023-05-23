@@ -197,10 +197,12 @@ if(FLAGS.verbose) console.log(p);
 
         if("undefined" == pair) 
             return market+" is not yet supported.";
-        if(pairO.ordermin > a || pairO.costmin > qCost)
-            return a+ticker+'@'+p+" is too small for the exchange.";
-        if( cO == price ) cO = 0;
         if(uref==0) uref = makeUserRef(buysell, market, price);
+        if(pairO.ordermin > a || pairO.costmin > qCost) {
+            console.log( a+ticker+'@'+p+" is too small for the exchange." );
+            return {txid:"", uref};
+        }
+        if( cO == price ) cO = 0;
 
         console.log(27,(notTrade ? '(>$'+maxInNum+' not safe, so NOT) ' : '')
             +buysell+"ing "+a+" "+market+" at "+p+" with leverage "+lev

@@ -33,7 +33,6 @@
       - [web](#web)
     - [Bot Management](#bot-management)
       - [adjust](#adjust)
-      - [alloc* (Not implemented)](#alloc-not-implemented)
       - [allocate](#allocate)
       - [allocation](#allocation)
       - [asset](#asset)
@@ -213,15 +212,12 @@ As LTC bumps around near the price of 100, you will be trading more of it and th
 
 Note: The bot does not (yet) adjust the volume on trades when the price of an adjusted allocation exceeds the current range.  It does adjust the allocation and so you will see that the trades need to be reset when you look at the Allocation table in the Web UI.
 
-#### alloc* (Not implemented)
-`alloc S P [A]` allows you to specify how you want your savings allocated.
-
+#### allocate [S P [A]]
+`allocate` starts a process through which you can enter how you want your savings allocated (see [Balancing the Present](https://litmocracy.blogspot.com/2019/06/balancing-present.html), which is the motivation for this software).  It will ask if you want to erase your current allocation even if you don't have one.  When you have no allocation, it starts with the actual current allocation as a default and allows you to adjust it.  When you are satisfied with your allocation settings, enter N instead of a ticker to get back to the bot.
+If you include parameters to `allocate`:
 * `S` is a symbol and if it is found in the list of asset tickers from the exchange (only Kraken at the time of writing), the bot will record `P` as the percentage allocation target for your savings.
 * `P` must be a number (any more than two decimal places will be ignored). It is interpreted as the percentage of your entire savings you would like this asset to be.  If such an allocation is already recorded (and `A` is not present and "false"), the bot will ask you to confirm that you want to update it.  Your default currency allocation will be adjusted so that the full allocation adds up to 100%.
 * `A` is for Ask. (optional) It must be the string 'false' if it is present because it prevents the bot from asking before overwriting existing data.
-
-#### allocate
-`allocate` starts a process through which you can enter how you want your savings allocated (see [Balancing the Present](https://litmocracy.blogspot.com/2019/06/balancing-present.html), which is the motivation for this software).  It will ask if you want to erase your current allocation even if you don't have one.  When you have no allocation, it starts with the actual current allocation as a default and allows you to adjust it.  When you are satisfied with your allocation settings, enter N instead of a ticker to get back to the bot.
 
 #### allocation
 `allocation [F]` will display your current actual allocation across all the assets you have entered (see [asset](#asset) below) as well as the assets you have on the exchange, including any positions you hold.  F can be ? to review what the command does, or "fresh" to have the code get new prices from the exchange.

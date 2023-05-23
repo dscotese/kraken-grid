@@ -11,6 +11,7 @@ table {
 }
 #Diff td, #Prices td, #tol, #desired td, #oDiv th, #assets td  {
     color: blue;
+    cursor: pointer;
 }
 #Doc {
     height: 100%;
