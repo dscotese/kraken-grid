@@ -127,8 +127,8 @@ function PieDiv() { //canvasHolder=false) { // Pass the JQuery object that selec
     let d = data.desired,
         docdiv = $('#GDiv')[0];
         sw = docdiv.offsetWidth-docdiv.clientWidth,
-        w = Number(docdiv.style.width.match(/[0-9]+/)[0]),
-        h = Number(docdiv.style.height.match(/[0-9]+/)[0]),
+        w = Number(('0'+docdiv.style.width).match(/[0-9]+/)[0]),
+        h = Number(('0'+docdiv.style.height).match(/[0-9]+/)[0]),
         slices = [];    // Associative array [name:[value,color]]
 
     Object.keys(data.tickers).forEach((t) => {
@@ -171,11 +171,11 @@ function mousePie(e) {
 function useData(d) {
     data = d;
     let can = $('#myCanvas')[0],
-        docdiv = $('#GDiv')[0];
+        docdiv = $('#GDiv')[0],
         sw = docdiv.offsetWidth-docdiv.clientWidth,
         sh = docdiv.offsetHeight-docdiv.clientHeight,
-        w = Number(docdiv.style.width.match(/[0-9]+/)[0]),
-        h = Number(docdiv.style.height.match(/[0-9]+/)[0]);
+        w = Number(('0'+docdiv.style.width).match(/[0-9]+/)[0]),
+        h = Number(('0'+docdiv.style.height).match(/[0-9]+/)[0]);
     can.width=w-sw-2;
     can.height=h-sh-25;
     // G.clear();
@@ -303,8 +303,8 @@ function AllocTable(tol = genTol) {
         desired="<tr id='desired'><th>Desired</th>",
         diff = "<tr id='Diff'><th>Difference</th>",
         diffs = [],
-        gHeight = Number($('#GDiv')[0].style.height.match(/[0-9]+/)[0]),
-        gWidth = Number($('#GDiv')[0].style.width.match(/[0-9]+/)[0]),
+        gHeight = Number(('0'+$('#GDiv')[0].style.height).match(/[0-9]+/)[0]),
+        gWidth = Number(('0'+$('#GDiv')[0].style.width).match(/[0-9]+/)[0]),
         prices = "<tr id='Prices'><th>Prices</th>",
         c,d,del,tt,price,imbalance = 0, slices=[];
     for(t in tkrs) {

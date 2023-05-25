@@ -74,6 +74,7 @@ module.exports = (j=false) => { // Allocation object constructor
             return ret;
         }
 // console.log({move,ticker,realPrice,ret:atargs[ticker]});
+        get(ticker);
         return atargs[ticker];
     }
 
@@ -292,7 +293,7 @@ module.exports = (j=false) => { // Allocation object constructor
         // Once we have SL and HB, we can determine where in that range
         // the current price is, from 0% - 100%, and add that portion
         // of apct to the allocation percentage stored on disk to use in
-        // the allocation function (and add the same to the allocation
+        // the allocation function (and subtract it from  the allocation
         // of cash).  This is what get() does and why targets must be
         // retrieved using that function.
         ranges[ticker] = await findRange(ticker, apct, ppct);
