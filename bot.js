@@ -168,6 +168,9 @@ if(FLAGS.verbose) console.log(p);
             } else if( /Unknown order/.test(err.message) && /CancelOrder/.test(arg[0])) {
                 console.log("Ignoring: ", err.message, ...arg);
                 ret = { result: { descr: "Ignored" }};
+            } else if(FLAGS.risky && /Insufficient initial margin/.test(err.message)) {
+                console.log(172,err.message+" Maybe next time.");
+                ret = { result: { descr: "Postponed" }};
             } else {
                 throw err;
             }
@@ -768,7 +771,8 @@ if(FLAGS.verbose) console.log(p);
             (undo ? '2' : 'none'),o.userref,
             /[0-9.]+$/.exec(o.descr.close)[0] );
         }
-        if(/^[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+$/.test(placed.txid)) { // Depends on Exchange's TxID
+        if(placed.txid 
+            && /^[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+$/.test(placed.txid)) { // Depends on Exchange's TxID
             await kill(oid+1, opensA);
         }
     }

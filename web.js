@@ -203,12 +203,12 @@ function Web(man) {
     }
 
     async function getAlloc(tkr,alloc) { 
-        let ret = await alloc.atarg(tkr); //lloc.assets.find(a=>{return a.ticker==tkr;});
+        let ret = await alloc.atarg(tkr);
         return ret ? sigdig(100*ret,5,2) : 0;
     }
 
     async function Allocations() {
-        let allocs = await man.doCommands(["allocation"]),
+        let allocs = await man.doCommands(["allocation quiet"]),
             current = {}, desired = {};
         allocs.desired.assets.forEach(a=>{if(!tkrs[a.ticker]) tkrs[a.ticker] = 0;});
         for(t in tkrs) {
@@ -216,38 +216,6 @@ function Web(man) {
             desired[t] = await getAlloc(t, allocs.desired);
         }
         return [current,desired];
-    }
-
-    async function AllocTable(tol) {
-        let allocs = await man.doCommands(["allocation"]),
-            ca = allocs.current,
-            da = allocs.desired,
-            lacks = {};
-        da.assets.forEach(a=>{if(!tkrs[a.ticker]) tkrs[a.ticker] = 0;});
-        let ret = "<div><table id='alloc'><tr><th colspan='"
-            + (1+Object.keys(tkrs).length) 
-            + "'>Allocation Last Update: " + bot.portfolio.lastUpdate
-            + "</th></tr>\n<tr id='tkrs'><th id='tol' title='Balance Tolerance'>"+tol+"</th>",
-            total = man.getTotal(),
-            current="<tr id='current'><th>Current</th>",
-            desired="<tr id='desired'><th>Desired</th>",
-            diff = "<tr id='Diff'><th>Difference</th>",
-            prices = "<tr id='Prices'><th>Prices</th>",
-            c,d,del,tt,price;
-        for(t in tkrs) { 
-            ret += "<th>"+t+"</th>";
-            current += "<td>"+(c=await getAlloc(t,ca))+"%</td>";
-            desired += "<td>"+(d=await getAlloc(t,da))+"%</td>";
-            price = t==bot.portfolio.Numeraire ? 1 : await bot.getPrice(t);
-            prices += "<td title='balance "+tol+' '+t+"'>"+price+"</td>";
-            del = d-c;
-            tt = (del > 0 ? 'buy ' : 'sell ')+t+' '+price+' '
-                +(sigdig((Math.abs(del/100)*total/price),6,8));
-            diff += "<td title='"+tt+"'>"+sigdig(del,5,2)+"</td>";
-        };
-        ret += "</tr>\n"+current+"</tr>\n"+desired+"</tr>\n"+diff+"</tr>\n"
-            + prices + "</tr></table></div>";
-        return ret;
     }
 
     function table(object) {

@@ -247,7 +247,10 @@ _Collecting profit data:_ If you issue `set ~ [N]` the bot will go through the g
 `quit` terminates the program.
 
 #### risky
-`risky` is intended to give you access to features that are, well, risky!
+`risky` is intended to give you access to features that are, well, risky! They currently include only:
+* Order placement failure for "Insufficient initial margin" (Kraken has nothing for you to borrow), in which case it reports the error, no order is placed, and the code procceds.
+* Any API call which fails because of "Internal Error", in which case it reports the error and proceeds.
+* Using `1` as the close price (final argument) to `buy` or `sell` to mean "Close at the current price", rather than `true`, which is the safe way to ensure the current price is used as the close price.
 
 #### reset
 `reset`
