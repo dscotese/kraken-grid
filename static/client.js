@@ -132,7 +132,7 @@ function PieDiv() { //canvasHolder=false) { // Pass the JQuery object that selec
         slices = [];    // Associative array [name:[value,color]]
 
     Object.keys(data.tickers).forEach((t) => {
-        slices[t] = [d[t],colors[t]];
+        if(d[t]) slices[t] = [d[t],colors[t]];
     });
     
     G.desired = G.pie(slices,-w/4,0);
@@ -315,7 +315,8 @@ function AllocTable(tol = genTol) {
             + (d=data.desired[t])+"%</td>";
         price = data.tickers[t][1];
         prices += "<td title='balance "+tol+' '+t+"'>"+price+"</td>";
-        slices[t] = [(del = d-c),colors[t]];
+        del = d-c;
+        if(!isNaN(del)) slices[t] = [del,colors[t]];
         if(del>0) imbalance += del;
         tt = (del > 0 ? 'buy ' : 'sell ')+t+' '+price+' '
             +(sigdig((Math.abs(del/100)*data.total/price),6,8));

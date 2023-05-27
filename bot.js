@@ -872,28 +872,27 @@ if(FLAGS.verbose) console.log(p);
         for( const p in bal.result ) {
             let sym = p,
                 amt = toDec(bal.result[p],4),q;
-            if(amt > 0) {
-                if(p != portfolio.Numeraire && (ts=Bot.findPair(p,portfolio.Numeraire))) {
-                    if(Bot.alts[ts]) ts = Bot.alts[ts];
-                    if(ts in tik.result) price = tik.result[ts].c[0];
-                } else {
-                    if(FLAGS.verbose) console.log("Using 1 as value of",p);
-                    price = 1;
-                }
-                price = toDec(price,(sym=='EOS'?4:2));
-                portfolio[sym]=[amt,price,amt,amt];
-                portfolio.Tickers.add(sym);
-                // holdings w/reserves, price, holdings w/o reserves
-                // [3] will include reserves and margin:
-                if(mar[sym]) {
-                    portfolio[sym][0] = toDec(portfolio[sym][0]+mar[sym].open,4);
-                    portfolio[sym][3] = amt + Number(mar[sym].open);
-                    q = Bot.findPair(mar[sym].pair,'',1).quote;
-                    mCosts[q] =(mar[sym].open < 0 ? 1 : -1)*mar[sym].cost 
-                        + (mCosts[q] || 0);
-                }
-                if(showBalance) console.log(p+"\t"+w(portfolio[sym][0],16)+price);
-            } else zeroes.push(p);
+            if(p != portfolio.Numeraire && (ts=Bot.findPair(p,portfolio.Numeraire))) {
+                if(Bot.alts[ts]) ts = Bot.alts[ts];
+                if(ts in tik.result) price = tik.result[ts].c[0];
+            } else {
+                if(FLAGS.verbose) console.log("Using 1 as value of",p);
+                price = 1;
+            }
+            price = toDec(price,(sym=='EOS'?4:2));
+            portfolio[sym]=[amt,price,amt,amt];
+            portfolio.Tickers.add(sym);
+            // holdings w/reserves, price, holdings w/o reserves
+            // [3] will include reserves and margin:
+            if(mar[sym]) {
+                portfolio[sym][0] = toDec(portfolio[sym][0]+mar[sym].open,4);
+                portfolio[sym][3] = amt + Number(mar[sym].open);
+                q = Bot.findPair(mar[sym].pair,'',1).quote;
+                mCosts[q] =(mar[sym].open < 0 ? 1 : -1)*mar[sym].cost 
+                    + (mCosts[q] || 0);
+            }
+            if(amt > 0 && showBalance) console.log(p+"\t"+w(portfolio[sym][0],16)+price);
+            else if(amt == 0) zeroes.push(p);
         }
         // A new account might not have any units of the numeraire.  Mine didn't.
         // The code relies on the existing balance to create the property in
