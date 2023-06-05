@@ -231,7 +231,7 @@ function Manager(b) {
             let alisting = d
                 ? d.list({name:'Now',alloc:c})
                 : (c.list() + "Use allocate to set targets.");
-            if(args[1].toLowerCase() != 'quiet') console.log(alisting);
+            if(!args[1] || args[1].toLowerCase() != 'quiet') console.log(alisting);
             return {desired:d,current:c};
         } else if(args[0] == 'allocate') {
             let a = await getAllocation(true);
