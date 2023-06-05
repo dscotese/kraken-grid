@@ -234,6 +234,7 @@ if(FLAGS.verbose) console.log(p);
             console.log(42,"Cooling it for a second...");
             await sleep(1000);
         } else console.log(204,p*a*nuFactor,"is not in range:",portfolio.limits);
+        if(notTrade) await sleep(5000);
         return ret;
     }
 
@@ -480,6 +481,11 @@ if(FLAGS.verbose) console.log(p);
                     // console.log("Still between buy and sell.");
                     ++nexes;
                 } else if(bs && bs.price==c.price) { // The lowest sell or highest buy
+                    if(gp.sell - gp.buy <= 0) {
+                        console.log("Somethig is wrong with this grid:\n",
+                            JSON.stringify(gPrices));
+                        return;
+                    }
                     // Calculate price for missing side
                     // --------------------------------
                     let dp = gp.buy.indexOf('.'),
@@ -527,6 +533,7 @@ if(FLAGS.verbose) console.log(p);
                                     'buy:',ngp.buy,'sell:',ngp.sell);
                                 console.log(264,"buy "+c.sym+" "+bp+' '+c.volume
                                     +" to close at "+gp.buy);
+                                if(ngp.buy == ngp.sell) throw "Bad Grid Point";
                             }
                             await order('buy',c.sym,bp,c.volume,
                                 getLev(portfolio,'buy',bp,c.volume,c.sym,false),c.userref,
