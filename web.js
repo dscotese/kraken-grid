@@ -7,7 +7,7 @@ const Bot = require('./bot.js');
 const fs = require('fs');
 function Web(man) {
     const Savings = require('./savings.js');
-    let server,
+    let server = false,
         log_original = console.log,
         bot = Bot.s,
         sigdig = bot.portfolio.Allocation.sigdig,
@@ -25,29 +25,30 @@ function Web(man) {
     const host = 'localhost';
     const port = process.TESTING ? 8001 : 8000;
     app.set('trust proxy', 1) // trust first proxy
-    app.use(session({
-        secret: '537R37',
-        resave: false,
-        saveUninitialized: false,
-        cookie: { secure: false }
-    }));
+        app.use(session({
+secret: '537R37',
+resave: false,
+saveUninitialized: false,
+cookie: { secure: false }
+}));
 
-    app.use("/js",express.static(path.join(__dirname, 'static')));
-    app.use("/img",express.static(path.join(__dirname, 'static')));
+app.use("/js",express.static(path.join(__dirname, 'static')));
+app.use("/img",express.static(path.join(__dirname, 'static')));
 
-    function stop() { 
-        if(server) server.close();
-        server = false;
-        if(log_original) console.log = log_original;
-        console.log("WebServer is off."); 
-    }
-    function start(pport = port) { 
-        if(server) server.close();
-        server = app.listen(pport,(e) => { if(e) console.log("HTTP Server failed:",e); });
-        // Trap the console.log function
-        console.log = log;
-        log_original(`Server is running on http://${host}:${pport}`); 
-    }
+function stop() { 
+    if(server) server.close();
+    server = false;
+    if(log_original) console.log = log_original;
+    console.log("WebServer is off."); 
+}
+function start(pport = port) { 
+    if(server) server.close();
+    server = app.listen(pport,(e) => { if(e) console.log("HTTP Server failed:",e); });
+    // Trap the console.log function
+    console.log = log;
+    log_original(`Server is running on http://${host}:${pport}`); 
+}
+function address() { return server ? server.address : false; }
 
     app.use(bodyParser.urlencoded({ extended: false }));
 
@@ -131,7 +132,7 @@ function Web(man) {
     }
 
     function head(whatElse='') {return "<!DOCTYPE html><head>" + getJQ()
-        + "<script type='module' src='https://md-block.verou.me/md-block.js'></script>\n"
+        + "<script type='module' src='/js/md-block.js'></script>\n"
         + "<script type='text/javascript' src='/js/gallocation.js' defer></script>\n"
         + "<script type='text/javascript' src='/js/imgByKtick.js'></script>\n"
         + "<script type='text/javascript' src='/js/client.js' defer></script>\n"
@@ -228,6 +229,6 @@ function Web(man) {
             +"</form>";
     }
 
-    return {start,stop};
+    return {start,stop,address};
 }
 module.exports = Web;
