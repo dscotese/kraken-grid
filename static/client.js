@@ -1,5 +1,5 @@
 const $ = jQuery;
-var data=false, tkrs = [], auto, genTol;
+var data=false, tkrs = [], auto=-1, genTol;
 let G = galloc($('#myCanvas')[0].getContext("2d"));
 // The thumbnails for cryptos were collected from https://api.coingecko.com/api/v3/coins/
 function setCookie(cname, cvalue, exdays) {
@@ -75,7 +75,6 @@ $(function() {
     });
     armAssets();
     armAlloc();
-    auto = window.setInterval(getData, 60000);
     getData();
     $('#myCanvas').on('click',mousePie);
     $(".setting").on('click',(e) => {botExec(e.target.getAttribute('id'))});
@@ -201,6 +200,7 @@ function useData(d) {
         jqs.html(s+" is "+(f[s]?'on':'off'));
         jqs.css( "background", f[s]?"pink":"white" );
     }
+    if(auto == -1) auto = window.setInterval(getData, 60000);
 }
     
 function sigdig(x,sig=6,dp=6) {
@@ -222,6 +222,7 @@ function AssetsTable() {
     let Savs = data.savings,assets,
         total = data.total,
         tbody = "",
+        zeroes = "Tickers not in your savings: ",
         ktks = tkrs ? Object.keys(tkrs) : [],
         ret = "",rows = [], // rows is an associative array of object arrays.
         tkr,amt,ki,label,tkrl,sav; // ktks is "Known Tickers"
@@ -252,7 +253,15 @@ function AssetsTable() {
     }
     rows['ZTotal'] = [{key:'AAAA',val:"<th>Totals</th>"}];
     ktks = ktks.sort();
-    for(t of ktks) rows['ZTotal'].push({key:t,val:"<th>"+sigdig(tkrs[t],8,2)+"</th>"});
+    for(t of ktks) {
+        rows['ZTotal'].push({key:t,val:"<th>"
+            + ( tkrs[t]>0 ? sigdig(tkrs[t],8,2) : '' ) +"</th>"});
+        if(tkrs[t] == 0) { // Hiding zeroes in table.
+            let header = rows[''].find(r=>{return r.key==t;});
+            zeroes += ' ' + weblink(t);
+            header.val = "<th></th>";
+        }
+    }
     for(r in rows) {
         rows[r].sort((a,b)=> { return a.key<b.key ? -1 : 1; });
         let asString = "",rs;
@@ -269,7 +278,7 @@ function AssetsTable() {
         asString += "<td></td>".repeat(tail-1);
         tbody += "<tr>" + asString + "</tr>\n";
     }
-    ret = "<table id='assets'>"+tbody+"</table>";
+    ret = zeroes+"<br/><table id='assets'>"+tbody+"</table>";
     return ret;
 }
 
