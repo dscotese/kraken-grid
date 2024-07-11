@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-process.TESTING = process.TESTING || !(/init.js$/.test(process.argv[1]));
-console.log("filename is ",process.argv[1]);
+process.TESTING = process.TESTING || !(/init.js$|kraken-grid$/.test(process.argv[1]));
+console.log("filename is ",process.argv[1],"in "+(process.TESTING?'test':'production')+" mode.");
 const Manager = require('./manager.js');
 const Bot = require('./bot.js');
 const Web = require('./web.js');

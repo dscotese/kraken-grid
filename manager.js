@@ -488,8 +488,10 @@ function Manager(b) {
         }
     }
 
+    function isAuto() { return auto; }
+
     return({ catcher, run, doCommands, getAllocation, 
-             init, listen, ignore, getTotal });
+             init, listen, ignore, getTotal, isAuto });
 }
 module.exports = Manager;
 
