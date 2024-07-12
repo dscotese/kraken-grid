@@ -11,10 +11,8 @@ function Bot() {
         portfolio = {},
         ts150 = 0,
         delay = 60,
-        auto = 0,
         FLAGS = {safe:true,verbose:process.TESTING,risky:false},
         cmdList = [],
-        auto_on_hold = false,
         cli = {'apl': 0},
         safestore,
         Savings;
@@ -984,7 +982,7 @@ if(FLAGS.verbose) console.log(p);
     }
 
     return({order, set, listOpens, deleverage, w, ExchangeSavings,
-        refnum, list, kapi, lessmore, kill, auto, report, 
+        refnum, list, kapi, lessmore, kill, report, 
         sleep, marginReport, portfolio, getLev, showState,
         pairInfo, showPair, FLAGS, save, basesFromPairs,
         numerairesFromPairs, init, keys, getPrice});

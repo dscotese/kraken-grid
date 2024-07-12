@@ -72,7 +72,9 @@ function address() { return server ? server.address : false; }
 
     app.get('/data', async (req, res, next) => {
         logged = "Reset at 73";
-        await bot.report(false);
+        // Report called recently enough if on auto
+        // ----------------------------------------
+        if( man.isAuto == 0 ) await bot.report(false);
         // I planned to remove AssetsTable, but it creates the tkrs array.
         // ---------------------------------------------------------------
         AssetsTable(); // Called for side-effect of collecting tkrs from savings.
