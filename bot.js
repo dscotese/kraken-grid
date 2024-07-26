@@ -24,6 +24,7 @@ function Bot() {
             //p.
 if(FLAGS.verbose) console.log(p);
             Bot.s = this;
+	    Bot.PW = safestore.getPW();
             Bot.extra = p.extra ? p.extra : {};
             kraken = new KrakenClient(p.key, p.secret);
             Bot.pairs = await cachePairs();
@@ -170,6 +171,7 @@ if(FLAGS.verbose) console.log(p);
                 console.log(172,err.message+" Maybe next time.");
                 ret = { result: { descr: "Postponed" }};
             } else {
+		console.log(174,"API key: ", portfolio.key);
                 throw err;
             }
             await sleep(1000);
