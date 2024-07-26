@@ -97,7 +97,10 @@ function Safestore(pwp = 'abc123') {
         persistent = p;
         return p;
     }
-    return Object.freeze({persistent, read, replace, _update});
+
+    function getPW() { return pw; }
+
+    return Object.freeze({persistent, read, replace, _update, getPW});
 }
 
 module.exports = Safestore;

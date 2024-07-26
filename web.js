@@ -1,4 +1,5 @@
 const express = require('express');
+const basicAuth = require("express-basic-auth");
 const app = express();
 const path = require("path");
 const session = require('express-session');
@@ -24,31 +25,34 @@ function Web(man) {
     // Initialize
     const host = 'localhost';
     const port = process.TESTING ? 8001 : 8000;
-    app.set('trust proxy', 1) // trust first proxy
-        app.use(session({
-secret: '537R37',
-resave: false,
-saveUninitialized: false,
-cookie: { secure: false }
-}));
+    app.set('trust proxy', 1); // trust first proxy
+    app.use(session({
+	secret: '537R37',
+	resave: false,
+	saveUninitialized: false,
+	cookie: { secure: false }
+	}));
 
-app.use("/js",express.static(path.join(__dirname, 'static')));
-app.use("/img",express.static(path.join(__dirname, 'static')));
-
-function stop() { 
-    if(server) server.close();
-    server = false;
-    if(log_original) console.log = log_original;
-    console.log("WebServer is off."); 
-}
-function start(pport = port) { 
-    if(server) server.close();
-    server = app.listen(pport,(e) => { if(e) console.log("HTTP Server failed:",e); });
-    // Trap the console.log function
-    console.log = log;
-    log_original(`Server is running on http://${host}:${pport}`); 
-}
-function address() { return server ? server.address : false; }
+    app.use("/js",express.static(path.join(__dirname, 'static')));
+    app.use("/img",express.static(path.join(__dirname, 'static')));
+    app.use(basicAuth({
+        challenge: true,
+        users: { 'admin': Bot.PW }
+    }));
+    function stop() { 
+        if(server) server.close();
+        server = false;
+        if(log_original) console.log = log_original;
+        console.log("WebServer is off."); 
+    }
+    function start(pport = port) { 
+        if(server) server.close();
+        server = app.listen(pport,(e) => { if(e) console.log("HTTP Server failed:",e); });
+        // Trap the console.log function
+        console.log = log;
+        log_original(`Server is running on http://${host}:${pport}`); 
+    }
+    function address() { return server ? server.address : false; }
 
     app.use(bodyParser.urlencoded({ extended: false }));
 
