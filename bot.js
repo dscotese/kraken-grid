@@ -831,7 +831,7 @@ if(FLAGS.verbose) console.log(p);
                         delete p['G'][xin];
                         p['G'] = Object.values(p['G']);
                     } else {
-                        profits += f;   // Profits from just-retrieved trades.
+                        if(!isNaN(f)) profits += f;   // Profits from just-retrieved trades.
                         x.open = true;  // If f was 0 but we did find it in open orders (p['O']).
                     }
                     console.log("Retrieved",count,"more closed orders.");
