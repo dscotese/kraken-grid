@@ -63,8 +63,8 @@ $(function() {
     ro.observe($('#Doc')[0]);
     ro.observe($('#GDiv')[0]);
     ro.observe($('#LDiv')[0]);
-    $('md-block').on('md-render',() => {
-        $('#Doc code').on('click',(data) => {
+    // $('md-block').on('md-render',() => {
+        $('#Doc').on('click','code',(data) => {
             let t = data.target,
                 txt = t.innerHTML,
                 yn = prompt("Send a command to the bot?",txt);
@@ -72,7 +72,7 @@ $(function() {
                 botExec(yn);
             }
         });
-    });
+    // });
     armAssets();
     armAlloc();
     getData();
