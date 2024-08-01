@@ -315,12 +315,12 @@ function Manager(b) {
         } else if(/^(y|Y)/.test(prompt("Try "+args[0]+" raw?"))) {
             let raw = await bot.kapi(args);
             console.log(392,raw);
-        } else {
+        } else if(/^(y|Y)/.test(prompt("Set process.TESTING to "+args[0]+"?"))) {
             process.TESTING = ('notest' == args[0] ? false : args[0]);
-            process.USECACHE = ('nocache' == args[0] ? false : process.TESTING);
-            console.log("process.TESTING set to",process.TESTING,
-                "and caching",(process.USECACHE?"will":"will not"),"be used.");
+            process.USECACHE = /^(y|Y)/.test(prompt("Use caching?"));
         }
+        console.log("process.TESTING is",process.TESTING,
+	"and caching",(process.USECACHE?"will":"will not"),"be used.");
     }
 
     async function doCommands(cl=cmdList) {
@@ -488,7 +488,7 @@ function Manager(b) {
         }
     }
 
-    function getAuto() { return auto; }
+    function getAuto() { return delay; }
 
     return({ catcher, run, doCommands, getAllocation, 
              init, listen, ignore, getTotal, getAuto });

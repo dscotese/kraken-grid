@@ -80,7 +80,7 @@ $(function() {
     $(".setting").on('click',(e) => {botExec(e.target.getAttribute('id'))});
 });
 
-function stopRefresh() { window.clearInterval(auto); }
+function stopRefresh() { window.clearTimeout(auto); }
 
 function getData() {
     $('#notice').html("Refreshing...");
@@ -200,7 +200,9 @@ function useData(d) {
         jqs.html(s+" is "+(f[s]?'on':'off'));
         jqs.css( "background", f[s]?"pink":"white" );
     }
-    if(auto == -1) auto = window.setInterval(getData, 1000 * d.refresh_period);
+    if(auto > -1) window.clearTimeout(auto);
+    if(d.refresh_period > 0)
+        auto = window.setTimeout(getData, 1000 * d.refresh_period);
 }
     
 function sigdig(x,sig=6,dp=6) {
