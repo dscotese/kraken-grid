@@ -325,13 +325,15 @@ function AllocTable(tol = genTol) {
             : " title='allocate "+t+" "+data.desired[t]+"'") +">"
             + (d=data.desired[t])+"%</td>";
         price = data.tickers[t][1];
-        prices += "<td title='balance "+tol+' '+t+"'>"+price+"</td>";
+        prices += "<td"+(t == data.numer ? ''
+            : " title='balance "+tol+' '+t+"'")+">"+price+"</td>";
         del = d-c;
         if(!isNaN(del)) slices[t] = [del,colors[t]];
         if(del>0) imbalance += del;
         tt = (del > 0 ? 'buy ' : 'sell ')+t+' '+price+' '
             +(sigdig((Math.abs(del/100)*data.total/price),6,8));
-        diff += "<td title='"+tt+"'>"+sigdig(del,5,2)+"</td>";
+        diff += "<td"+(t==data.numer ? ''
+            : " title='"+tt+"'")+">"+sigdig(del,5,2)+"</td>";
     };
     imbalance *= data.total/100;
     G.bns = G.pie(slices,gWidth/4,0, -25);
@@ -345,7 +347,7 @@ function AllocTable(tol = genTol) {
 }
 
 function armAlloc() {
-    $("#Diff td,#Prices td, #desired td").on('click',(e)=>t2Command(e));
+    $("#Diff td[title],#Prices td[title], #desired td[title]").on('click',(e)=>t2Command(e));
     $("th#tol").on('click',(data) => {
         let tol = Number(data.target.innerHTML);
         newTol = prompt("Set balancing tolerance percentage to:",genTol);
