@@ -102,7 +102,7 @@ function Manager(b) {
         if(/^(buy|sell)$/.test(args[0])) {
             let pair;
             [buysell,xmrbtc,price,amt,posP] = args;
-            pair = Bot.findPair(xmrbtc, portfolio.Numerairei, -1);
+            pair = Bot.findPair(xmrbtc, portfolio.Numeraire, -1);
             if(pair) xmrbtc = pair[1].base;
             if( 'undefined' == typeof(portfolio[xmrbtc]) ) {
                 // Try the asset's altname

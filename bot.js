@@ -151,6 +151,7 @@ if(FLAGS.verbose) console.log(p);
         } catch(err) {
             if((!/AddOrder/.test(arg[0])&&/ETIMEDOUT|EAI_AGAIN/.test(err.code))
                 || /nonce/.test(err.message)
+                || /Response code 520/.test(err.message)
                 || /Response code 50/.test(err.message)
                 || (FLAGS.risky && /Internal error/.test(err.message))
                 || /Unavailable/.test(err.message) 
