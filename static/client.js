@@ -46,6 +46,7 @@ $(function() {
         +"<span id='safe' class='setting'></span>"
         +"<span id='verbose' class='setting'></span>"
         +"<span id='risky' class='setting'></span>"
+        +"<span id='auto' class='setting'></span>"
         +"<a href='javascript:getData(data);'>Refresh</a></div>");
     let wst=0,
          ro = new ResizeObserver( (entries) => { 
@@ -63,24 +64,22 @@ $(function() {
     ro.observe($('#Doc')[0]);
     ro.observe($('#GDiv')[0]);
     ro.observe($('#LDiv')[0]);
-    // $('md-block').on('md-render',() => {
-        $('#Doc').on('click','code',(data) => {
-            let t = data.target,
-                txt = t.innerHTML,
-                yn = prompt("Send a command to the bot?",txt);
-            if(yn) {
-                botExec(yn);
-            }
-        });
-    // });
+    $('#Doc').on('click','code',(data) => {
+        botExecA(data.target.innerHTML);
+    });
     armAssets();
     armAlloc();
     getData();
     $('#myCanvas').on('click',mousePie);
-    $(".setting").on('click',(e) => {botExec(e.target.getAttribute('id'))});
+    $(".setting").on('click',(e) => {
+        let cmd = e.target.getAttribute('id');
+        if(cmd == 'auto' && data.refresh_period > 0) // user is turning auto off
+            cmd = 'manual';
+        botExecA(cmd);
+    });
 });
 
-function stopRefresh() { window.clearTimeout(auto); }
+function stopRefresh() { window.clearTimeout(auto); auto = -1; }
 
 function getData() {
     $('#notice').html("Refreshing...");
@@ -146,9 +145,7 @@ function mousePie(e) {
         let dps = G.desired.paths;
         for(k in dps) { // iterate over tickers, the keys
             if(G.context.isPointInPath(dps[k], e.offsetX, e.offsetY)) {
-                let def = data.desired[k];
-                cmd = prompt("Update allocation percentage?",
-                    "allocate "+k+' '+def);
+                cmd = "allocate "+k+' '+data.desired[k];
             }
         }
     }
@@ -159,12 +156,11 @@ function mousePie(e) {
                 let del = G.bns.slices[k][0],
                     price = data.tickers[k][1],
                     amt = sigdig((Math.abs(del/100)*data.total/price),6,8);
-                cmd = prompt("Send this trade to the bot?",
-                    (del<0?"sell ":"buy ")+k+' '+price+' '+amt);
+                cmd = (del<0?"sell ":"buy ")+k+' '+price+' '+amt;
             }
         }
     }
-    if(cmd) botExec(cmd);
+    if(cmd) botExecA(cmd);
 }
 
 function useData(d) {
@@ -195,11 +191,14 @@ function useData(d) {
     armAlloc();
     armOrderTable();
     let f = data.FLAGS,jqs;
-    for(s in f) {
+    // Show auto too
+    f['auto'] = data.refresh_period>0 ? true : false;
+    for(s in f) { // FLAGS are safe, risky, and verbose.
         jqs = $('span#'+ s);
         jqs.html(s+" is "+(f[s]?'on':'off'));
         jqs.css( "background", f[s]?"pink":"white" );
     }
+
     if(auto > -1) window.clearTimeout(auto);
     if(d.refresh_period > 0)
         auto = window.setTimeout(getData, 1000 * d.refresh_period);
@@ -300,8 +299,7 @@ function armAssets() {
                 + "console.";
             cmd = "asset Ticker Units Account false";
         }
-        cmd = prompt(ask,cmd);
-        if(cmd) botExec(cmd);
+        botExecA(cmd, ask);
     });
 }
 
@@ -439,12 +437,10 @@ function orderCompare(th, order) {
 }
 
 function t2Command(e) {
-    let t = e.target,
-        def = t.getAttribute('title'),
-        cmd = prompt("Send command to bot?",def);
-    if(cmd) botExec(cmd);
+    botExecA(e.target.getAttribute('title'));
 }
 
-function botExec(cmd) {
-    $.post('/',{data:cmd},(r) => { alert(r); getData();});
+function botExecA(cmd,ask="Send this command to the bot?") { // Ask for edits, send command.
+    if(cmd = prompt(ask, cmd))
+        $.post('/',{data:cmd},(r) => { alert(r); getData();});
 }

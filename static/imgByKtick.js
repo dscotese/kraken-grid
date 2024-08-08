@@ -277,7 +277,12 @@ const imgByKtick = {
 		"ZJPY":"/img/yen.png",
 		"ZRX":thumbase+"863/thumb/0x.png?1547034672",
 		"ZUSD":"/img/usd.png"};
+/* The URLs above show that the server is implied, which is because
+   this file is designed for use in the browser.  If you want to use
+   it in Node.JS, you need the following code, but also to update
+   all the URLs above to reference a source server.
 module.exports = {
 	get:(t) => { return imgByKtick[t]; },
 	map: imgByKtick
 }
+*/
