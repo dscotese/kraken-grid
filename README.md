@@ -6,6 +6,8 @@
   - [Upgrading](#upgrading)
   - [Installation](#installation)
   - [Usage](#usage)
+    - [How the author (Dave) does it for himself and others:](#how-the-author-dave-does-it-for-himself-and-others)
+      - [Discussion of the `adjust` command.](#discussion-of-the-adjust-command)
     - [Web UI](#web-ui)
       - [Orders table](#orders-table)
       - [Allocation table](#allocation-table)
@@ -15,14 +17,14 @@
     - [Mistyped passwords](#mistyped-passwords)
     - [Command Line Interface](#command-line-interface)
     - [Trading](#trading)
+      - [addlev](#addlev)
+      - [delev](#delev)
       - [buy](#buy)
       - [sell](#sell)
       - [kill](#kill)
       - [limits](#limits)
       - [less](#less)
       - [more](#more)
-      - [delev](#delev)
-      - [addlev](#addlev)
     - [Information Gathering](#information-gathering)
       - [assets](#assets)
       - [list [Search]](#list-search)
@@ -36,15 +38,15 @@
       - [allocate](#allocate)
       - [allocation](#allocation)
       - [asset](#asset)
-      - [balance](#balance)
-      - [set](#set)
-      - [quit](#quit)
-      - [risky](#risky)
-      - [reset](#reset)
       - [auto](#auto)
       - [manual](#manual)
+      - [balance](#balance)
+      - [quit](#quit)
+      - [risky](#risky)
       - [refnum](#refnum)
+      - [reset](#reset)
       - [safe](#safe)
+      - [set](#set)
     - [Experimental features (Not Recommended and not well tested)](#experimental-features-not-recommended-and-not-well-tested)
       - [ws - EXPERIMENTAL](#ws---experimental)
   - [Internals](#internals)
@@ -102,8 +104,8 @@ If you have 9 cryptos you're balancing (plus cash), your numbers are 10 and 10/9
 `web [on|off] P` This turns the web User Interface on or off, providing the URL.  P is the port number, which will default to 8000.
 
 This readme is displayed in the web User Interface.  It contains `code that looks like this` which you can click to send commands to the bot.  If you just tried it, check the console and you will see that it's asking you to "Try code raw"... 
-* Answering with anything that starts with a y will send it to kraken which will reject it.  The error also causes the bot to abandon [auto](#auto) mode if it was in auto mode.
-* All other answers will cause process.TESTING to be set to the first word of the command ("code" in this case) and also turn on caching, which saves Kraken's responses in cleartext on your machine.  To prevent that, send the bot `notest` and answer no to trying it raw.  This will set process.TESTING back to false.
+* This is how you can mess around with the bot, which requires coding expertiese, so you should examine the code to see what values you can use and what effect they will have.  Just search the code for "TESTING".
+* If you choose to set process TESTING, the bot will also ask if you want to use caching.  This causes it to perform much faster by reading from a file instead asking the API to get an answer through the Internet.  If there is no answer yet, it will use the API to get one and store it.  Requests are indexed by a hash of the result of calling stringify() on the name of the function and the arguments.
 
 Three tables and two pie charts are displayed in the web page.  Some of the cells in the tables have blue entries because you can click them:
 #### Orders table
@@ -136,6 +138,14 @@ At the prompt that kraken-grid presents (>), you can enter one of these commands
 
 
 ### Trading
+#### addlev
+`addlev Counter`
+The semantics are the same as for [delev](#delev).
+
+#### delev
+`delev Counter`
+C _must be_ a `Counter` as shown by executing [list](#list).  If the identified order uses leverage, this command will first create an order without any leverage to replace it, and then kill the one identified. The order that was killed will still be in the list, prefixed with `Killed:` *NOTE: The new order often (or always?) appears at the top of `list` after this, so the `Counter`s identifying other orders may change.*
+
 #### buy
 `buy Ticker Price Amount ClosePrice`
 If closePrice is not a number but evaluates to true, the code will create this buy with a conditional close at the last price it saw.  If it is 1, that might be because you want it to evaluate to true and close at the current price, or because you want to close at 1.  The bot plays it safe and closes at the current price.  To change that, you can use the [risky](#risky) command (see below).  If you don't want the code to place a trade with a conditional close, leave closePrice off or pass `false` for it.
@@ -160,14 +170,6 @@ Example: You have a limit sell order at 45000 for 0.015 BTC and another above th
 #### more
 `more Counter Amount All`
 Increase the amount of crypto to be traded. Otherwise, this command is the same as less.
-
-#### delev
-`delev Counter`
-C _must be_ a `Counter` as shown by executing [list](#list).  If the identified order uses leverage, this command will first create an order without any leverage to replace it, and then kill the one identified. The order that was killed will still be in the list, prefixed with `Killed:` *NOTE: The new order often (or always?) appears at the top of `list` after this, so the `Counter`s identifying other orders may change.*
-
-#### addlev
-`addlev Counter`
-The semantics are the same as for [delev](#delev).
 
 ### Information Gathering
 #### assets
@@ -251,15 +253,19 @@ To `REMOVE` an entire account, issue `asset REMOVE ACCOUNT [Label]`
 * `Label` is for Label. (optional) This string will be used as an account label.  If there is no such account, the bot will create one.  If that was a mistake, you can use the REMOVE ACCOUNT feature described above.  If you hold cryptos in two different wallets, W1 and W2, you can tell the bot how much is in each one using the two different labels and it will keep separate records for them.  The "default" account will be used if `Label` is missing (its label is "default").
 * `Ask` is for Ask. (optional) It must be the string 'false' if it is present because it prevents the bot from asking before overwriting existing data.  This is handy if you make your own list of assets and would like to copy/paste it to the bot.
 
+#### auto
+`auto [N]`
+This automatically and repeatedly executes the second step of `report` and then waits N seconds.  N defaults to 60 but when you call auto with a new value for it, it is updated. 
+
+#### manual
+This stops the automatic calling of `report`.  The bot will do nothing until you give it a new command.
+
 #### balance
 `balance Tolerance Ticker`
 Tolerance is the tolerable difference between your desired allocation and your current allocation.  If you don't specify Ticker, the bot will identify the most out-of balance asset and propose a trade to balance it.  If Ticker is present, it will create a trade to balance that ticker along with a limit buy and a limit sell at prices TOL percent (this is a number between 0.00 and 100.00) above and below the current price.  These trades will then be used by the bot (in [auto](#auto) mode) to keep your savings in balance.
 
-#### set
-`set [UserRef BuyOrSell Price]`
-This lists the [userref](#userref)s and prices at which buys and sells have been (and will be) placed.
-UserRef _must be_ a userref, BuyOrSell _must be_ either `buy` or `sell`, and P is the price you want to add (or replace) for that grid point.  If the bot fails to determine either the buy price or the sell price, it displays a ?, and this will prevent the creation of a new order as described under [refnum](#refnum).  This command allows you to fix that so that Step 2.1 under [report](#report) will work properly as described under `refnum`.
-_Collecting profit data:_ If you issue `set ~ [N]` the bot will go through the grid points it knows about from open orders and query the exchange for any userrefs it finds in order to collect all the buys and sells that happened for those two prices.  Because the API rate is limited, it will make up to N requests to the exchange, one every 2 seconds until it has exhausted the known userrefs.  It remembers the results but will lose them when you terminate the program or run [reset](#reset).
+#### notest
+`notest` sets process.TESTING to false. This is useful in case you want to stop testing.
 
 #### quit
 `quit` terminates the program.
@@ -270,24 +276,23 @@ _Collecting profit data:_ If you issue `set ~ [N]` the bot will go through the g
 * Any API call which fails because of "Internal Error", in which case it reports the error and proceeds.
 * Using `1` as the close price (final argument) to `buy` or `sell` to mean "Close at the current price", rather than `true`, which is the safe way to ensure the current price is used as the close price.
 
-#### reset
-`reset`
-This erases the list of [userref](#userref)s and prices at which buys and sells will be placed, but that list gets immediately rebuilt because it performs the second step in [report](#report).
-
-#### auto
-`auto [N]`
-This automatically and repeatedly executes the second step of `report` and then waits N seconds.  N defaults to 60 but when you call auto with a new value for it, it is updated. 
-
-#### manual
-This stops the automatic calling of `report`.  The bot will do nothing until you give it a new command.
-
 #### refnum
 `refnum Counter UserReference`
 Counter _must be_ a `Counter` as shown by executing [list](#list), and it must be an order that was entered without a [userref](#Userref).  It will cancel the existing order and create a new one with the specified userref `UserReference`.  All orders added by the bot (automatically and manually) have a userref.  This function is to allow you to enter an order on Kraken's website using the same price and no conditional close so that the bot will include it into the existing grid point with the same userref (use [set](#set) to make sure both the buy and sell prices are known for the userref) as UserReference.  If you use `refnum` to assign the reference number of an order that is at a different price, the behavior is undefined.
 
+#### reset
+`reset`
+This erases the list of [userref](#userref)s and prices at which buys and sells will be placed, but that list gets immediately rebuilt because it performs the second step in [report](#report).
+
 #### safe
 `safe`
 When the bot starts, it is in "safe" mode, which means that it will not __actually__ add or cancel any orders.  The idea is that it won't do anything, but instead just show you what it would do if __safe__ were off.  Your have to enter `safe` to turn this off so that the bot will actually do things.  It allows for startup with a lot less risk with a possibly buggy bot.
+
+#### set
+`set [UserRef BuyOrSell Price]`
+This lists the [userref](#userref)s and prices at which buys and sells have been (and will be) placed.
+UserRef _must be_ a userref, BuyOrSell _must be_ either `buy` or `sell`, and P is the price you want to add (or replace) for that grid point.  If the bot fails to determine either the buy price or the sell price, it displays a ?, and this will prevent the creation of a new order as described under [refnum](#refnum).  This command allows you to fix that so that Step 2.1 under [report](#report) will work properly as described under `refnum`.
+_Collecting profit data:_ If you issue `set ~ [N]` the bot will go through the grid points it knows about from open orders and query the exchange for any userrefs it finds in order to collect all the buys and sells that happened for those two prices.  Because the API rate is limited, it will make up to N requests to the exchange, one every 2 seconds until it has exhausted the known userrefs.  It remembers the results but will lose them when you terminate the program or run [reset](#reset).
 
 ### Experimental features (Not Recommended and not well tested)
 #### ws - EXPERIMENTAL

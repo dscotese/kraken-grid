@@ -9,7 +9,7 @@ table {
     border-collapse: collapse;
     text-align: left;
 }
-#Diff td, #Prices td, #tol, #desired td, #oDiv th, #assets td  {
+#Diff td[title], #Prices td[title], #tol, #desired td[title], #oDiv th, #assets td  {
     color: blue;
     cursor: pointer;
 }

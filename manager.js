@@ -102,7 +102,7 @@ function Manager(b) {
         if(/^(buy|sell)$/.test(args[0])) {
             let pair;
             [buysell,xmrbtc,price,amt,posP] = args;
-            pair = Bot.findPair(xmrbtc, portfolio.Numerairei, -1);
+            pair = Bot.findPair(xmrbtc, portfolio.Numeraire, -1);
             if(pair) xmrbtc = pair[1].base;
             if( 'undefined' == typeof(portfolio[xmrbtc]) ) {
                 // Try the asset's altname
@@ -316,10 +316,12 @@ function Manager(b) {
             let raw = await bot.kapi(args);
             console.log(392,raw);
         } else {
-            process.TESTING = ('notest' == args[0] ? false : args[0]);
-            process.USECACHE = ('nocache' == args[0] ? false : process.TESTING);
-            console.log("process.TESTING set to",process.TESTING,
-                "and caching",(process.USECACHE?"will":"will not"),"be used.");
+            if(/^(y|Y)/.test(prompt("Set process.TESTING to "+args[0]+"?"))) {
+                process.TESTING = ('notest' == args[0] ? false : args[0]);
+                process.USECACHE = /^(y|Y)/.test(prompt("Use caching?"));
+            }
+            console.log("process.TESTING is",process.TESTING,
+            "and caching",(process.USECACHE?"will":"will not"),"be used.");
         }
     }
 
@@ -488,10 +490,10 @@ function Manager(b) {
         }
     }
 
-    function isAuto() { return auto; }
+    function getAuto() { return auto>0 ? delay : -1; }
 
     return({ catcher, run, doCommands, getAllocation, 
-             init, listen, ignore, getTotal, isAuto });
+             init, listen, ignore, getTotal, getAuto });
 }
 module.exports = Manager;
 

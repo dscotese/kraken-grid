@@ -151,6 +151,7 @@ if(FLAGS.verbose) console.log(p);
         } catch(err) {
             if((!/AddOrder/.test(arg[0])&&/ETIMEDOUT|EAI_AGAIN/.test(err.code))
                 || /nonce/.test(err.message)
+                || /Response code 520/.test(err.message)
                 || /Response code 50/.test(err.message)
                 || (FLAGS.risky && /Internal error/.test(err.message))
                 || /Unavailable/.test(err.message) 
@@ -673,25 +674,40 @@ if(FLAGS.verbose) console.log(p);
     }
 
     async function list(args) {
-        if(args[1] == '?')
+        if(args[1] == '?') {
             console.log("Usage: list [X] [ur]\n" +
                 "X can be C in order to see closed orders, and if so, then\n" +
                 "ur can be a userref and only those trades will be listed.\n" +
+                "If ur is less than 10000, it will tell the bot how many\n" +
+                "closed orders to return.\n" +
                 "X can also be a ticker (UPPER CASE) to see orders for it.\n" +
                 "Otherwise, X can be userref, opentm, vol, vol_exec, price,\n" +
                 "or userref and this will cause the specified field to be\n" +
                 "listed first, and the list to be ordered by that field.");
+            return;
+        }
         if(!portfolio.O) await report(false);
         let sortedA = [], orders = portfolio['O'];
         if(args[1] == 'C') {
-            let ur = args[2] ? args.pop() : false,
-                response = ur
-                    ? await kapi(['ClosedOrders',{userref:ur}])
-                    : await kapi('ClosedOrders');
+            let count = 50, paging = 0, ur = args[2] ? args.pop() : false; 
+            if(ur && !isNaN(ur) && ur < 10000) {
+                count = ur;
+                ur = false;
+            }
             orders = [];
-            for( var o in response.result.closed) {
-                let oo = response.result.closed[o];
-                if(oo.status=='closed') orders.push([o,response.result.closed[o]]);
+if(FLAGS.verbose) console.log(orders.length, count, ur, paging);
+            while(orders.length < count) {
+                response = ur
+                    ? await kapi(['ClosedOrders',{userref:ur, ofs:paging}])
+                    : await kapi(['ClosedOrders',{ofs:paging}]);
+                if(Object.keys(response.result.closed).length == 0) break;
+                for( var o in response.result.closed) {
+                    paging++;
+                    let oo = response.result.closed[o];
+                    if(oo.status=='closed') orders.push([o,response.result.closed[o]]);
+                        if(orders.length >= count) break;
+                }
+if(FLAGS.verbose) console.log(orders.length, count, ur, paging);
             }
             args.pop();
         }
@@ -703,7 +719,7 @@ if(FLAGS.verbose) console.log(p);
                     : x[1].descr.close);
             else if(x[1][args[1]]) sortedA[i+1]=x;
             else if(x[1].descr[args[1]]) sortedA[i+1]=x;
-            });
+        });
         if(sortedA.length > 0) {
             sortedA.sort((a,b) => {
                 if(a[1].descr[args[1]]) {
@@ -805,11 +821,30 @@ if(FLAGS.verbose) console.log(p);
             else if(!once && !x.open && x.userref != 0) { // We do this once for each call to set
                            // and remember which grid points are in play so need to stay.
                 once = true;
-                data = await kapi(['ClosedOrders',{userref:x.userref}]),
+                data = await kapi(['ClosedOrders',{userref:x.userref}]);
                 drc = data.result ? data.result.closed : false;
+                // For trades with a close price, we can search for and include
+                // any 'other' grid point that is only different because it
+                // started on the other side.
+                let closePrice, aur; // Alternate UserRef
                 x.bought = 0; x.sold = 0;
                 if(drc) {
                     count = data.result.count;
+                    // Check for a close and build alternate userRef
+                    let close = Object.values(drc)[0].descr.close;
+                    if(close) {
+                        closePrice = Number(close.match(/[0-9.]+/)[0]);
+                        aur = RegExp('1?[0-9]{3}'+String(closePrice).replace('.',''));
+                        aur = p['G'].find((x2) => aur.test(x2.userref) && x!=x2);
+                        if(aur && aur.buy == x.buy) {
+                            x.aur = aur.userref;
+                            aur.aur = x.userref;
+                            let data2 = await kapi(['ClosedOrders',{userref:x.aur}]),
+                                drc2 = data2.result ? data2.result.closed : {};
+                            drc = Object.values(drc).concat(Object.values(drc2));
+                            count += data2.result.count;
+                        }
+                    }
                     for(d in drc) {
                         data = drc[d];
                         if(data.status == 'closed' 
@@ -818,23 +853,27 @@ if(FLAGS.verbose) console.log(p);
                             since = Math.min(since,data.closetm);
                             x.since = since;
                             x[datad.type=='buy'?'bought':'sold'] += Number(data.vol_exec);
-                            if((isNaN(x.buy) || isNaN(x.sell)) && datad.close) {
-                                x[datad.type] = data.price;
-                                x[datad.type=='buy'?'sell':'buy'] =
-                                    Number(datad.close.match(/[0-9.]+/)[0]);
+                            if(datad.close)
+                            {
+                                closePrice = Number(datad.close.match(/[0-9.]+/)[0]);
+                                if(isNaN(x.buy) || isNaN(x.sell)) {
+                                    x[datad.type] = data.price;
+                                    x[datad.type=='buy'?'sell':'buy'] = closePrice;
+                                }
                             }
                         }
                     }
                     f = toDec(((x.sell-x.buy)*Math.min(x.bought,x.sold)),2);
                     data = p['O'].find(o => {return o.userref==x.userref;});
-                    if(f == 0 && data == -1) {
+                    if(f == 0 && data == -1) { // No past round-trips and no open orders.
+                        console.log("Removing ",p['G'][xin].userref);
                         delete p['G'][xin];
                         p['G'] = Object.values(p['G']);
                     } else {
                         if(!isNaN(f)) profits += f;   // Profits from just-retrieved trades.
                         x.open = true;  // If f was 0 but we did find it in open orders (p['O']).
                     }
-                    console.log("Retrieved",count,"more closed orders.");
+                    console.log("Retrieved",count,"more closed orders for",x.userref + ".");
                     if(keepGoing && --typeOrCount>0) 
                         setTimeout(()=>{set(p,'~',typeOrCount);},2000); //Keep collecting.
                 } else console.log(...data.error);
@@ -849,6 +888,11 @@ if(FLAGS.verbose) console.log(p);
         }));
         console.log("That's "+toDec(profits,2)+" altogether.");
     }
+
+    // The bot's job is to make roundtrips.  This function reports them.
+    // This does not address capital gains because it doesn't take into
+    // account the cost basis.
+    function roundTrips() {}
 
     function toDec(n,places) {
         let f = 10**places;
