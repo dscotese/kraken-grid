@@ -206,7 +206,7 @@ XLTC ...
 ...
 ```
 2. Retrieves the list of open orders, which is immediately processed to:
-   1.  replace conditional closes resulting from partial executions with a single conditional close which, itself, has a conditional close to continue buying and selling between the two prices, but only up to the amount originally specified, and _only_ for orders with a User Reference Number (such as all orders placed through this program).
+   1.  replace conditional closes resulting from partial executions with a single conditional close which, itself, has a conditional close to continue buying and selling between the two prices, but only up to the amount originally specified, and _only_ for orders with a User Reference Number (such as all orders placed through this program). Note: If you place a conditional close order with a price that matches one side of an existing grid point and it executes, creating the conditional close, that new order will be added in with the others, increasing the size of the trade around that grid point.
    2.  fill out the internal record of buy/sell prices using the open orders and their conditional closes (see [set](#set) and [reset](#reset)).
    3.  extend the grid if there are only buys or only sells remaining for the crypto identified in each order.
    4.  identify any orders that are gone or new using Kraken's Order ID and for new orders, it also describes them.
