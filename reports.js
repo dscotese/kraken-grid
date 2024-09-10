@@ -35,7 +35,7 @@ function Reports(bot) {
                 rCount = Object.keys(mixed.result.closed).length,
 		elen = executed.length;
 	    offset += rCount;
-	    // If offset matches total, we have collected the earliest order
+	    // If offset >= total, we have collected the earliest order
 		// so we can collect only new ones (returned first) from now
 		// on. This is what it means when offset on disk is -1.
             // If known.offset is -1 then the only orders left to collect
@@ -48,10 +48,12 @@ function Reports(bot) {
             count -= elen;
 	    console.log("Retrieved",elen,"executed orders.");
             const KRAKEN_GCO_MAX = 50;
+            Object.assign(closed.orders, Object.fromEntries(executed));
 	    if(rCount < KRAKEN_GCO_MAX) {  // We must have reached the earliest order.
 		if(closed.offset > -1) // Should be impossible, so...
 		    throw(offset+" still < "+total+" API returns < 50");
-		console.log("Total Executed orders collected: "+(Object.keys(closed.orders).length));
+		console.log("Total Executed orders collected: "
+                    +(Object.keys(closed.orders).length));
 		count = 0;
             } else if(Object.keys(known.orders || {}).includes(executed[executed.length-1][0])) {
                 // Last order retrieved already on disk
@@ -59,7 +61,6 @@ function Reports(bot) {
 		offset = known.offset;	// so jump to the end.
                 closed.offset = offset;
             }
-            Object.assign(closed.orders, Object.fromEntries(executed));
         }
 	closed = keyOrder(closed);
         // We set offset to 0 when done because we must ask for more

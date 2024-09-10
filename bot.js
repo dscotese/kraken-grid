@@ -1,37 +1,39 @@
 #!/usr/bin/env node
-function Bot() {
+function Bot(isExch = {exch: 'kraka-djs'}) {
     const prompt = require('prompt-sync')({sigint: true});
     const Allocation = require('./allocation.js');
-    const KrakenClient = require('kraka-djs'); // Implements the Kraken API
+    const ExchClient = require(isExch.exch); // Implements the Kraken API
     Bot.pairs = false;
     Bot.tickers = false;
     Bot.alts = {};
 
-    let kraken,
-        portfolio = {},
-        ts150 = 0,
-        delay = 60,
+    let exchange,             // The ExchClient from kraka-djs
+        portfolio = {},     // A record of what's on the exchange
+        lCOts = 0,          // Timestamp for use in collecting executed trades.
+        delay = 60,         // For auto-refresh.
         FLAGS = {safe:true,verbose:process.TESTING,risky:false},
-        cmdList = [],
-        cli = {'apl': 0},
-        safestore,
-        Savings;
+        cli = {'apl': 0},   // Lines to delete in console after command execution.
+        safestore,          // encrypted sorage
+        Savings,            // Client's assets
+        Reports;            // Report functionality
 
+    // init initializes the bot and accepts a password for testing.
     async function init(pwd = "") { 
-        if(!kraken) {
-            const ss     = require('./safestore'); // Asks for password, stores API info with it
+        if(!exchange) {
+            const ss     = require('./safestore');  // Asks for password, stores API info with it
             let p = await (safestore = ss(pwd)).read();
             //p.
 if(FLAGS.verbose) console.log(p);
             Bot.s = this;
-	    Bot.PW = safestore.getPW();
+	    Bot.PW = safestore.getPW();             // Recorded for use in webpage.
             Bot.extra = p.extra ? p.extra : {};
-            kraken = new KrakenClient(p.key, p.secret);
+            exchange = new ExchClient(p.key, p.secret);
             Bot.pairs = await cachePairs();
             Bot.tickers = await cacheTickers();
             portfolio.key = p.key;
             portfolio.secret = p.secret;
             portfolio.Savings = p.savings ? p.savings : []; 
+	    portfolio.Closed = p.Closed || {};      // Must be something for new accounts.
             portfolio.Allocation = Allocation(
                 (p.Alloc && (0<Object.keys(p.Alloc).length)) ? p.Alloc : false); 
             portfolio.Pairs = new Set(Array.isArray(p.Pairs) ? p.pairs : []);
@@ -41,10 +43,12 @@ if(FLAGS.verbose) console.log(p);
             portfolio.lastUpdate = p.lastUpdate ? p.lastUpdate : null;
             //await report(true);
             Savings = require('./savings.js');
+            Reports = require('./reports.js')(this);
         }
         return portfolio;
     };
 
+    // Returns a Savings object which includes assets on the exchange.
     function ExchangeSavings() {
         let assets = [];
         for(key in portfolio) {
@@ -58,10 +62,12 @@ if(FLAGS.verbose) console.log(p);
         return Savings({assets,label:'OnExchange'});
     }
 
+    // Store the API keys if they change.
     async function keys() { 
     	safestore._update(portfolio.key+' '+portfolio.secret, false);
     }
 
+    // Save changes as they happen in encrypted storage.
     function save(extra = null) {
         if(extra) Object.assign(Bot.extra, extra);
         let toSave = {
@@ -71,6 +77,7 @@ if(FLAGS.verbose) console.log(p);
             Alloc: portfolio.Allocation,
             Numeraire: portfolio.Numeraire || 'ZUSD',
             Pairs: Array.from(portfolio.Pairs),
+	    Closed: portfolio.Closed,
             extra: Bot.extra,
             limits: portfolio.limits,
             lastUpdate: portfolio.lastUpdate};
@@ -110,6 +117,7 @@ if(FLAGS.verbose) console.log(p);
         return ret;
     }
 
+    // return array of unique values for a property of Pair
     function fromPairs(what) {
         let qc=new Set;
         for(key in Bot.pairs) {
@@ -118,11 +126,14 @@ if(FLAGS.verbose) console.log(p);
         return Array.from(qc);
     }
 
+    // Collect all the bases represented in Pairs.
     function basesFromPairs() {
         if(!Bot.Bases)
             Bot.Bases = fromPairs('base');
         return Bot.Bases;
     }
+
+    // Collect all the numeraires represented in Pairs.
     function numerairesFromPairs() {
         if(!Bot.Numeraires)
             Bot.Numeraires = fromPairs('quote');
@@ -136,6 +147,8 @@ if(FLAGS.verbose) console.log(p);
     function whoami() { return whoami.caller.name; }
 
     const tfc = require('./testFasterCache.js')(process.TESTING,process.argv[2]);
+
+    // Call a Kraken API
     async function kapi(arg,sd=5) {
         let ret;
         if(['args',whoami()].includes(process.TESTING)) console.log(whoami(),"called with ",arguments);
@@ -143,12 +156,13 @@ if(FLAGS.verbose) console.log(p);
         if(process.USECACHE && cached.answer) ret = cached.cached;
         else try { // Because failure is not an option here, sometimes.
             if(Array.isArray(arg)) {
-                ret = await kraken.api(...arg);
+                ret = await exchange.api(...arg);
             } else {
-                ret = await kraken.api(arg);
+                ret = await exchange.api(arg);
             }
             await sleep(1000);
         } catch(err) {
+            // For error conditions that are usually transient.
             if((!/AddOrder/.test(arg[0])&&/ETIMEDOUT|EAI_AGAIN/.test(err.code))
                 || /nonce/.test(err.message)
                 || /Response code 520/.test(err.message)
@@ -165,9 +179,11 @@ if(FLAGS.verbose) console.log(p);
                 }
                 await sleep(sd*1000);
                 ret = await kapi(arg,sd>300?sd:2*sd);
+            // For error conditions that can be ignored.
             } else if( /Unknown order/.test(err.message) && /CancelOrder/.test(arg[0])) {
                 console.log("Ignoring: ", err.message, ...arg);
                 ret = { result: { descr: "Ignored" }};
+            // For error conditions that can be retried later.
             } else if(FLAGS.risky && /Insufficient initial margin/.test(err.message)) {
                 console.log(172,err.message+" Maybe next time.");
                 ret = { result: { descr: "Postponed" }};
@@ -182,6 +198,15 @@ if(FLAGS.verbose) console.log(p);
         return ret;
     }
 
+    // Place an order:
+    //  buysell indicates whether this is a 'buy' or a 'sell'
+    //  market identifies the pair for this trade.
+    //  price specifies how much of the quote (what gets paid)
+    //      we're willing to pay/receive for one of the base (what's bought or sold)
+    //  amt is how much of the base we want to buy or sell
+    // lev indicates the level of leverage
+    // uref can be used to specify the userreference.
+    // closeO is the price at which to close the trade profitably.
     async function order(buysell, market, price, amt, lev='none', uref=0, closeO=null) {
         if(['args',whoami()].includes(process.TESTING)) console.log(whoami(),"called with ",arguments);
         let cO = Number(closeO),
@@ -239,10 +264,12 @@ if(FLAGS.verbose) console.log(p);
         return ret;
     }
 
+    // Return a string description of a grid point.
     function gpToStr(gp) { 
         return gp.userref+':'+gp.buy+'-'+gp.sell+' '+gp.bought+'/'+gp.sold; 
     }
 
+    // Create a user reference number.
     function makeUserRef(buysell, market, price) {
         let ret = Number((buysell=='buy'?'1':'0')
             + ('00'+Object.keys(Bot.pairs)
@@ -252,71 +279,82 @@ if(FLAGS.verbose) console.log(p);
         return ret;
     }
 
-    // This function is too complicated.  Break it up so that,
-    // for example, the user can call extend for one ticker
-    // without checking the rest.
-    //
-    // We also want extend() to update allocation for ranges
-    // and thereby set the amount properly.
-    // -------------------------------------------------------
-    async function listOpens(portfolio = null, isFresh=false) {
-        let response = await kapi('OpenOrders'),
-            opens = response.result.open;
-        let opensA  = [],
-            comps   = [],
-            gPrices = [],
-            bSides  = [],
-            ci,oo,od,rv,ur,op,cp,gpi,gp,ct,bs,pair,sym,price,pnum;
-            // Index for comps, Closing Price, index to grid prices,
-            // and bs is "Both sides", holding an array of objects
-            // holding userref, and two booleans, buy and sell.
+    // Initialize the grid by reading closed orders if necessary
+    async function initGrid() {
+        let gPrices = [];
         if(portfolio) {
             if(portfolio['G'])
                 gPrices = portfolio['G'];
-            pnum = portfolio.Numeraire;
         }
-        if(gPrices.length == 0) {
-            let response = await kapi('ClosedOrders'),
-                r2 = await kapi(['ClosedOrders',{ofs:50}]),
-                r3 = await kapi(['ClosedOrders',{ofs:100}]),
-                closed = {...response.result.closed, 
-                    ...r2.result.closed, 
-                    ...r3.result.closed },
-                closedIDs = Object.keys(closed);
-            if(closed && closedIDs.length > 0) {
-                ts150 = closed[closedIDs.pop()].closetm;
-                for(var o in closed) {
-                    let oo = closed[o],
+        if(gPrices.length == 0) {   // When we have no grid prices, collect 100 orders.
+            console.log("Reading grid from 100 closed orders...");
+            let closed = await Reports.getExecuted(100, portfolio.Closed),
+                closedIDs = Object.keys(closed.orders);
+	    // Stored closed orders in portfolio
+            if(Object.keys(portfolio.Closed.orders || {}).length < closedIDs.length) {
+                console.log("(Re-?)Saving,"+closedIDs.length+",closed orders...");
+		portfolio.Closed = closed;
+		save();
+	    }
+            if(closedIDs.length > 0) {
+                lCOts = closed.orders[closedIDs.pop()].closetm;
+                let counter = closedIDs.length;
+                console.log("Last five executed orders:");
+                for(var o of closed.orders) {  // fill in the grid prices from existing orders.
+                    let oo = closed.orders[o], // Object version of the order
                         od = oo.descr,
                         op = od.price,
-                        rv = oo.vol-oo.vol_exec,
-                        ur = oo.userref;
-                        gp = gPrices.find(x => x.userref==ur);
+                        rv = oo.vol-oo.vol_exec,    // Remaining Volume.
+                        ur = oo.userref,
+			cd = new Date(oo.closetm * 1000);
+                        gp = gPrices.find(x => x.userref==ur); // If we already saw this grid point.
+	            if( --counter < 6 ) {
+                        console.log(o,ur,op,od.type,od.close,cd.getFullYear()+'/'+(1+cd.getMonth())
+                            +'/'+cd.getDate(),cd.getHours(),cd.getMinutes(),cd.getSeconds());
+                    }
                     if(portfolio && !portfolio.Pairs) {
-                        portfolio.Pairs.add(od.pair);
+                        portfolio.Pairs.add(od.pair);   // Which pairs are in open orders?
                     } 
                     if(ur>0) {
                         if(!gp) {
                             gp = {userref:ur,buy:'?',sell:'?', bought: 0, sold: 0};
                             gp[od.type] = op;
-                            gp[(od.type=='buy') ? 'bought' : 'sold'] = Number(rv);
+                            gp[(od.type=='buy') ? 'bought' : 'sold'] = Number(oo.vol_exec); // was rv ??
                             gPrices.push(gp);
-                            if(FLAGS.verbose) console.log(gp.userref,'('+od.type+')','buy:',gp.buy,'sell:',gp.sell);
+                            if(FLAGS.verbose) 
+                                console.log(gp.userref,'('+od.type+')',
+                                    'buy:',gp.buy,'sell:',gp.sell);
                         } else {
-                            gp[(od.type=='buy') ? 'bought' : 'sold'] += Number(rv);
+                            gp[(od.type=='buy') ? 'bought' : 'sold'] += Number(oo.vol_exec); // was rv ??
                             gp[od.type] = op;
                         }
                     }
                 }
             }
         }
+        portfolio['G'] = gPrices;
+    }
 
-        // Save the old order array so we can see the diff
-        // -----------------------------------------------
-        let oldRefs = [];
-        if(portfolio && portfolio['O']) {
-            portfolio['O'].forEach((x) => { oldRefs.push(x[0]); });
-        }
+    // opens: Open orders collected from Kraken
+    // oldRefs: The OrderIDs collected previously
+    // This function:
+    // * Build bSidesR (Refs - which UserRefs have both buys and sells)
+    // * Build bSidesP (Pair - to find highest sell and lowest buy for each pair)
+    // * Identify orders that are new and orders that are now gone
+    // * Create an array of orders ("comps") resulting from conditional closes
+    //  so that we can combine them into a new order with its own conditional close.
+    // * Update how much of each asset remains available (not reserved for these
+    //  open orders).
+    // It returns [bSidesR, bSidesP, comps]
+    // -----------------------------------------------------------------------------
+    function processOpens(opens, oldRefs, isFresh) {
+        let bSidesR = [],
+            bSidesP = [],
+            comps   = [],
+            opensA  = [],
+            pnum    = portfolio.Numeraire,
+            gPrices = portfolio['G'];
+
         for( var o in opens ) {
             oo = opens[o];
             od = oo.descr;
@@ -327,25 +365,25 @@ if(FLAGS.verbose) console.log(p);
             if(ur > 0) {
                 // BothSides record for userref
                 // ----------------------------
-                bs = bSides.find(b => b.userref==ur);
+                bs = bSidesR.find(b => b.userref==ur);
                 if(!bs) {
                     bs = {userref:ur,buy:false,sell:false,trades:0};
-                    bSides.push(bs);
+                    bSidesR.push(bs);
                 }
                 bs[od.type]=true;
                 bs.trades++;
 
                 // BothSides record for grid extension
                 // -----------------------------------
-                bs = bSides.find(b => b.userref==od.pair);
+                bs = bSidesP.find(b => b.pair==od.pair);
                 if(!bs) {
                     bs = {
-                        userref:od.pair,
+                        pair:   od.pair,
                         price:  op,
                         buy:    od.type=='buy',
                         sell:   od.type=='sell'
                     };
-                    bSides.push(bs);
+                    bSidesP.push(bs);
                 } else if(!bs[od.type]) {
                     bs[od.type] = true;
                 } else if(bs.buy != bs.sell) {
@@ -361,8 +399,8 @@ if(FLAGS.verbose) console.log(p);
             // Record open trades
             // ------------------
             opensA.push([o,oo]);
-            ct = 'buy'==od.type?'sell':'buy';
-            cp = 0;
+            ct = 'buy'==od.type?'sell':'buy'; // Order's close is of opposite type.
+            cp = 0;     // Close Price
             // Record the opening price for use in the closing
             // order of the closing order into which we combine.
             // -------------------------------------------------
@@ -388,9 +426,7 @@ if(FLAGS.verbose) console.log(p);
                     total:          rv,
                     volume:         Number(oo.vol),
                     type:           od.type,
-                    sym:            pair, /*(Bot.pairs[pair] /*/
-                        // was /USD/.test(od.pair) ? /^([A-Z]+)USD/.exec(od.pair)[1] : od.pair,
-                    // Just call it 'pair' instad of sym and use od.pair! #USD Refactor
+                    sym:            pair,
                     ctype:          ct,
                     lev:            od.leverage,
                     ids:            [o],
@@ -414,10 +450,10 @@ if(FLAGS.verbose) console.log(p);
                 console.log(154,od.order+" ("+ur+") had no close.");
                 cli.apl++;
             }
-            let orid; 
+            let orid;   // Remove it from oldRefs because it isn't gone.  
             if((orid = oldRefs.indexOf(o)) > -1) {
                 oldRefs.splice(orid, 1);
-            } else {
+            } else {    // It wasn't in there, so it must be new.
                 console.log(159, "New: ",o,opensA.length, od.order, oo.userref, cp);
                 // if(FLAGS.verbose) console.log(160,oo);
             }
@@ -438,16 +474,54 @@ if(FLAGS.verbose) console.log(p);
                 }
             }
         }
+        portfolio['O'] = opensA;
         if(oldRefs.length > 0) {
             console.log("Gone: "+oldRefs);
         }
+
+        return [bSidesR, bSidesP, comps];
+    }
+
+    // We want extend() to update allocation for ranges
+    // and thereby set the amount properly.
+    // ------------------------------------------------
+    async function listOpens(isFresh=false) {
+        let response = await kapi('OpenOrders'),
+            opens = response.result.open;
+        let comps   = [],       //Orders resulting from partial executions
+            bSidesR = [],       //Which userrefs have both buys and sells.
+            bSidesP = [],       //Find highest sell and lowest buy for a pair.
+            ci,oo,od,rv,ur,op,cp,gpi,gp,ct,bs,pair,sym,price,pnum;
+            // Index for comps, Closing Price, index to grid prices,
+            // and bs is "Both sides", holding an array of objects
+            // holding userref, and two booleans, buy and sell.
+
+        await initGrid(); // Also sets portfolio['G'] (the grid).
+        let gPrices = portfolio['G'];
+        pnum = portfolio.Numeraire;
+
+        // Save the old order array so we can see the diff
+        // -----------------------------------------------
+        let oldRefs = [];
+        if(portfolio && portfolio['O']) {
+            portfolio['O'].forEach((x) => { oldRefs.push(x[0]); });
+        }
+        // With the list of open orders (opens) we will:
+        // * Build bSidesR (Refs - which UserRefs have both buys and sells)
+        // * Build bSidesP (Pair - to find highest sell and lowest buy for each pair)
+        // * Identify orders that are new and orders that are now gone
+        // * Create an array of orders ("comps") resulting from conditional closes
+        //  so that we can combine them into a new order with its own conditional close.
+        // * Update how much of each asset remains available (not reserved for these
+        //  open orders).
+        [bSidesR, bSidesP, comps] = processOpens(opens, oldRefs, isFresh);
 
         let nexes = 0, // Orders not requiring extension
             dontask = false;
         for( var comp in comps ) if(/USD/.test(comp)) { // non-USD pairs break regex below... #USD Refactor
             let c = comps[comp],
             gp = gPrices.find(gprice => gprice.userref==c.userref);
-            bs = bSides.find(b => b.userref==c.userref);
+            bs = bSidesR.find(b => b.userref==c.userref);
             if(!gp) {
                 gp = {userref:c.userref,buy:'?',sell:'?',bought:0,sold:0};
                 gPrices.push(gp);
@@ -477,7 +551,7 @@ if(FLAGS.verbose) console.log(p);
                 // Do we need to extend the grid?
                 // If we don't have a buy and a sell, then yes.
                 // --------------------------------------------
-                bs = bSides.find(b => b.userref==c.sym); // Was sym+'USD' but #USD Refactor
+                bs = bSidesP.find(b => b.pair==c.sym); // Was sym+'USD' but #USD Refactor
                 if(bs && bs.buy && bs.sell) {
                     // console.log("Still between buy and sell.");
                     ++nexes;
@@ -548,11 +622,6 @@ if(FLAGS.verbose) console.log(p);
         // console.log(gPrices);
         console.log(nexes,"orders did NOT require extension.");
         // console.log(comps);
-        if(portfolio){
-            portfolio['O'] = opensA;
-            portfolio['G'] = gPrices;
-        }
-        return opensA;
     }
 
     // getLev is NOT idempotent: It depletes availability.
@@ -583,6 +652,10 @@ if(FLAGS.verbose) console.log(p);
         return lev;
     }
 
+    // How to cancel orders, either a TxID, an array of them,
+    //  ALL of them (pass 0), or a line number from the list
+    //  of orders, or all orders with a particular User
+    //  Reference Number.
     async function kill(o,oa) {
         let killed;
         if(0 == o) {
@@ -623,6 +696,7 @@ if(FLAGS.verbose) console.log(p);
     //    await sleep(1000);
     }
 
+    // How to adjust the size of one or more trades.
     async function lessmore(less, oid, amt, all = null) {
         let opensA = portfolio['O'],
             matches = [],
@@ -650,7 +724,7 @@ if(FLAGS.verbose) console.log(p);
             // -----------------------------------------------------------------
             partial = o.vol_exec > 0;
             if(!/USD$/.test(o.descr.pair)) {  // #USD Refactor
-                console.log("Userref update to non-USD pairs is not yet supported.");
+                console.log("Size update to non-USD orders is not yet supported.");
                 return;
             } else if(partial && diff == -1) {
                 console.log("Skipping",o.descr.order,"because of partial execution.",o);
@@ -673,13 +747,15 @@ if(FLAGS.verbose) console.log(p);
         if(FLAGS.verbose) console.log("Lessmore called with ",oid,amt,all);
     }
 
+    // How to see a list of orders, open or closed.
     async function list(args) {
         if(args[1] == '?') {
             console.log("Usage: list [X] [ur]\n" +
                 "X can be C in order to see closed orders, and if so, then\n" +
                 "ur can be a userref and only those trades will be listed.\n" +
                 "If ur is less than 10000, it will tell the bot how many\n" +
-                "closed orders to return.\n" +
+                "closed orders to return. To collect early orders, use a\n" +
+                "negative number.\n" +
                 "X can also be a ticker (UPPER CASE) to see orders for it.\n" +
                 "Otherwise, X can be userref, opentm, vol, vol_exec, price,\n" +
                 "or userref and this will cause the specified field to be\n" +
@@ -689,26 +765,27 @@ if(FLAGS.verbose) console.log(p);
         if(!portfolio.O) await report(false);
         let sortedA = [], orders = portfolio['O'];
         if(args[1] == 'C') {
-            let count = 50, paging = 0, ur = args[2] ? args.pop() : false; 
+            let count = 50, 
+                paging = 0, 
+                ur = args[2] ? args.pop() : false,
+                early = ur < 0; 
             if(ur && !isNaN(ur) && ur < 10000) {
-                count = ur;
+                count = Math.abs(ur);
                 ur = false;
             }
             orders = [];
-if(FLAGS.verbose) console.log(orders.length, count, ur, paging);
-            while(orders.length < count) {
-                response = ur
-                    ? await kapi(['ClosedOrders',{userref:ur, ofs:paging}])
-                    : await kapi(['ClosedOrders',{ofs:paging}]);
-                if(Object.keys(response.result.closed).length == 0) break;
-                for( var o in response.result.closed) {
-                    paging++;
-                    let oo = response.result.closed[o];
-                    if(oo.status=='closed') orders.push([o,response.result.closed[o]]);
-                        if(orders.length >= count) break;
-                }
-if(FLAGS.verbose) console.log(orders.length, count, ur, paging);
+            let closed = await Reports.getExecuted(count, portfolio.Closed);
+            closed.forward = early;
+            portfolio.Closed = closed;
+            for( var o of closed.orders) {
+                let oo = closed.orders[o];
+                if(!ur || oo.userref==ur) orders.push([o,oo]);
+                if(orders.length >= count) break;
             }
+            console.log("Orders.length:",orders.length,"Era:",
+                early ? "Earliest" : "Latest");
+            // Either way, we display the latest at the bottom by:
+            if(!closed.forward) orders.reverse();
             args.pop();
         }
         orders.forEach((x,i) => {
@@ -733,6 +810,7 @@ if(FLAGS.verbose) console.log(orders.length, count, ur, paging);
                     ? a.localeCompare(b)
                     : a - b;
             });
+            console.log("Outputting sortedA...");
             sortedA.forEach((x,i) => {
                 let ldo = x[1].descr.order;
                 console.log(i+1, x[1].descr[args[1]]
@@ -740,8 +818,13 @@ if(FLAGS.verbose) console.log(orders.length, count, ur, paging);
                     ldo,x[1].userref,x[1].descr.close);
             });
         };
+        let isMore = portfolio.Closed.offset > -1;
+        console.log("We have collected", isMore
+            ? portfolio.Closed.offset : "all",
+            "orders.", isMore ? "Try again for more." : "");
     }
 
+    // How to recreate an order with the correct userref.
     async function refnum(opensA,oid,newRef) {
         let o, oRef;
         if(!opensA[oid]) {
@@ -768,6 +851,7 @@ if(FLAGS.verbose) console.log(orders.length, count, ur, paging);
         }
     }
 
+    // How to alter an order so we don't borrow to execute it.
     async function deleverage(opensA,oid,undo=false) {
         let o, oRef, placed;
         if(!opensA[oid]) {
@@ -800,83 +884,106 @@ if(FLAGS.verbose) console.log(orders.length, count, ur, paging);
         }
     }
 
-    async function set(p,ur,typeOrCount=1,price) {
-        let keepGoing = (ur == '~');
-        if(ur && !keepGoing && price) {
+    // How to set the price of a grid point
+    async function set(p,ur,type,price) {
+        if(ur && price) {
             let gp = p['G'].find(g => g.userref==ur);
             if(!gp) {
                 gp = {userref:Number(ur),buy:'?',sell:'?'};
                 p['G'].push(gp);
             }
             console.log(405,gp);
-            gp[typeOrCount] = price;
+            gp[type] = price;
         }
         p['G'].sort((a,b) => a.userref-b.userref);
-        let profits = 0, f, data, drc, datad, count, once = false,
-            since = ts150;
+        let profits = 0, f, data, drc, datad, count = 0, once = false,
+            since = lCOts, haveAll = false, clCount = Object.keys(p.Closed.orders).length
+            closed = await Reports.getExecuted(50, p.Closed);
+        p.Closed = closed;
+        if(clCount != Object.keys(p.Closed.orders).length) save();
+        // If p.Closed.offset is -1, then we have
+        //  collected all completed orders and we can search them
+        //  for this Userref.
+        if(p.Closed.offset == -1) {
+            haveAll = true;
+            once = false;   // We have everything, so we can update all grid points.
+            if(!once) console.log("All orders have been retrieved.");
+        }
         await Promise.all(p['G'].map(async (x,xin) => {
-            since = ts150;
+            since = new Date().getTime()/1000;
             f = toDec(((x.sell-x.buy)*Math.min(x.bought,x.sold)),2);
             if(!isNaN(f) && (once || x.since)) profits += f;
             else if(!once && !x.open && x.userref != 0) { // We do this once for each call to set
                            // and remember which grid points are in play so need to stay.
-                once = true;
-                data = await kapi(['ClosedOrders',{userref:x.userref}]);
-                drc = data.result ? data.result.closed : false;
-                // For trades with a close price, we can search for and include
-                // any 'other' grid point that is only different because it
-                // started on the other side.
-                let closePrice, aur; // Alternate UserRef
-                x.bought = 0; x.sold = 0;
-                if(drc) {
-                    count = data.result.count;
-                    // Check for a close and build alternate userRef
-                    let close = Object.values(drc)[0].descr.close;
-                    if(close) {
-                        closePrice = Number(close.match(/[0-9.]+/)[0]);
-                        aur = RegExp('1?[0-9]{3}'+String(closePrice).replace('.',''));
-                        aur = p['G'].find((x2) => aur.test(x2.userref) && x!=x2);
-                        if(aur && aur.buy == x.buy) {
-                            x.aur = aur.userref;
-                            aur.aur = x.userref;
-                            let data2 = await kapi(['ClosedOrders',{userref:x.aur}]),
-                                drc2 = data2.result ? data2.result.closed : {};
-                            drc = Object.values(drc).concat(Object.values(drc2));
-                            count += data2.result.count;
-                        }
-                    }
-                    for(d in drc) {
-                        data = drc[d];
-                        if(data.status == 'closed' 
-                            && data.descr.ordertype != 'settle-position') {
-                            datad = data.descr;
-                            since = Math.min(since,data.closetm);
-                            x.since = since;
-                            x[datad.type=='buy'?'bought':'sold'] += Number(data.vol_exec);
-                            if(datad.close)
-                            {
-                                closePrice = Number(datad.close.match(/[0-9.]+/)[0]);
-                                if(isNaN(x.buy) || isNaN(x.sell)) {
-                                    x[datad.type] = data.price;
-                                    x[datad.type=='buy'?'sell':'buy'] = closePrice;
-                                }
+                if(!haveAll) {
+                    once = true;
+                    data = await kapi(['ClosedOrders',{userref:x.userref}]);
+                    drc = data.result ? data.result.closed : false;
+                    // For trades with a close price, we can search for and include
+                    // any 'other' grid point that is only different because it
+                    // started on the other side.
+                    let closePrice, aur; // Alternate UserRef
+                    x.bought = 0; x.sold = 0;
+                    if(drc && Object.values(drc).length > 0) {
+                        count = data.result.count;
+                        // Check for a close and build alternate userRef
+                        let close = Object.values(drc)[0].descr.close;
+                        if(close) {
+                            closePrice = Number(close.match(/[0-9.]+/)[0]);
+                            aur = RegExp('1?[0-9]{3}'+String(closePrice).replace('.',''));
+                            aur = p['G'].find((x2) => aur.test(x2.userref) && x!=x2);
+                            if(aur && aur.buy == x.buy) {
+                                x.aur = aur.userref;
+                                aur.aur = x.userref;
+                                let data2 = await kapi(['ClosedOrders',{userref:x.aur}]),
+                                    drc2 = data2.result ? data2.result.closed : {};
+                                drc = Object.values(drc).concat(Object.values(drc2));
+                                count += data2.result.count;
                             }
                         }
                     }
-                    f = toDec(((x.sell-x.buy)*Math.min(x.bought,x.sold)),2);
-                    data = p['O'].find(o => {return o.userref==x.userref;});
-                    if(f == 0 && data == -1) { // No past round-trips and no open orders.
-                        console.log("Removing ",p['G'][xin].userref);
-                        delete p['G'][xin];
-                        p['G'] = Object.values(p['G']);
-                    } else {
-                        if(!isNaN(f)) profits += f;   // Profits from just-retrieved trades.
-                        x.open = true;  // If f was 0 but we did find it in open orders (p['O']).
+                    console.log("Retrieved",count,"closed orders for",x.userref + ".");
+                } else {    // p.Closed has ALL orders.
+                    // Include orders if they are sells with a close at the buy
+                    //  price or buys with a close at the sell price.
+                    drc = Object.entries(p.Closed).filter((o) =>
+                        (!o[0].includes('-') ? false :
+                        ((Number(x.buy) == Number(o[1].descr.close.match(/[0-9.]+/)[0])
+                                && o[1].descr.type == 'sell')
+                            || (Number(x.sell) == Number(o[1].descr.close.match(/[0-9.]+/)[0])
+                                && o[1].descr.type == 'buy'))));
+console.log(drc.length,"found from",x.buy,"to",x.sell,"for",x.userref, drc);
+                }
+                for(d in drc) {
+                    data = drc[d];
+                    if(data.status == 'closed' 
+                        && data.descr.ordertype != 'settle-position') {
+                        datad = data.descr;
+                        since = Math.min(since,data.closetm);
+                        x.since = since;
+                        x[datad.type=='buy'?'bought':'sold'] += Number(data.vol_exec);
+                        if(datad.close)
+                        {
+                            closePrice = Number(datad.close.match(/[0-9.]+/)[0]);
+                            if(isNaN(x.buy) || isNaN(x.sell)) {
+                                x[datad.type] = data.price;
+                                x[datad.type=='buy'?'sell':'buy'] = closePrice;
+                            }
+                        }
                     }
-                    console.log("Retrieved",count,"more closed orders for",x.userref + ".");
-                    if(keepGoing && --typeOrCount>0) 
-                        setTimeout(()=>{set(p,'~',typeOrCount);},2000); //Keep collecting.
-                } else console.log(...data.error);
+                }
+                f = toDec(((x.sell-x.buy)*Math.min(x.bought,x.sold)),2);
+                data = p['O'].find(o => {return o.userref==x.userref;});
+                if(f == 0 && data == undefined) { // No past round-trips and no open orders.
+                    console.log("Removing ",p['G'][xin].userref);
+                    delete p['G'][xin];
+                    p['G'] = Object.values(p['G']);
+                } else {
+                    if(!isNaN(f)) profits += f;   // Profits from just-retrieved trades.
+                    x.open = true;  // If f was 0 but we did find it in open orders (p['O']).
+                }
+                //if(keepGoing && --typeOrCount>0) 
+                //    setTimeout(()=>{set(p,'~',typeOrCount);},2000); //Keep collecting.
             }
             let s2 = (new Date((x.since>1?x.since:since)*1000)).toLocaleString();
             console.log(x.userref+': '+x.buy+'-'+x.sell
@@ -901,7 +1008,7 @@ if(FLAGS.verbose) console.log(orders.length, count, ur, paging);
 
     async function report(showBalance=true) {
         let balP = kapi('Balance'), 
-            tikP = kapi(['TradeBalance',{ctr:1}]), 
+            tikP = kapi(['TradeBalance',{ctr:30}]), 
             marP = marginReport(false),
             [bal,trb,mar] = await Promise.all([balP,tikP,marP]); 
         portfolio['M'] = mar;
@@ -974,7 +1081,7 @@ if(FLAGS.verbose) console.log(orders.length, count, ur, paging);
             console.log("0-unit assets skipped: ",zeroes.join(','));
         //console.log(portfolio);
         //showState();
-        await listOpens(portfolio,true);
+        await listOpens(true);
         if(!process.TESTING) process.stdout.write("\033[A".repeat(cli.apl));
         cli.apl = 2;
     }
@@ -987,7 +1094,7 @@ if(FLAGS.verbose) console.log(orders.length, count, ur, paging);
         }
 
     async function marginReport(show = true) {
-        let positions = await kapi(['OpenPositions',{consolidation:"market",ctr:2}]);
+        let positions = await kapi(['OpenPositions',{consolidation:"market",ctr:60}]);
         let brief = [];
         if(Object.keys(positions.result).length) {
             positions.result.forEach( (pos) => {
