@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 process.TESTING = process.TESTING || !(/init.js$|kraken-grid$/.test(process.argv[1]));
-console.log("filename is ",process.argv[1],"in "+(process.TESTING?'test':'production')+" mode.");
+if(process.argv.length > 2) process.TESTING = process.argv[2];
+console.log("filename is ",process.argv[1],"in "+(process.TESTING
+    ? 'test ('+process.TESTING+")"
+    :'production')+" mode.");
 const Manager = require('./manager.js');
 const Bot = require('./bot.js');
 const Web = require('./web.js');
 let bot = Bot();
 let man = Manager(bot);
 //let web = Web(manager);
-if(!process.TESTING) man.init();
+man.init();
 // else  manager.init();
 // For testing purposes, we provide these two items
 // They will not be ready for use until manager.init is done,

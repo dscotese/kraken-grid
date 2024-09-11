@@ -126,7 +126,8 @@ module.exports = function Balancer (target) {
                 bot.getLev(bot.portfolio,'sell',sP,sAmt,po.base,false),
                 p.type=='buy'?Ordered.uref:0,p.price);
         }
-console.log({high,low,cryptp,qf,atargU,atargD,curVal,curP,toSell,toBuy,sAmt,bAmt,sP,bP,Ordered});
+if(bot.FLAGS.verbose)
+    console.log({high,low,cryptp,qf,atargU,atargD,curVal,curP,toSell,toBuy,sAmt,bAmt,sP,bP,Ordered});
     }
 
     return {setTrades};

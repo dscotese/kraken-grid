@@ -40,7 +40,7 @@ function Manager(b) {
         savings = require('./savings.js');
         /*if(!process.TESTING)*/ await bot.report(true);
         savings().setTickers(Bot.tickers);
-        if(!process.TESTING) listen();
+        if(!process.TESTING || process.argv.length > 2) listen();
         else {
             console.log("42:",portfolio);
             this.already = true;
@@ -95,19 +95,19 @@ function Manager(b) {
        Note that handleArgs handles string arguments as collected from process.stdin.
        This means that true and 1, as args, are strings, not a boolean and a number.
      */
-    async function handleArgs(bot, portfolio, args, uref = 0) {
+    async function handleArgs(bot, args, uref = 0, p = portfolio) {
         if(['args',whoami()].includes(process.TESTING))
             console.log(whoami(),"called with ",arguments);
         let buysell,xmrbtc,price,amt,posP;
         if(/^(buy|sell)$/.test(args[0])) {
             let pair;
             [buysell,xmrbtc,price,amt,posP] = args;
-            pair = Bot.findPair(xmrbtc, portfolio.Numeraire, -1);
+            pair = Bot.findPair(xmrbtc, p.Numeraire, -1);
             if(pair) xmrbtc = pair[1].base;
-            if( 'undefined' == typeof(portfolio[xmrbtc]) ) {
+            if( 'undefined' == typeof(p[xmrbtc]) ) {
                 // Try the asset's altname
                 // -----------------------
-                if('undefined' == typeof(portfolio[Bot.alts[xmrbtc]]))
+                if('undefined' == typeof(p[Bot.alts[xmrbtc]]))
                     throw new Error(xmrbtc+" is not a recognized symbol.  Try 'asset' command.");
                 console.log("Using",Bot.alts[xmrbtc],"instead of",xmrbtc);
                 xmrbtc = Bot.alts[xmrbtc];
@@ -119,12 +119,12 @@ function Manager(b) {
 
             // Do we need leverage?
             // --------------------
-            let lev = bot.getLev(portfolio,buysell,price,amt,xmrbtc,posP);
-            let cPrice = !isNaN(portfolio['G'][uref]) 
-                ? portfolio['G'][uref][buysell=='buy'?'sell':'buy'] : 0;
+            let lev = bot.getLev(p,buysell,price,amt,xmrbtc,posP);
+            let cPrice = !isNaN(p['G'][uref]) 
+                ? p['G'][uref][buysell=='buy'?'sell':'buy'] : 0;
             // Without a record of a closing price, use the last one we found.
             // ---------------------------------------------------------------
-            if(!cPrice) cPrice = portfolio[xmrbtc][1];
+            if(!cPrice) cPrice = p[xmrbtc][1];
             // When passing 1 as close, it will mean close at 1 (if Risky) 
             // or at current price (without Risky)
             // -----------------------------------------------------------
@@ -135,16 +135,16 @@ function Manager(b) {
             console.log("New order: "+ret);
             return;
         } else if(args[0] == 'set') {
-            await bot.set(portfolio, args[1], args[2], args[3]);
+            await bot.set(p, args[1], args[2], args[3]);
         } else if(args[0] == 'reset') {
-            portfolio['G'] = [];
-            await bot.listOpens(portfolio);
+            p['G'] = [];
+            await bot.listOpens();
         } else if(args[0] == 'delev') {
-            await bot.deleverage(portfolio['O'],args[1]-1);
+            await bot.deleverage(p['O'],args[1]-1);
         } else if(args[0] == 'addlev') {
-            await bot.deleverage(portfolio['O'],args[1]-1,true);
+            await bot.deleverage(p['O'],args[1]-1,true);
         } else if(args[0] == 'refnum') {
-            await bot.refnum(portfolio['O'],args[1]-1,args[2]);
+            await bot.refnum(p['O'],args[1]-1,args[2]);
         } else if(args[0] == 'list') {
             await bot.list(args);
         } else if(/^(less|more)$/.test(args[0])) {
@@ -159,7 +159,7 @@ function Manager(b) {
             }
             let label = args[3] ? args[3] : "default",
                 tkr = 'REMOVE' == args[1] ? args[2] : args[1],
-                account = portfolio.Savings.find(a => a.label == label);
+                account = p.Savings.find(a => a.label == label);
             if(Bot.alts[tkr]) tkr = Bot.alts[tkr];
             if(!account) {
                 if('REMOVE' == args[1]) {
@@ -175,15 +175,15 @@ function Manager(b) {
                     assets:[{ticker:tkr,amount:Number(args[2])}]
                 });
                 console.log("Created new account, ", label);
-                portfolio.Savings.push(JSON.parse(account.save()));
+                p.Savings.push(JSON.parse(account.save()));
                if(args[3]) account.labelMe(args[3]);
             } else {
                 account = savings(account);
             }
             if('REMOVE' == args[1]) {
                 if('ACCOUNT' == args[2].toUpperCase()) {
-                    let smaller = portfolio.Savings.filter(x => x.label != args[3]);
-                    portfolio.Savings = smaller;
+                    let smaller = p.Savings.filter(x => x.label != args[3]);
+                    p.Savings = smaller;
                     bot.save();
                     console.log("Account",label,"has been removed.");
                 } else {
@@ -200,10 +200,10 @@ function Manager(b) {
                 bot.save();
             }
         } else if(args[0] == 'assets') {
-            let sav,pnum = portfolio.Numeraire;
-                ret = portfolio.Savings.length + ': ';
-            for(h=0;h < portfolio.Savings.length; ++h) {
-                sav = savings(portfolio.Savings[h]);
+            let sav,pnum = p.Numeraire;
+                ret = p.Savings.length + ': ';
+            for(h=0;h < p.Savings.length; ++h) {
+                sav = savings(p.Savings[h]);
                 if(!(args[1]) || sav.label == args[1])
                     console.log(h, sav.list());
                 else if(args[1]) {
@@ -214,7 +214,7 @@ function Manager(b) {
             // Include the assets on the Exchange
             // ----------------------------------
             sav = savings({ label:'OnExchange', assets:
-                [{ticker:pnum, amount:portfolio[pnum][0]}]});
+                [{ticker:pnum, amount:p[pnum][0]}]});
             return ret;
         } else if(args[0] == 'allocation') {
             let d = await getAllocation(true),c; // Desired
@@ -285,8 +285,8 @@ function Manager(b) {
             if('undefined' == typeof(alloc)
                 || isNaN(p) || isNaN(a)) {
                 console.log(usage);
-            } else if(a<0||p<0||a>100*alloc.target||p>100) {
-                console.log("apct must be between 0 and",100*alloc.target,
+            } else if(a<0||p<0||a>100*(1-alloc.target)||p>100) {
+                console.log("apct must be between 0 and",100-100*alloc.target,
                     "and ppct must be between zero and 100.");
             } else {
                 t = alloc.ticker;
@@ -297,14 +297,14 @@ function Manager(b) {
             if(args.length < 3 || isNaN(args[1]) || isNaN(args[2])) {
                 console.log("Usage: limits AtLeast AtMost\n" +
                     "The allocation command will make trades only if the\n" +
-                    "amount in "+portfolio.Numeraire+" is at least the \n" +
+                    "amount in "+p.Numeraire+" is at least the \n" +
                     "AtLeast amount and no more than the AtMost amount.\n" +
                     "If AtMost is -1, there is no upper limit (dangerous!).");
             } else if(Number(args[1]) > Number(args[2]) && -1 != Number(args[2])) {
                 console.log("Doing nothing becuase you seem to have\n" +
                     "switched the arguments.");
             } else {
-                portfolio.limits = [Number(args[1]),Number(args[2])];
+                p.limits = [Number(args[1]),Number(args[2])];
                 bot.save();
             }
         } else if(args[0] == 'test') {
@@ -336,7 +336,7 @@ function Manager(b) {
             let args = cmds[cdx++].split(' ').map((x) => { return x.trim(); });
             console.log("...("+cdx+")> "+args.join(' '));
             //try {
-            if(args[0] == 'kill') await bot.kill(args[1],bot.portfolio['O']);
+            if(args[0] == 'kill') await bot.kill(args[1],portfolio['O']);
 	    	else if(args[0] == "keys") { await bot.keys(); }
 		    else if(args[0] == "ws") {
                 if(kwsCheck) console.log("Kraken WebSocket heartbeat at "+kwsCheck);
@@ -379,9 +379,9 @@ function Manager(b) {
             } else if(args[0] == 'margin') {
                 await bot.marginReport();
             } else if(args[0] == 'show') {
-                if(args[2]) console.log(args[2],{value:bot.portfolio[args[1]][args[2]]});
-                if(args[1]) console.log(args[1],{value:bot.portfolio[args[1]]});
-                else console.log({Portfolio:bot.portfolio,Bot});
+                if(args[2]) console.log(args[2],{value:portfolio[args[1]][args[2]]});
+                else if(args[1]) console.log(args[1],{value:portfolio[args[1]]});
+                else console.log({Portfolio:portfolio,Bot});
             } else if(args[0] == 'web') {
                 if(args[1]) {
                     if(args[1].toUpperCase() == 'ON') 
@@ -392,7 +392,7 @@ function Manager(b) {
                         + "This starts the web interface or stops it.");
                 }
             } else {
-                ret = await handleArgs(bot, bot.portfolio, args, 0);
+                ret = await handleArgs(bot, args, 0);
                 if(bot.FLAGS.verbose) console.log(ret);
             }
             //}
