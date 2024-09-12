@@ -393,9 +393,9 @@ module.exports = (j=false) => { // Allocation object constructor
 
     function list(compare=false) {
         let total = Man.s.getTotal(),
-            str = "\nticker\ttarget\t(adjusted)\t(Range)" + (compare
-                ? '\t' + compare.name + '\tdiff' + '\t'
-                : '') + "Total: "+total;
+            str = "\nticker\ttarget\t(adjusted)\t(Range)\t(apct,ppct)\t" + (compare
+                ? compare.name + '\tdiff' + '\t'
+                : '\t\t') + "Total: "+total;
         assets.forEach((a) => {
  // console.log("Getting",a);
             get(a.ticker);  // Forces an update
@@ -410,7 +410,8 @@ module.exports = (j=false) => { // Allocation object constructor
                         Math.round(Math.abs(diff)*total*100)/10000;
                 str = str + "\n" + a.ticker + "\t" + t + "%\t" + atd + '%\t'
                     +(a.adjust ? ranges[a.ticker].map(price7) : '\t') + '\t'
-                    +(compare ? pct(ctarg)+'%\t'+trade : '');
+                    +(a.adjust ? '(' + a.adjust.join(',') + ')' : '\t') + '\t'
+                    +pct(ctarg) + '%\t' + trade;
             } else str = str + "\n" + a.ticker + "\t" + t + "%\t" + atd + '%';
         });
         return str;
@@ -430,6 +431,9 @@ module.exports = (j=false) => { // Allocation object constructor
         } else assets.unshift({ticker:ticker,target:0});
     }
 
+    // Return the trading range for an adjusted asset
+    function getRange(ticker) { return ranges[ticker]; }
+
     return {setNumeraire, list, addAsset, bestTrade, save, recover,
-        adjust, atarg, get, size, assets, toString, sigdig};
+        adjust, atarg, get, size, assets, toString, sigdig, getRange};
 } 

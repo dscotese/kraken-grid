@@ -309,18 +309,26 @@ function AllocTable(tol = genTol) {
         + "'>Allocation Last Update: " + (new Date()).toLocaleTimeString()
         + "</th></tr>\n<tr id='tkrs'><th id='tol' title='Balance Tolerance'>"+tol+"</th>",
         current="<tr id='current'><th>Current</th>",
-        desired="<tr id='desired'><th>Desired</th>",
+        base="<tr id='base'><th>Adjust</th>",
+        desired="<tr id='desired'><th>Adjusted</th>",
         diff = "<tr id='Diff'><th>Difference</th>",
         diffs = [],
         gHeight = Number(('0'+$('#GDiv')[0].style.height).match(/[0-9]+/)[0]),
         gWidth = Number(('0'+$('#GDiv')[0].style.width).match(/[0-9]+/)[0]),
         prices = "<tr id='Prices'><th>Prices</th>",
-        c,d,del,tt,price,imbalance = 0, slices=[];
+        b,r,tr,rh,rl,c,d,del,tt,price,imbalance = 0, slices=[];
     for(t in tkrs) {
+        [b,r,tr] = data.adjust[t].split('+').map((x) => (sigdig(100*x)));
+        [rh,rl] = (data.ranges[t] || [0,0]).map((x) => (sigdig(x)));
+     //   [b,r,tr] = [b,r,tr].map((x) => (sigdig(100*x)));
         ret += "<th>"+t+"</th>";
         current += "<td>"+(c=data.current[t])+"%</td>";
+        base += rh == 0 ? b : "<td title='Within the latest "
+            + tr +"%-wide trading range, the allocation will rise from "
+            + b +" at "+rh+" proportionately by "+r+"% up to "+(b+r)+"% at "+rl+".'>"
+            + b + ' - ' + (b+r) + '</td>';
         desired += "<td"+(t==data.numer ? '' 
-            : " title='allocate "+t+" "+data.desired[t]+"'") +">"
+            : " title='allocate "+t+" "+(100*b)+"'") +">"
             + (d=data.desired[t])+"%</td>";
         price = data.tickers[t][1];
         prices += "<td"+(t == data.numer ? ''
@@ -339,8 +347,8 @@ function AllocTable(tol = genTol) {
     G.bns.markup("Buys and Sells for Balance",0,underPie)
         .markup("Total: "+sigdig(imbalance,6,2)+' '+data.numer ,0,underPie+20);
 
-    ret += "</tr>\n"+current+"</tr>\n"+desired+"</tr>\n"+diff+"</tr>\n"
-        + prices + "</tr></table>";
+    ret += "</tr>\n"+current+"</tr>\n"+base+"</tr>\n"+desired
+        + "</tr>\n"+diff+"</tr>\n" + prices + "</tr></table>";
     return ret;
 }
 

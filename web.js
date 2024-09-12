@@ -82,7 +82,7 @@ function Web(man) {
         // I planned to remove AssetsTable, but it creates the tkrs array.
         // ---------------------------------------------------------------
         AssetsTable(); // Called for side-effect of collecting tkrs from savings.
-        let [current,desired] = await Allocations(),
+        let [current,desired,adjust,ranges] = await Allocations(),
         tt = {};
         Array.from(bot.portfolio.Tickers)
             .forEach((t)=>{tt[t]=bot.portfolio[t];
@@ -107,6 +107,8 @@ function Web(man) {
             total:   man.getTotal(),
             current: current,
             desired: desired,
+            adjust:  adjust,
+            ranges:  ranges,
             FLAGS: bot.FLAGS,
             refresh_period: refresh_period
         }));
@@ -218,13 +220,21 @@ function Web(man) {
 
     async function Allocations() {
         let allocs = await man.doCommands(["allocation quiet"]),
-            current = {}, desired = {};
+            current = {}, 
+            desired = {}, 
+            adjust = {},
+            ranges = {}, 
+            asset;
         allocs.desired.assets.forEach(a=>{if(!tkrs[a.ticker]) tkrs[a.ticker] = 0;});
         for(t in tkrs) {
             current[t] = await getAlloc(t, allocs.current);
             desired[t] = await getAlloc(t, allocs.desired);
+            asset = allocs.desired.assets.find((a) => (a.ticker==t));
+            ranges[t] = allocs.desired.getRange(t);
+            adjust[t] = String(asset.target) + (asset.adjust 
+                ? '+' + asset.adjust.join('+') : "");
         }
-        return [current,desired];
+        return [current,desired,adjust,ranges];
     }
 
     function table(object) {
