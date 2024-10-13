@@ -188,7 +188,7 @@ if(FLAGS.verbose) console.log(p);
                 console.log(172,err.message+" Maybe next time.");
                 ret = { result: { descr: "Postponed" }};
             } else {
-		console.log(174,"API key: ", portfolio.key);
+		//console.log(174,"API key: ", portfolio.key);
                 throw err;
             }
             await sleep(1000);
@@ -279,6 +279,17 @@ if(FLAGS.verbose) console.log(p);
         return ret;
     }
 
+    async function moreOrders(count = 100) {
+        let closed = await Reports.getExecuted(count, portfolio.Closed),
+            closedIDs = Object.keys(closed.orders);
+        // Store closed orders in portfolio
+        if(Object.keys(portfolio.Closed.orders || {}).length < closedIDs.length) {
+            console.log("(Re-?)Saving,"+closedIDs.length+",closed orders...");
+            portfolio.Closed = closed;
+            save();
+        }
+        return closed;
+    }
     // Initialize the grid by reading closed orders if necessary
     async function initGrid() {
         let gPrices = [];
@@ -288,14 +299,8 @@ if(FLAGS.verbose) console.log(p);
         }
         if(gPrices.length == 0) {   // When we have no grid prices, collect 100 orders.
             console.log("Reading grid from 100 closed orders...");
-            let closed = await Reports.getExecuted(100, portfolio.Closed),
+            let closed = await moreOrders(),
                 closedIDs = Object.keys(closed.orders);
-	    // Stored closed orders in portfolio
-            if(Object.keys(portfolio.Closed.orders || {}).length < closedIDs.length) {
-                console.log("(Re-?)Saving,"+closedIDs.length+",closed orders...");
-		portfolio.Closed = closed;
-		save();
-	    }
             if(closedIDs.length > 0) {
                 lCOts = closed.orders[closedIDs.pop()].closetm;
                 let counter = closedIDs.length;
@@ -774,7 +779,7 @@ if(FLAGS.verbose) console.log(p);
                 ur = false;
             }
             orders = [];
-            let closed = await Reports.getExecuted(count, portfolio.Closed);
+            let closed = await moreOrders();
             closed.forward = early;
             portfolio.Closed = closed;
             for( var o of closed.orders) {
@@ -897,10 +902,9 @@ if(FLAGS.verbose) console.log(p);
         }
         p['G'].sort((a,b) => a.userref-b.userref);
         let profits = 0, f, data, drc, datad, count = 0, once = false,
-            since = lCOts, haveAll = false, clCount = Object.keys(p.Closed.orders).length
-            closed = await Reports.getExecuted(50, p.Closed);
+            since = lCOts, haveAll = false,
+            closed = await moreOrders(50);
         p.Closed = closed;
-        if(clCount != Object.keys(p.Closed.orders).length) save();
         // If p.Closed.offset is -1, then we have
         //  collected all completed orders and we can search them
         //  for this Userref.
@@ -974,16 +978,9 @@ console.log(drc.length,"found from",x.buy,"to",x.sell,"for",x.userref, drc);
                 }
                 f = toDec(((x.sell-x.buy)*Math.min(x.bought,x.sold)),2);
                 data = p['O'].find(o => {return o.userref==x.userref;});
-                if(f == 0 && data == undefined) { // No past round-trips and no open orders.
-                    console.log("Removing ",p['G'][xin].userref);
-                    delete p['G'][xin];
-                    p['G'] = Object.values(p['G']);
-                } else {
-                    if(!isNaN(f)) profits += f;   // Profits from just-retrieved trades.
-                    x.open = true;  // If f was 0 but we did find it in open orders (p['O']).
-                }
-                //if(keepGoing && --typeOrCount>0) 
-                //    setTimeout(()=>{set(p,'~',typeOrCount);},2000); //Keep collecting.
+                x.open = (data !== undefined);
+                if(!isNaN(f)) profits += f;   // Profits from just-retrieved trades.
+                x.open = true;  // If f was 0 but we did find it in open orders (p['O']).
             }
             let s2 = (new Date((x.since>1?x.since:since)*1000)).toLocaleString();
             console.log(x.userref+': '+x.buy+'-'+x.sell
