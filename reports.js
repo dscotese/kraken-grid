@@ -55,7 +55,8 @@ function Reports(bot) {
 		console.log("Total Executed orders collected: "
                     +(Object.keys(closed.orders).length));
 		count = 0;
-            } else if(Object.keys(known.orders || {}).includes(executed[executed.length-1][0])) {
+            } else if(Object.keys(known.orders || {}).includes(executed[executed.length-1][0])
+                && offset < known.offset ) {
                 // Last order retrieved already on disk
                 console.log("Jumping to the end... ("+known.offset+")");
 		offset = known.offset;	// so jump to the end.
