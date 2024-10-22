@@ -38,6 +38,8 @@ function setSize(id) {
     if(!['LDiv'].includes(id)) jqdd.height(Number(doch) + sh);
 }
 
+function prnd(x,p) { return Math.round(x*10**(p))/10**p; }
+
 $(function() {
     ['Doc','GDiv','LDiv'].forEach(setSize);
     genTol = Number(getCookie('genTol',"0.025"));
@@ -76,6 +78,35 @@ $(function() {
         if(cmd == 'auto' && data.refresh_period > 0) // user is turning auto off
             cmd = 'manual';
         botExecA(cmd);
+    });
+    $(document).on('click', '#tkrs th', function() {
+        let tkr = $(this).text(),
+            p = data.tickers[tkr][1],
+            np = prompt("See trade for when "+tkr+" price is?", p),
+            dp = (np - p)/p,    // % change in price
+            t = data.total,
+            [hp,lp] = data.ranges.XXBT,
+            [b,ma] = data.adjust.XXBT.split('+'),
+            tot1 = 0,       // How much BTC is off the Exchange?
+            ov = 0,     // What is the value of everything else?
+            a, t2, t2s, trade;
+
+        data.savings.forEach((s) => { s.assets.forEach((a) => {
+                tot1 += a.ticker=='XXBT'?a.amount:0;
+                ov += [tkr,'ZUSD'].includes(a.ticker)?0:a.amount;
+            });});
+        Object.keys(data.tickers).forEach((s) => {
+            ov += [tkr,'ZUSD'].includes(s)
+                ? 0
+                : data.tickers[s][3] * data.tickers[s][1]; });
+        a = tot1 + data.tickers[tkr][3];
+        t2 = t + (dp*(p*a + ov));
+        t2s = t + (dp*p*a);
+        a2 = t2*b/np + ma*t2*(hp-np)/(np*(hp-lp));
+        trade = a2 - a;
+
+        alert((trade < 0 ? "sell " : "buy ")+tkr+' '+np+' '
+            + Math.abs(prnd(trade,4))+" ClosePrice?");
     });
 });
 
@@ -428,7 +459,7 @@ function rowCommand(e) {
 }
 
 function orderCompare(th, order) {
-    // ID	Type	Units	Pair	Price	UserRef	Close
+    // ID       Type    Units   Pair    Price   UserRef Close
     let od = order[1].descr;
     switch(th[0]=='-' ? th.substr(1) : th) {
         case 'ID' : return order[1].opentm;
