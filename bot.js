@@ -33,7 +33,7 @@ if(FLAGS.verbose) console.log(p);
             portfolio.key = p.key;
             portfolio.secret = p.secret;
             portfolio.Savings = p.savings ? p.savings : []; 
-	    portfolio.Closed = p.Closed || {};      // Must be something for new accounts.
+	    portfolio.Closed = p.Closed || {orders: {}, offset: 0};      // Must be something for new accounts.
             portfolio.Allocation = Allocation(
                 (p.Alloc && (0<Object.keys(p.Alloc).length)) ? p.Alloc : false); 
             portfolio.Pairs = new Set(Array.isArray(p.Pairs) ? p.pairs : []);
@@ -280,10 +280,13 @@ if(FLAGS.verbose) console.log(p);
     }
 
     async function moreOrders(count = 100) {
-        let closed = await Reports.getExecuted(count, portfolio.Closed),
+        let preCount = Object.keys(portfolio.Closed.orders || {}).length,
+            closed = await Reports.getExecuted(count, portfolio.Closed),
             closedIDs = Object.keys(closed.orders);
         // Store closed orders in portfolio
-        if(Object.keys(portfolio.Closed.orders || {}).length < closedIDs.length) {
+        console.log((Array.isArray(portfolio.Closed.orders)?"Array":"Object"),
+            "had",preCount,"orders and now has",closedIDs.length, "orders.");
+        if(preCount < closedIDs.length) {
             console.log("(Re-?)Saving,"+closedIDs.length+",closed orders...");
             portfolio.Closed = closed;
             save();
@@ -756,11 +759,11 @@ if(FLAGS.verbose) console.log(p);
     async function list(args) {
         if(args[1] == '?') {
             console.log("Usage: list [X] [ur]\n" +
-                "X can be C in order to see closed orders, and if so, then\n" +
+                "X can be C or CR to see closed orders, and if so, then\n" +
                 "ur can be a userref and only those trades will be listed.\n" +
                 "If ur is less than 10000, it will tell the bot how many\n" +
                 "closed orders to return. To collect early orders, use a\n" +
-                "negative number.\n" +
+                "negative number. To ignore locally stored orders, use CR.\n" +
                 "X can also be a ticker (UPPER CASE) to see orders for it.\n" +
                 "Otherwise, X can be userref, opentm, vol, vol_exec, price,\n" +
                 "or userref and this will cause the specified field to be\n" +
@@ -769,7 +772,12 @@ if(FLAGS.verbose) console.log(p);
         }
         if(!portfolio.O) await report(false);
         let sortedA = [], orders = portfolio['O'];
-        if(args[1] == 'C') {
+        if( ['C','CR'].includes(args[1]) ) {
+            if(args[1] == 'CR') {
+                console.log("Restting closed orders record.");
+                portfolio.Closed = {orders: {}, offset: 0};
+                save();
+            }
             let count = 50, 
                 paging = 0, 
                 ur = args[2] ? args.pop() : false,
@@ -980,7 +988,6 @@ console.log(drc.length,"found from",x.buy,"to",x.sell,"for",x.userref, drc);
                 data = p['O'].find(o => {return o.userref==x.userref;});
                 x.open = (data !== undefined);
                 if(!isNaN(f)) profits += f;   // Profits from just-retrieved trades.
-                x.open = true;  // If f was 0 but we did find it in open orders (p['O']).
             }
             let s2 = (new Date((x.since>1?x.since:since)*1000)).toLocaleString();
             console.log(x.userref+': '+x.buy+'-'+x.sell
