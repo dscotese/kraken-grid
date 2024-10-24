@@ -78,7 +78,7 @@ function Web(man) {
         logged = "Reset at 73";
         // Report called recently enough if on auto
         // ----------------------------------------
-        if( man.getAuto() == 0 ) await bot.report(false);
+        if( man.getAuto() == -1 ) await bot.report(false);
         // I planned to remove AssetsTable, but it creates the tkrs array.
         // ---------------------------------------------------------------
         AssetsTable(); // Called for side-effect of collecting tkrs from savings.
