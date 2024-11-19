@@ -2,8 +2,8 @@
 // Feel free to use it as you please.
 const got = require('got');
 const prompt = require('prompt-sync')({sigint: true});
-const Bot = require('../bot.js');
 const url = 'https://openexchangerates.org/api/latest.json?app_id=';
+let app_id;
 async function OpenEx(base = 'ZUSD', cacheSeconds = 3600) {
     let latest = false,
         millisWait = 1000 * cacheSeconds;
@@ -21,11 +21,13 @@ async function OpenEx(base = 'ZUSD', cacheSeconds = 3600) {
     }
     return {price};
 }
-if(!Bot.extra.OpenEx_app_id) {
-    Bot.s.save({OpenEx_app_id:prompt('Enter your OpenExchangeRates App ID:','N/A')});
-}
-const app_id = Bot.extra.OpenEx_app_id;
-module.exports = function (Savings) {
+module.exports = (Bot, Savings) => {
+    if(!Bot.extra) Bot.extra = {};
+    if(!Bot.extra.OpenEx_app_id) {
+        Bot.s.save({OpenEx_app_id:prompt('Enter your OpenExchangeRates App ID:','N/A')});
+    } else {
+        app_id = Bot.extra.OpenEx_app_id;
+    }
     OpenEx().then(p => {
         Savings.setPricer(p,['XAU','XAG']);
     });

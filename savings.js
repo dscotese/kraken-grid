@@ -17,7 +17,6 @@ function Savings(j=false) { // Constructor for savings
     }
 
     function getTotal() {
-        if(0 == myTotal) console.log("Call allocation first.");
         return myTotal;
     }
 
@@ -84,7 +83,7 @@ function Savings(j=false) { // Constructor for savings
 
     function updateAsset(ticker,amount,ask,add = false) {
         let already = assets.find(a => a.ticker == ticker);
-        if(!already && !Savings.tickers.includes(ticker) 
+        if(!already && !Savings.tickers.has(ticker) 
             && (ask && !badTickerOK(ticker)))
             return false;
         if(!already && (add || amount != 0)) {
@@ -107,10 +106,10 @@ function Savings(j=false) { // Constructor for savings
     function w(n,x) { let s = n.toString(); return s+' '.repeat(x-s.length); }
 
     function setTickers(validTickers) {
-        Savings.tickers = validTickers;
+        validTickers.forEach(i => { Savings.tickers.add(i); });
     }
 
-    this.validTicker = (t) => { return Savings.tickers.includes(t); }
+    this.validTicker = (t) => { return Savings.tickers.has(t); }
 
     function list(label = this.label, copySort = false) {
         //return "Would list "+assets.length+" assets.";
@@ -137,7 +136,7 @@ function Savings(j=false) { // Constructor for savings
         //  numeraire and add it, and set the amount of the new
         //  one to zero.
         // ----------------------------------------------------
-        if(!Savings.tickers.includes(ticker)
+        if(!Savings.tickers.has(ticker)
             || badTickerOK(ticker))
             assets[0].ticker = ticker;
     }
@@ -175,10 +174,10 @@ function Savings(j=false) { // Constructor for savings
     }
 
     return {setBase, list, setTickers, updateAsset, recover,
-        labelMe, save, label, setTickers, getAlloc, getTotal,
-        add, remove, get, assets, validTicker:this.validTicker};
+        labelMe, save, label, getAlloc, getTotal, add, remove,
+        get, assets, validTicker:this.validTicker};
 }
-Savings.tickers = [];
+Savings.tickers = Savings.tickers || new Set();
 var glob = require( 'glob' )
   , path = require( 'path' );
 
@@ -186,7 +185,7 @@ Savings.setPricer = (pricer, assets) => {
     // pricer must be an async function price(a)
     // which accepts an asset symbol and returns the
     // price you want to use for it.
-console.log("pricer:",pricer);
+//console.trace("pricer:",pricer);
     assets.forEach(a => { 
         if('function' == typeof(pricer.price)) Savings.pricers[a] = pricer;
         else throw 'setPricer received pricer without price function.';
@@ -195,8 +194,9 @@ console.log("pricer:",pricer);
 if(!Bot.extra) throw 'Initialize bot before loading savings.';
 
 Savings.pricers = [];
+//console.log('glob.sync("./pricers/*.js"):',glob.sync("./pricers/*.js"));
 glob.sync("./pricers/*.js").forEach( function( file ) {
-  require( path.resolve( file ) )(Savings);
+    require( path.resolve( file ) )(Bot,Savings);
 });
 
 module.exports = Savings;

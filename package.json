@@ -5,7 +5,7 @@
   "main": "init.js",
   "bin": "./init.js",
   "scripts": {
-    "test": "ava"
+    "test": "ava --timeout=10000 --verbose"
   },
   "ava": {
     "files": [

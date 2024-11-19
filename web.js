@@ -6,12 +6,13 @@ const session = require('express-session');
 const bodyParser = require('body-parser');
 const Bot = require('./bot.js');
 const fs = require('fs');
+const Allocation = require('./allocation.js');
 function Web(man) {
-    const Savings = require('./savings.js');
+    // const Savings = require('./savings.js');
     let server = false,
         log_original = console.log,
         bot = Bot.s,
-        sigdig = bot.portfolio.Allocation.sigdig,
+        sigdig = Allocation.sigdig,
         tkrs=[]; // Associative array of totals for ticker indices.
     let logged = "<!-- init at 10 -->";
 
@@ -82,7 +83,7 @@ function Web(man) {
         // I planned to remove AssetsTable, but it creates the tkrs array.
         // ---------------------------------------------------------------
         AssetsTable(); // Called for side-effect of collecting tkrs from savings.
-        let [current,desired,adjust,ranges] = await Allocations(),
+        let [current,desired,adjust,ranges] = await bot.portfolio.Allocation.Allocations(tkrs),
         tt = {};
         Array.from(bot.portfolio.Tickers)
             .forEach((t)=>{tt[t]=bot.portfolio[t];
@@ -96,7 +97,9 @@ function Web(man) {
                 tt[t] = [tkrs[t],p];
             })
         );
-        let refresh_period = man.getAuto();
+        let refresh_period = man.getAuto(),
+            orderedClosed = Object.entries(bot.portfolio.Closed.orders)
+                .sort((a,b) => {return a[1].closetm - b[1].closetm;});
         res.send(JSON.stringify({
             orders:  bot.portfolio.O,
             grid:    bot.portfolio.G,
@@ -110,8 +113,10 @@ function Web(man) {
             adjust:  adjust,
             ranges:  ranges,
             FLAGS: bot.FLAGS,
-            refresh_period: refresh_period
+            refresh_period: refresh_period,
+            closed: orderedClosed.slice(-5)
         }));
+        // console.log("Sent Closed:", Object.entries(bot.portfolio.Closed.orders).slice(-5));
     });
 
     function tag(name,inner) { 
@@ -211,30 +216,6 @@ function Web(man) {
         }
         ret = "<div><table id='assets'>"+tbody+"</table></div>";
         return ret;
-    }
-
-    async function getAlloc(tkr,alloc) { 
-        let ret = await alloc.atarg(tkr);
-        return ret ? sigdig(100*ret,5,2) : 0;
-    }
-
-    async function Allocations() {
-        let allocs = await man.doCommands(["allocation quiet"]),
-            current = {}, 
-            desired = {}, 
-            adjust = {},
-            ranges = {}, 
-            asset;
-        allocs.desired.assets.forEach(a=>{if(!tkrs[a.ticker]) tkrs[a.ticker] = 0;});
-        for(t in tkrs) {
-            current[t] = await getAlloc(t, allocs.current);
-            desired[t] = await getAlloc(t, allocs.desired);
-            asset = allocs.desired.assets.find((a) => (a.ticker==t));
-            ranges[t] = allocs.desired.getRange(t);
-            adjust[t] = String(asset.target) + (asset.adjust 
-                ? '+' + asset.adjust.join('+') : "");
-        }
-        return [current,desired,adjust,ranges];
     }
 
     function table(object) {

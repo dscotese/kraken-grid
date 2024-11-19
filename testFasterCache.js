@@ -18,9 +18,11 @@
     objects.
 */
 function TFC(verbose = false,id = '') {
+    if(TFC.s) return TFC.s;     // Singleton!!
     const base = "TFC"+id;
     const fs = require('fs');
     const path = require('path');
+    const MUSTCACHE = "cached.json";
     let lastFile = path.join(base,"lastFile.txt");
     const blockFile = path.join(base,"blockFile.json");
     // The idFile contains a series of JSON objects, {h...: fName+args},
@@ -42,31 +44,44 @@ function TFC(verbose = false,id = '') {
         .toJSON().replaceAll(':','-').slice(0,-5)+".json";
 
     try {
-        if( slf = fs.readFileSync(lastFile).toString().trim() ) {
-            console.log("Trying Cache:",slf);
-            cached = JSON.parse(fs.readFileSync(path.join(base,slf)));
+        if ( slf = fs.existsSync(path.join(base,MUSTCACHE))
+                ? MUSTCACHE
+                : fs.readFileSync(lastFile).toString().trim() ) {
+            console.log("Trying Cache:",path.join(base,slf));
+            let content = fs.readFileSync(path.join(base,slf));
+            if(content.toString().length) {
+                // console.log("Parsing ",content);
+                cached = JSON.parse(content);
+            } else {
+                console.log("Cache is empty.");
+            }
         }
     } catch(err) { if('ENOENT' != err.code) throw err; }
 
     try {
         let recorded = JSON.parse('['+fs.readFileSync(idFile).slice(0,-2)+']');
         inIDFile = recorded.map(e => (e.ri));
-        if(verbose) console.log({recorded,inIDFile});
+        // if(verbose) console.log({recorded,inIDFile});
     } catch(err) { 
         console.log("Unable to open record of IDs for cached calls")
         if('ENOENT' != err.code) throw err; 
     }
 
-    try {
+    if( slf != MUSTCACHE ) try {
         let bf = JSON.parse(fs.readFileSync(blockFile));
         if(Array.isArray(bf)) dontCache = bf;
     } catch(err) {
         if(err && 'ENOENT' != err.code) throw err;
     }
 
-    if(Object.keys(cached).length>0) 
-        console.log("Using Cache:",slf,"with keys",Object.keys(cached));
-    else console.log("LastFile ("+slf+") apparently not found.");
+    let cachedKeys = Object.keys(cached);
+    if( cachedKeys.length>0 ) { 
+        console.log("Using Cache:",path.join(base,slf));
+        if(verbose) console.log("with keys",cachedKeys);
+        //if( slf == MUSTCACHE ) {
+        //    reCache(cachedKeys);
+        //}
+    } else console.log("LastFile ("+slf+") apparently not found.");
     console.log("Creating cache:",lf);
 
     function hashArg(arg) {
@@ -80,14 +95,18 @@ function TFC(verbose = false,id = '') {
     }
 
 
-    function useFile(fName) { throw "Not yet implemented.";
+    function useFile(fName) { // throw "Not yet implemented.";
         cached = JSON.parse(fs.readFileSync(path.join(fName)));
         inIDFile = Object.keys(cached);
+        console.log("Using ",path.join(fName));
     }
 
     // Pass an array of IDs to prevent calls from being cached.
     // --------------------------------------------------------
-    function noCache(IDs) { dontCache.concat(IDs); }
+    function noCache(IDs) { 
+        if( slf == MUSTCACHE ) {
+            console.log("Ignoring call to noCache because of cached.json");
+        } else dontCache.concat(IDs); }
 
     // Pass an array of IDS that were sent to noCache so they
     // will be cached again.
@@ -147,7 +166,7 @@ function TFC(verbose = false,id = '') {
         if(verbose) console.log("Items in cache:",Object.keys(cached));
     }
 
-    if(!TFC.s) TFC.s = {isCached, store, hashArg, cached};
+    TFC.s = {isCached, store, hashArg, cached, noCache, reCache, useFile};
     TFC.s.verbose = verbose;
     return TFC.s;
 }

@@ -7,7 +7,7 @@ function Reports(bot) {
 	// first the most recent (ofs=0) and then earlier history (ofs from known).
     async function getExecuted(count, known = {}) {
         if(!known.hasOwnProperty('orders')) { // Is old format or not collected yet
-            known = {orders:{}};
+            known = {offset:0, forward:false, orders:{}};
             console.log("known passed has no 'orders' property.");
         }
         console.log("Known:",Object.keys(known.orders).length,
@@ -27,7 +27,7 @@ function Reports(bot) {
             //  cause a problem when the list of closed orders is an object
             //  because the later assignments to the TxID (key) overwrite
             //  the earlier ones.
-            // ClosedOrders might return pending, open canceled, and expired
+            // ClosedOrders might return pending, open, canceled, and expired
             //  orders too.  Remove them.
             // ------------------------------------------------------
             let executed = Object.entries(mixed.result.closed).filter((e) =>
@@ -46,7 +46,10 @@ function Reports(bot) {
                 || (known.orders.hasOwnProperty(executed[0][0]) && known.offset == -1))
                 ? -1 : offset);
             count -= elen;
-	    console.log("Retrieved",elen,"executed orders.");
+            if(elen > 0) {
+                console.log("Retrieved",elen,"executed orders and",executed[0][0],
+                    (known.orders.hasOwnProperty(executed[0][0])?'is':'is not'),"known.");
+            }
             const KRAKEN_GCO_MAX = 50;
             Object.assign(closed.orders, Object.fromEntries(executed));
 	    if(rCount < KRAKEN_GCO_MAX) {  // We must have reached the earliest order.
@@ -55,12 +58,19 @@ function Reports(bot) {
 		console.log("Total Executed orders collected: "
                     +(Object.keys(closed.orders).length));
 		count = 0;
-            } else if(Object.keys(known.orders || {}).includes(executed[executed.length-1][0])
-                && offset < known.offset ) {
+            } else if(Object.keys(known.orders || {}).includes(executed[elen-1][0])
+                && (known.offset == -1 || offset < known.offset) ) {
                 // Last order retrieved already on disk
                 console.log("Jumping to the end... ("+known.offset+")");
 		offset = known.offset;	// so jump to the end.
                 closed.offset = offset;
+            } else {    // We are now collecting the oldest orders.
+                console.log("Collecting the oldest orders...");
+                if(known.offset == -1) offset = -1; 
+//console.log("I just set offset (reports.js file scope) to -1",
+//    " because:[KeyLen TXIDs don't include ee0 & (ko=-1 or is > o)",
+//    {KeyLen: Object.keys(known.orders || {}).length,
+//    ee0: executed[elen-1][0], ko: known.offset, o:offset});
             }
         }
 	closed = keyOrder(closed);

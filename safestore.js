@@ -25,6 +25,8 @@ function Safestore(pwp = 'abc123') {
 
     let file = keyFile,
         persistent;
+
+    console.log("Encrypted data stored in",keyFile);
         
     cryptex.update({
         config: {

@@ -1,7 +1,7 @@
 const newAlloc = require('./allocation.js');
 const Bot = require('./bot.js');
 const Manager = require('./manager.js');
-module.exports = function Balancer (target) {
+module.exports = function Balancer (target) { // pass in an Allocation object.
     let counters = [],  // Interval timers to be cleared
         already = [],   // Pairs that are already gridded
         sigdig = target.sigdig; // Import this useful function

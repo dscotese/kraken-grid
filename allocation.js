@@ -1,12 +1,17 @@
 const prompt = require('prompt-sync')({sigint: true});
 const Bot = require('./bot.js');
-const Man = require('./manager.js');
-module.exports = (j=false) => { // Allocation object constructor
+const Manager = require('./manager.js');
+function Allocation(j=false) { // Allocation object constructor
     let assets = [{ticker:'ZUSD',target:1}],
+        ID = 1 * new Date(),
+        bot = Bot.s,
         ranges = [],
         atargs = [],
         pending = '';   // When bestTrade makes an order, we remember it
                         // in order to avoid placing another while it pends.
+    Allocation.tkrs = new Set();
+
+//console.trace("Allocation: ", ID);
 
     function whoami() { return whoami.caller.name; }
 
@@ -23,6 +28,7 @@ module.exports = (j=false) => { // Allocation object constructor
         assets.forEach(a => {
             if(a.adjust) adjust(a.ticker,a.adjust[0],a.adjust[1]);
             else atargs[a.ticker] = a.target;
+            Allocation.tkrs.add(a.ticker);
         });
     }
 
@@ -33,7 +39,7 @@ module.exports = (j=false) => { // Allocation object constructor
 
     function save() { return JSON.stringify({assets}); }
 
-    function toString() { return save(); }
+    function toString() { return save() + "ID: "+ID; }
 
     function size() { return assets.length; }
 
@@ -49,7 +55,7 @@ module.exports = (j=false) => { // Allocation object constructor
             if(a.adjust) update(a);
         });
         if('undefined' == typeof(ret))
-            console.log("No allocation ("+i+") in",assets);
+            console.trace(ID,"No allocation ("+i+") in",assets);
         return ret;
     }
 
@@ -113,11 +119,7 @@ module.exports = (j=false) => { // Allocation object constructor
 
     function pct(x) { return (Math.round(10000*x)/100); }
     function dlr(x) { return Math.round(x); }
-    function sigdig(x,sig=6,dp=6) {
-        let sd = Math.min(dp,Math.floor(sig-Math.log10(Math.abs(x)))),
-            mag = 10**sd;
-        return Math.round(mag*x)/mag;
-    }
+    
     // This function will propose the command you'd use
     // to make the trade that will most bring you into balance,
     // by trading between the asset you need the most and the
@@ -138,7 +140,7 @@ module.exports = (j=false) => { // Allocation object constructor
                 del = atargs[tkr] - c.target;   // target - actual, pos. means not enough.
                 if(del < 0) { // we need to sell some.
                     tooMuch = {t:tkr,d:del};
-                    notEnough = {t:pnum,d:-del}; // Same del because we don't balance Numberaire.
+                    notEnough = {t:pnum,d:-del}; // Same del because we don't balance Numeraire.
                 } else {
                     notEnough = {t:tkr,d:del};
                     tooMuch = {t:pnum,d:-del};
@@ -382,6 +384,7 @@ module.exports = (j=false) => { // Allocation object constructor
         if(target < 0) throw 'Cannot allocate a negative amount.';
         if(!already) {
             assets.push(already = {ticker:ticker,target:Number(target)});
+            Allocation.tkrs.add(ticker);
         } else {
             assets[0].target += already.target;
             already.target = target;
@@ -392,7 +395,7 @@ module.exports = (j=false) => { // Allocation object constructor
     }
 
     function list(compare=false) {
-        let total = Man.s.getTotal(),
+        let total = Manager.s.getTotal(),
             str = "\nticker\ttarget\t(adjusted)\t(Range)\t(apct,ppct)\t" + (compare
                 ? compare.name + '\tdiff' + '\t'
                 : '\t\t') + "Total: "+total;
@@ -434,6 +437,81 @@ module.exports = (j=false) => { // Allocation object constructor
     // Return the trading range for an adjusted asset
     function getRange(ticker) { return ranges[ticker]; }
 
-    return {setNumeraire, list, addAsset, bestTrade, save, recover,
-        adjust, atarg, get, size, assets, toString, sigdig, getRange};
+    // Update ranges if today's hi/lo exceeds.
+    // tickerLH is an object with tickers for property names,
+    // each one being an object itself with l and h arrays
+    // indicating the low and high for today (0) and for
+    // the last 24 hours (1), as per Kraken.
+    function setRanges(tickersLH) {
+        let pair,tk,mr,rt,tl,th,f,p,moved=false;
+        Object.entries(tickersLH).forEach((t) => {
+            [pair,mr] = t;
+            tk = Bot.findPair(pair,undefined,1).base;
+            [tl,th,p] = [mr.l[1],mr.h[1],mr.c[0]].map(Number);
+            if(rt = ranges[tk]) {   // Assignment is intentional!
+                f = rt[0]/rt[1];    // get % of Price range to use.
+                if(th >= rt[0] || tl <= rt[1] ) {     // Price escaped our range. 
+//console.log("Price escaped range today:[th>rt0|tl<rt1,p]",[th,rt[0],tl,rt[1],p]);
+                    if( (rt[0]-p) < (p-rt[1]) )     // Price closer to high
+                        rt[1] = 0;  // Force the low to be updated.
+                    else rt[0] = th;    // Force the high to be updated.
+                    if( rt[0] <= th ) {
+                        rt[0] = Number(th);     // High is from today.
+                        rt[1] = th / f; // Calculate the low.
+                        moved = true;
+                    } else if( rt[1] >= tl ) {
+                        rt[1] = Number(tl);
+                        rt[0] = tl * f;
+                        moved = true;
+                    }
+                }
+                if(moved) console.log("Range for",tk,"updated: ",ranges[tk]);
+            }
+        });
+        if(!moved) console.log("No range was changed:[t,tk,mr,rt0,rt1,tl,th,moved]:",
+            [pair,tk,mr,rt[0],rt[1],tl,th,moved]+".");
+    }
+
+    async function getAlloc(tkr,alloc) { 
+        let ret = await alloc.atarg(tkr);
+        return ret ? sigdig(100*ret,5,2) : 0;
+    }
+
+    async function Allocations(tkrsX) {
+        let tkrs = Array.from(bot.portfolio.Tickers);
+//console.trace("ID,assets,Tkrs:",ID,assets,tkrs.join(','));
+        let allocs = await Manager.s.doCommands(["allocation"]),
+            current = {}, 
+            desired = {}, 
+            adjust = {},
+            ranges = {}, 
+            asset;
+//console.trace("assets,Tkrs:",assets,tkrs.join(','));
+//console.log("`allocation quiet` returned:",[allocs.desired.assets,allocs.current.assets]);
+        allocs.desired.assets.forEach(a=>{if(!tkrs.includes(a.ticker)) desired[a.ticker] = 0;});
+        await Promise.all(tkrs.map(async t => {
+            current[t] = await getAlloc(t, allocs.current);
+            desired[t] = await getAlloc(t, allocs.desired);
+            asset = allocs.desired.assets.find((a) => (a.ticker==t));
+            ranges[t] = allocs.desired.getRange(t);
+            adjust[t] = String(asset.target) + (asset.adjust 
+                ? '+' + asset.adjust.join('+') : "");
+            return [current[t],desired[t]];
+        }));
+//console.log([current,desired,adjust,ranges]);
+        return [current,desired,adjust,ranges];
+    }
+
+    return { setNumeraire, list, addAsset, bestTrade, save, recover,
+        adjust, atarg, get, size, assets, toString, sigdig, getRange,
+        Allocations, setRanges };
 } 
+
+function sigdig(x,sig=6,dp=6) {
+    let sd = Math.min(dp,Math.floor(sig-Math.log10(Math.abs(x)))),
+        mag = 10**sd;
+    return Math.round(mag*x)/mag;
+}
+Allocation.sigdig = sigdig;
+
+module.exports = Allocation;

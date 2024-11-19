@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 function Manager(b) {
     const prompt = require('prompt-sync')({sigint: true});
-    const newAlloc = require('./allocation.js');
+    //const newAlloc = require('./allocation.js');
     const Bot = require('./bot.js');
     const Balancer = require('./balancer.js');
     const Web = require('./web.js');
@@ -15,7 +15,7 @@ function Manager(b) {
         auto_on_hold = false,
         portfolio = false,
         listener = null,
-        savings = null,
+        Savings = null,
         myTotal = 0;
 
 
@@ -36,10 +36,11 @@ function Manager(b) {
         if(this.already) return;
         Manager.s = this;
         portfolio = await bot.init(pw);
-        web = Web(this);
-        savings = require('./savings.js');
+        Savings = require('./Savings.js');
+        Savings().setTickers(Bot.tickers);
+//console.log("Savings.tickers:",Savings.tickers);
         /*if(!process.TESTING)*/ await bot.report(true);
-        savings().setTickers(Bot.tickers);
+        web = Web(this);
         if(!process.TESTING || process.argv.length > 2) listen();
         else {
             console.log("42:",portfolio);
@@ -68,9 +69,14 @@ function Manager(b) {
                     // Do we need to stop this listener from 
                     // listening while doCommands runs?
                     if(cmdList.length > 0) {
-                        await doCommands();
-                        bot.showState(auto > 0 ? 'A' : '.');
-                        process.stdout.write('>');
+                        try {
+                            await doCommands();
+                            bot.showState(auto > 0 ? 'A' : '.');
+                            process.stdout.write('>');
+                        } catch(e) {
+                            console.log(e);
+                            console.trace();
+                        }
                     }
                     cmdList = [];
                 },100);
@@ -107,8 +113,10 @@ function Manager(b) {
             if( 'undefined' == typeof(p[xmrbtc]) ) {
                 // Try the asset's altname
                 // -----------------------
-                if('undefined' == typeof(p[Bot.alts[xmrbtc]]))
-                    throw new Error(xmrbtc+" is not a recognized symbol.  Try 'asset' command.");
+                if('undefined' == typeof(p[Bot.alts[xmrbtc]])) {
+                    console.log(xmrbtc+" is not a recognized symbol.  Try 'asset' command.");
+                    return;
+                }
                 console.log("Using",Bot.alts[xmrbtc],"instead of",xmrbtc);
                 xmrbtc = Bot.alts[xmrbtc];
             }
@@ -170,7 +178,7 @@ function Manager(b) {
                     console.log(args[2],"is not a number.");
                     return;
                 }
-                account = savings({
+                account = Savings({
                     label:label,
                     assets:[{ticker:tkr,amount:Number(args[2])}]
                 });
@@ -178,7 +186,7 @@ function Manager(b) {
                 p.Savings.push(JSON.parse(account.save()));
                if(args[3]) account.labelMe(args[3]);
             } else {
-                account = savings(account);
+                account = Savings(account);
             }
             if('REMOVE' == args[1]) {
                 if('ACCOUNT' == args[2].toUpperCase()) {
@@ -203,7 +211,7 @@ function Manager(b) {
             let sav,pnum = p.Numeraire;
                 ret = p.Savings.length + ': ';
             for(h=0;h < p.Savings.length; ++h) {
-                sav = savings(p.Savings[h]);
+                sav = Savings(p.Savings[h]);
                 if(!(args[1]) || sav.label == args[1])
                     console.log(h, sav.list());
                 else if(args[1]) {
@@ -213,7 +221,7 @@ function Manager(b) {
             }
             // Include the assets on the Exchange
             // ----------------------------------
-            sav = savings({ label:'OnExchange', assets:
+            sav = Savings({ label:'OnExchange', assets:
                 [{ticker:pnum, amount:p[pnum][0]}]});
             return ret;
         } else if(args[0] == 'allocation') {
@@ -318,7 +326,10 @@ function Manager(b) {
         } else {
             if(/^(y|Y)/.test(prompt("Set process.TESTING to "+args[0]+"?"))) {
                 process.TESTING = ('notest' == args[0] ? false : args[0]);
-                process.USECACHE = /^(y|Y)/.test(prompt("Use caching?"));
+                let cv = prompt("Use caching?([Y]es/[N]o/[R]equired");
+                process.USECACHE = /^(y|Y)/.test(cv)
+                    ? true
+                    : ( /^(r|R)/.test(cv) ? 'must' : false);
             }
             console.log("process.TESTING is",process.TESTING,
             "and caching",(process.USECACHE?"will":"will not"),"be used.");
@@ -332,7 +343,7 @@ function Manager(b) {
         auto_on_hold = auto>0;
         
         console.log("Got "+(cmds.length)+" commands...");
-        while(cdx < cmds.length) {
+        while(cdx < cmds.length) try {
             let args = cmds[cdx++].split(' ').map((x) => { return x.trim(); });
             console.log("...("+cdx+")> "+args.join(' '));
             //try {
@@ -399,6 +410,10 @@ function Manager(b) {
             // Wait a sec for the nonce
             // -------------------------
             // await bot.sleep(1000); (moved to kapi).
+        } catch(e) {
+            console.log(e,", so going manual.");
+            clearInterval(auto);
+            auto = 0; 
         }
         //console.log("Try CRTL-C while I sleep for a minute...");
         //await sleep(1000);
@@ -430,17 +445,19 @@ function Manager(b) {
                 portfolio[a.ticker] = [0,p,0,0]; 
             }
         });
-        let total = savings();
+        let total = Savings();
         let sym;
-        // Add savings to total.
+        // Add Savings to total.
         // ---------------------
-        portfolio.Savings.forEach(sav => {total.add(savings(sav))});
+        portfolio.Savings.forEach(sav => {total.add(Savings(sav))});
         
     // console.log(total.list("OffExchange", true));
         // Add Exchange assets to total.
         // -----------------------------
+// console.log("Savings.tickers:",Savings.tickers);
         for(sym in portfolio) {
             if(total.validTicker(sym)) {
+//console.log("getTotal,total:",total.getTotal(), total);
                 let tndx = (sym==portfolio.Numeraire?0:3);
                 total.updateAsset(sym,portfolio[sym][tndx],false,true);
             } // else console.log("Skipping",sym);

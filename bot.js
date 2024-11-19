@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+const Manager = require('./manager.js');
 function Bot(isExch = {exch: 'kraka-djs'}) {
     const prompt = require('prompt-sync')({sigint: true});
     const Allocation = require('./allocation.js');
@@ -7,12 +8,10 @@ function Bot(isExch = {exch: 'kraka-djs'}) {
     Bot.tickers = false;
     Bot.alts = {};
 
-    let exchange,             // The ExchClient from kraka-djs
+    let exchange,           // The ExchClient from kraka-djs
         portfolio = {},     // A record of what's on the exchange
         lCOts = 0,          // Timestamp for use in collecting executed trades.
-        delay = 60,         // For auto-refresh.
         FLAGS = {safe:true,verbose:process.TESTING,risky:false},
-        cli = {'apl': 0},   // Lines to delete in console after command execution.
         safestore,          // encrypted sorage
         Savings,            // Client's assets
         Reports;            // Report functionality
@@ -20,8 +19,7 @@ function Bot(isExch = {exch: 'kraka-djs'}) {
     // init initializes the bot and accepts a password for testing.
     async function init(pwd = "") { 
         if(!exchange) {
-            const ss     = require('./safestore');  // Asks for password, stores API info with it
-            let p = await (safestore = ss(pwd)).read();
+            let p = await (safestore = require('./safestore')(pwd)).read();
             //p.
 if(FLAGS.verbose) console.log(p);
             Bot.s = this;
@@ -36,12 +34,14 @@ if(FLAGS.verbose) console.log(p);
 	    portfolio.Closed = p.Closed || {orders: {}, offset: 0};      // Must be something for new accounts.
             portfolio.Allocation = Allocation(
                 (p.Alloc && (0<Object.keys(p.Alloc).length)) ? p.Alloc : false); 
-            portfolio.Pairs = new Set(Array.isArray(p.Pairs) ? p.pairs : []);
+//console.trace(portfolio.Allocation.toString());
+            portfolio.Pairs = new Set(Array.isArray(p.Pairs) ? p.Pairs : []);
             portfolio.Tickers = new Set();
             portfolio.Numeraire = p.Numeraire || 'ZUSD';
             portfolio.limits = p.limits ? p.limits : [0,-1];
             portfolio.lastUpdate = p.lastUpdate ? p.lastUpdate : null;
             //await report(true);
+//console.log("Requiring Savings...");
             Savings = require('./savings.js');
             Reports = require('./reports.js')(this);
         }
@@ -153,8 +153,10 @@ if(FLAGS.verbose) console.log(p);
         let ret;
         if(['args',whoami()].includes(process.TESTING)) console.log(whoami(),"called with ",arguments);
         let cached = tfc.isCached('kapi',arg);
-        if(process.USECACHE && cached.answer) ret = cached.cached;
-        else try { // Because failure is not an option here, sometimes.
+        if( cached.answer && process.USECACHE ) {
+            ret = cached.cached;
+        } else if( process.USECACHE=='must' ) { ret = { result: { descr: "No Cache." } }; 
+        } else try { // Because failure is not an option here, sometimes.
             if(Array.isArray(arg)) {
                 ret = await exchange.api(...arg);
             } else {
@@ -280,13 +282,14 @@ if(FLAGS.verbose) console.log(p);
     }
 
     async function moreOrders(count = 100) {
-        let preCount = Object.keys(portfolio.Closed.orders || {}).length,
-            closed = await Reports.getExecuted(count, portfolio.Closed),
+        let pc = portfolio.Closed,
+            preCount = Object.keys(pc.orders || {}).length,
+            closed = await Reports.getExecuted(count, pc),
             closedIDs = Object.keys(closed.orders);
         // Store closed orders in portfolio
-        console.log((Array.isArray(portfolio.Closed.orders)?"Array":"Object"),
+        console.log((Array.isArray(pc.orders)?"Array":"Object"),
             "had",preCount,"orders and now has",closedIDs.length, "orders.");
-        if(preCount < closedIDs.length) {
+        if(preCount < closedIDs.length) { // || closed.offset == -1) {
             console.log("(Re-?)Saving,"+closedIDs.length+",closed orders...");
             portfolio.Closed = closed;
             save();
@@ -456,7 +459,6 @@ if(FLAGS.verbose) console.log(p);
             }
             if(!Boolean(od.close)) {
                 console.log(154,od.order+" ("+ur+") had no close.");
-                cli.apl++;
             }
             let orid;   // Remove it from oldRefs because it isn't gone.  
             if((orid = oldRefs.indexOf(o)) > -1) {
@@ -537,8 +539,8 @@ if(FLAGS.verbose) console.log(p);
             }
             gp[c.ctype] = c.open;
             gp[c.type]  = c.price;
-            [,pair,price] = /([A-Z]+)([0-9.]+)/.exec(comp); //remove USD #USD Refactor
-            sym = pair; //was Bot.pairs[pair].base;
+            [,pair,price] = /([A-Z]+)([0-9.]+)/.exec(comp);
+            sym = Bot.pairs[pair].base;
             if(FLAGS.verbose) console.log("Checking: " + c.type + ' '
                 + sym + ' ' + price + ' ' + toDec(c.total,4)
                 + (c.open ? ' to '+c.ctype+'-close @'+c.open : '') +' (' + c.userref + "):");
@@ -594,8 +596,11 @@ if(FLAGS.verbose) console.log(p);
                                 console.log(249,"sell "+c.sym+' '+sp+' '+c.volume
                                     +" to close at "+gp.sell);
                             }
-                            await order('sell',c.sym,sp,c.volume,
-                                getLev(portfolio,'sell',sp,c.volume,c.sym,false),c.userref,
+                            let newVol = -1 * await howMuch(sym, sp);
+                            if(newVol < 0) return console.log("At",sp,"you'd have to 'sell'",
+                                newVol+", which means we're way out of balance.");
+                            await order('sell',c.sym,sp,newVol,
+                                getLev(portfolio,'sell',sp,newVol,c.sym,false),c.userref,
                                 gp.sell);
                             gp = ngp;
                        } while(sp <= 1*portfolio[Bot.findPair(c.sym,pnum,1).base][1]);
@@ -618,8 +623,11 @@ if(FLAGS.verbose) console.log(p);
                                     +" to close at "+gp.buy);
                                 if(ngp.buy == ngp.sell) throw "Bad Grid Point";
                             }
-                            await order('buy',c.sym,bp,c.volume,
-                                getLev(portfolio,'buy',bp,c.volume,c.sym,false),c.userref,
+                            let newVol = await howMuch(sym, bp);
+                            if(newVol < 0) return console.log("At",bp,"you'd have to 'buy'",
+                                newVol+", which means we're way out of balance.");
+                            await order('buy',c.sym,bp,newVol,
+                                getLev(portfolio,'buy',bp,newVol,c.sym,false),c.userref,
                                 gp.buy);
                             gp = ngp;
                         } while(bp >= 1*portfolio[Bot.findPair(c.sym,pnum,1).base][1])
@@ -630,6 +638,46 @@ if(FLAGS.verbose) console.log(p);
         // console.log(gPrices);
         console.log(nexes,"orders did NOT require extension.");
         // console.log(comps);
+    }
+
+    // howMuch is adapted from the code recently developed
+    // for the client that shows how much to trade if the
+    // price changes (to np = NewPrice).
+    // ---------------------------------------------------
+    async function howMuch(tkr, np) {
+        let // tkr = Bot.findPair(mkt),
+            p = await getPrice(tkr),
+            dp = (np - p)/p,    // % change in price
+            [current,desired,adjust,ranges] = await portfolio.Allocation.Allocations(),
+            t = Manager.s.getTotal(),
+            [hp,lp] = ranges[tkr] || [0,0],
+            [b,ma] = (adjust[tkr] 
+                ? adjust[tkr].split('+')
+                : [desired[0],0]).map(Number),
+            f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp)),
+            tot1 = 0,       // How much BTC is off the Exchange?
+            ov = 0,     // What is the value of everything else?
+            tt = {},
+            a, t2, t2s, trade;
+
+            Array.from(portfolio.Tickers)
+                .forEach((t)=>{tt[t]=portfolio[t];
+            });
+        portfolio.Savings.forEach((s) => { s.assets.forEach((a) => {
+            tot1 += a.ticker=='XXBT'?a.amount:0;
+            ov += [tkr,'ZUSD'].includes(a.ticker)?0:a.amount;
+            });});
+        Object.keys(tt).forEach((s) => {
+            ov += [tkr,'ZUSD'].includes(s)
+            ? 0
+            : tt[s][3] * tt[s][1]; });
+        a = tot1 + tt[tkr][3];
+        t2 = t + (dp*(p*a + ov));
+        t2s = t + (dp*p*a);     // If other asset values are constant.
+        a2 = (b+ma*f) * t2/np;
+//console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
+//    [p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]);
+        return a2 - a;
     }
 
     // getLev is NOT idempotent: It depletes availability.
@@ -804,7 +852,7 @@ if(FLAGS.verbose) console.log(p);
         orders.forEach((x,i) => {
             let ldo = x[1].descr.order;
             if(args.length==1 || RegExp(args[1]).test(ldo))
-                console.log(i+1,ldo,x[1].userref,x[1].status=='closed'
+                console.log(x[0],i+1,ldo,x[1].userref,x[1].status=='closed'
                     ? new Date(1000*x[1].closetm)
                     : x[1].descr.close);
             else if(x[1][args[1]]) sortedA[i+1]=x;
@@ -964,7 +1012,8 @@ if(FLAGS.verbose) console.log(p);
                                 && o[1].descr.type == 'sell')
                             || (Number(x.sell) == Number(o[1].descr.close.match(/[0-9.]+/)[0])
                                 && o[1].descr.type == 'buy'))));
-console.log(drc.length,"found from",x.buy,"to",x.sell,"for",x.userref, drc);
+                    if(FLAGS.verbose)
+                        console.log(drc.length,"found from",x.buy,"to",x.sell,"for",x.userref, drc);
                 }
                 for(d in drc) {
                     data = drc[d];
@@ -1018,12 +1067,13 @@ console.log(drc.length,"found from",x.buy,"to",x.sell,"for",x.userref, drc);
         portfolio['M'] = mar;
         portfolio.lastUpdate = new Date;
         for( const p in bal.result) {
-            portfolio.Pairs.add(Bot.findPair(p,portfolio.Numeraire)||'XXBTZUSD');
+            if(p != portfolio.Numeraire)
+                portfolio.Pairs.add(Bot.findPair(p,portfolio.Numeraire)||'XXBTZUSD');
         }
         let tik = await kapi(['Ticker',{ pair : portfolio.Pairs.size > 0
             ? (Array.from(portfolio.Pairs)).sort().join().replace(/,,+|^,|,$/g,',') 
             : 'XXBTZUSD'}]);
-
+        portfolio.Allocation.setRanges(tik.result);
         let price, ts, zeroes = [], mCosts = [];
         // Sometimes the first request for balances lists a quote from
         // a margin position  after the position's crypto, and this
@@ -1086,8 +1136,6 @@ console.log(drc.length,"found from",x.buy,"to",x.sell,"for",x.userref, drc);
         //console.log(portfolio);
         //showState();
         await listOpens(true);
-        if(!process.TESTING) process.stdout.write("\033[A".repeat(cli.apl));
-        cli.apl = 2;
     }
 
     function w(n,x) { 
@@ -1133,27 +1181,34 @@ console.log(drc.length,"found from",x.buy,"to",x.sell,"for",x.userref, drc);
         }
         let pair = Bot.findPair(tkr,portfolio.Numeraire),
             newPrice = pair ? await kapi(["Ticker",{pair: pair}]) : false;
-        if(newPrice) return newPrice.result[pair].c[0];
+        if(newPrice) return Object.values(newPrice.result)[0].c[0];
         console.log( 'No way to get price for '+tkr );
         return 0;
     }
 
     return({order, set, listOpens, deleverage, w, ExchangeSavings,
-        refnum, list, kapi, lessmore, kill, report, 
+        refnum, list, kapi, lessmore, kill, report, howMuch,
         sleep, marginReport, portfolio, getLev, showState,
         pairInfo, showPair, FLAGS, save, basesFromPairs,
-        numerairesFromPairs, init, keys, getPrice});
+        numerairesFromPairs, init, keys, getPrice, tfc});
 }
 
+// Bot.pairs is the result of calling AssetPairs, so a series of properties
+//  like `PAIR: {altname, base, etc.}`. If you want more than just the
+// property name (the pair, or symbol used by Kraken for that market),
+// you have to pass 1 in as idx. You can pass undefined for quote.
+// TODO: make this function easier to use, like:
+//  findPair('XXBTZUSD', altname) -> 'XBTUSD'.
 Bot.findPair = (base, quote = 'ZUSD', idx = 0) => {
     if(['args','findPair'].includes(process.TESTING))
         console.log('findPair',"called with ",{base, quote, idx});
     let p = Object.entries(Bot.pairs).find(a => {
-        return (a[1].quote==quote && (a[1].base==base||a[1].base==Bot.alts[base]))
-            || a[0] == base || Bot.alts[base] == a[0];
-    });
+        return a[1].altname==base || a[0] == base || Bot.alts[base] == a[0]
+            || (a[1].quote==quote && ([base,Bot.alts[base]].includes(a[1].base)));
+        });
     if(!p) {
-        if(process.TESTING) console.log("No pair with base",base,"and quote",quote);
+        console.trace("No pair with base",base,"and quote",quote,
+            "in Bot.pairs that has",Object.keys(Bot.pairs).length,"keys.");
         return '';
     }
     return idx == -1 ? p : p[idx];

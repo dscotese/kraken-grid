@@ -83,16 +83,18 @@ $(function() {
         let tkr = $(this).text(),
             p = data.tickers[tkr][1],
             np = prompt("See trade for when "+tkr+" price is?", p),
-            dp = (np - p)/p,    // % change in price
+            dp = (np - p)/p,     // % change in price
             t = data.total,
             [hp,lp] = data.ranges.XXBT,
-            [b,ma] = data.adjust.XXBT.split('+'),
-            tot1 = 0,       // How much BTC is off the Exchange?
-            ov = 0,     // What is the value of everything else?
-            a, t2, t2s, trade;
+            f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp)),
+            [b,ma] = data.adjust.XXBT.split('+').map(Number),
+            tot1 = 0,    // How much is off the Exchange?
+            ov = 0,        // What is the value of other cryptos?
+            allCrypto = false,
+            a, a2, a2s, t2, t2s, trade;
 
         data.savings.forEach((s) => { s.assets.forEach((a) => {
-                tot1 += a.ticker=='XXBT'?a.amount:0;
+                tot1 += a.ticker==tkr?a.amount:0;
                 ov += [tkr,'ZUSD'].includes(a.ticker)?0:a.amount;
             });});
         Object.keys(data.tickers).forEach((s) => {
@@ -102,11 +104,17 @@ $(function() {
         a = tot1 + data.tickers[tkr][3];
         t2 = t + (dp*(p*a + ov));
         t2s = t + (dp*p*a);
-        a2 = t2*b/np + ma*t2*(hp-np)/(np*(hp-lp));
-        trade = a2 - a;
+        a2 = t2*(b + f*ma)/np;
+        a2s = t2s*(b + f*ma)/np;
+        trade = (allCrypto ? a2 : a2s) - a;
 
-        alert((trade < 0 ? "sell " : "buy ")+tkr+' '+np+' '
-            + Math.abs(prnd(trade,4))+" ClosePrice?");
+        let msg = "Inputs: [p,np,t,hp,lp,f,b,ma,tot1,ov,t2,t2s,a,a2]"
+            + [p,np,t,hp,lp,f,b,ma,tot1,ov,t2,t2s,a,a2].toString();
+        console.log(msg);
+        msg = (trade < 0 ? "sell " : "buy ")+tkr+' '+np+' '
+            + Math.abs(prnd(trade,4))+" ClosePrice?\n";
+        alert(msg);
+        console.log(msg);
     });
 });
 
@@ -116,6 +124,7 @@ function getData() {
     $('#notice').html("Refreshing...");
     $.ajax({
         url: '/data', 
+        cache: false,
         dataType: 'json',
         success: (dataR) => { useData(dataR); },
         error: (jqXHR, textStatus, error) => {
@@ -349,7 +358,9 @@ function AllocTable(tol = genTol) {
         prices = "<tr id='Prices'><th>Prices</th>",
         b,r,tr,rh,rl,c,d,del,tt,price,imbalance = 0, slices=[];
     for(t in tkrs) {
-        [b,r,tr] = data.adjust[t].split('+').map((x) => (sigdig(100*x)));
+        [b,r,tr] = data.adjust[t]
+            ? data.adjust[t].split('+').map((x) => (sigdig(100*x)))
+            : [data.desired[t],0,0];
         [rh,rl] = (data.ranges[t] || [0,0]).map((x) => (sigdig(x)));
      //   [b,r,tr] = [b,r,tr].map((x) => (sigdig(100*x)));
         ret += "<th>"+t+"</th>";
@@ -359,7 +370,7 @@ function AllocTable(tol = genTol) {
             + b +" at "+rh+" proportionately by "+r+"% up to "+(b+r)+"% at "+rl+".'>"
             + b + ' - ' + (b+r) + '</td>';
         desired += "<td"+(t==data.numer ? '' 
-            : " title='allocate "+t+" "+(100*b)+"'") +">"
+            : " title='allocate "+t+" "+(b)+"'") +">"
             + (d=data.desired[t])+"%</td>";
         price = data.tickers[t][1];
         prices += "<td"+(t == data.numer ? ''
@@ -429,9 +440,19 @@ function OrderTable() {
             + tag('th','less') + tag('th','more') + tag('th','kill') 
             + tag('th',(oo.descr.leverage=='none'?'add':'de')+'lev') + '</tr>';
     });
-    return ret + "</table>";
+    return ret + getClosed() + "</table>";
 }
 function tag(t,i,attrs){return '<'+t+(attrs ? ' '+attrs : '')+'>'+i+'</'+t+'>';}
+
+function getClosed() {
+    let ret = '<tr><th colspan="7">Closed Orders</th></tr>';
+    for( let [txid,oo] of data.closed.sort((a,b) => (a[1].closetm - b[1].closetm)) ) {
+        ret += "\n<tr>" + tag('td',
+                (new Date(1000*oo.closetm).toLocaleString()),"colspan='3'")
+            + tag('td',oo.descr.order,"colspan='6'") + "</tr>";
+    }
+    return ret;
+}
 
 function armOrderTable() {
     $('#oDiv th').on('click',(e) => {
