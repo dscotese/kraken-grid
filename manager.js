@@ -36,7 +36,7 @@ function Manager(b) {
         if(this.already) return;
         Manager.s = this;
         portfolio = await bot.init(pw);
-        Savings = require('./Savings.js');
+        Savings = require('./savings.js');
         Savings().setTickers(Bot.tickers);
 //console.log("Savings.tickers:",Savings.tickers);
         /*if(!process.TESTING)*/ await bot.report(true);
