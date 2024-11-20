@@ -19,7 +19,7 @@ const argv = yargs
         
 process.TESTING = process.TESTING || !(/init.js$|kraken-grid$/.test(process.argv[1]));
 if(process.argv.length > 2) process.TESTING = process.argv[2];
-if(process.TESTING.toLowerCase() == 'cacheonly') {
+if((typeof process.TESTING)=='string' && process.TESTING.toLowerCase() == 'cacheonly') {
     if( process.argv.length > 3 ) process.TESTING = process.argv[3];
     process.USECACHE = 'must';
 }
