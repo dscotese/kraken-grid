@@ -80,43 +80,50 @@ $(function() {
         botExecA(cmd);
     });
     $(document).on('click', '#tkrs th', function() {
+        if(!data.tickers[$(this).text()]) return;
         let tkr = $(this).text(),
             p = data.tickers[tkr][1],
             np = prompt("See trade for when "+tkr+" price is?", p),
-            dp = (np - p)/p,     // % change in price
-            t = data.total,
-            [hp,lp] = data.ranges.XXBT,
-            f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp)),
-            [b,ma] = data.adjust.XXBT.split('+').map(Number),
-            tot1 = 0,    // How much is off the Exchange?
-            ov = 0,        // What is the value of other cryptos?
-            allCrypto = false,
-            a, a2, a2s, t2, t2s, trade;
-
-        data.savings.forEach((s) => { s.assets.forEach((a) => {
-                tot1 += a.ticker==tkr?a.amount:0;
-                ov += [tkr,'ZUSD'].includes(a.ticker)?0:a.amount;
-            });});
-        Object.keys(data.tickers).forEach((s) => {
-            ov += [tkr,'ZUSD'].includes(s)
-                ? 0
-                : data.tickers[s][3] * data.tickers[s][1]; });
-        a = tot1 + data.tickers[tkr][3];
-        t2 = t + (dp*(p*a + ov));
-        t2s = t + (dp*p*a);
-        a2 = t2*(b + f*ma)/np;
-        a2s = t2s*(b + f*ma)/np;
-        trade = (allCrypto ? a2 : a2s) - a;
-
-        let msg = "Inputs: [p,np,t,hp,lp,f,b,ma,tot1,ov,t2,t2s,a,a2]"
-            + [p,np,t,hp,lp,f,b,ma,tot1,ov,t2,t2s,a,a2].toString();
-        console.log(msg);
+            trade = howMuch(tkr,np);
         msg = (trade < 0 ? "sell " : "buy ")+tkr+' '+np+' '
             + Math.abs(prnd(trade,4))+" ClosePrice?\n";
         alert(msg);
         console.log(msg);
     });
 });
+
+function howMuch(tkr, np) {
+    let p = data.tickers[tkr][1],
+        dp = (np - p)/p,     // % change in price
+        t = data.total,
+        [hp,lp] = data.ranges[tkr],
+        f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp)),
+        [b,ma] = data.adjust.[tkr].split('+').map(Number),
+        tot1 = 0,    // How much is off the Exchange?
+        ov = 0,        // What is the value of other cryptos?
+        allCrypto = false,
+        a, a2, a2s, t2, t2s, trade;
+
+    data.savings.forEach((s) => { s.assets.forEach((a) => {
+            tot1 += a.ticker==tkr?a.amount:0;
+            ov += [tkr,'ZUSD'].includes(a.ticker)?0:a.amount;
+        });});
+    Object.keys(data.tickers).forEach((s) => {
+        ov += [tkr,'ZUSD'].includes(s)
+            ? 0
+            : data.tickers[s][3] * data.tickers[s][1]; });
+    a = tot1 + data.tickers[tkr][3];
+    t2 = t + (dp*(p*a + ov));
+    t2s = t + (dp*p*a);
+    a2 = t2*(b + f*ma)/np;
+    a2s = t2s*(b + f*ma)/np;
+    trade = (allCrypto ? a2 : a2s) - a;
+
+    let msg = "Inputs: [p,np,t,hp,lp,f,b,ma,tot1,ov,t2,t2s,a,a2]"
+        + [p,np,t,hp,lp,f,b,ma,tot1,ov,t2,t2s,a,a2].toString();
+    console.log(msg);
+    return trade;
+}
 
 function stopRefresh() { window.clearTimeout(auto); auto = -1; }
 
@@ -302,6 +309,7 @@ function AssetsTable() {
             zeroes += ' ' + weblink(t);
             header.val = "<th></th>";
         }
+        if(/: $/.test(zeroes)) zeroes += "None.";
     }
     for(r in rows) {
         rows[r].sort((a,b)=> { return a.key<b.key ? -1 : 1; });
@@ -352,11 +360,10 @@ function AllocTable(tol = genTol) {
         base="<tr id='base'><th>Adjust</th>",
         desired="<tr id='desired'><th>Adjusted</th>",
         diff = "<tr id='Diff'><th>Difference</th>",
-        diffs = [],
         gHeight = Number(('0'+$('#GDiv')[0].style.height).match(/[0-9]+/)[0]),
         gWidth = Number(('0'+$('#GDiv')[0].style.width).match(/[0-9]+/)[0]),
         prices = "<tr id='Prices'><th>Prices</th>",
-        b,r,tr,rh,rl,c,d,del,tt,price,imbalance = 0, slices=[];
+        b,r,tr,rh,rl,c,d,del,dela,tt,price,imbalance = 0, slices=[];
     for(t in tkrs) {
         [b,r,tr] = data.adjust[t]
             ? data.adjust[t].split('+').map((x) => (sigdig(100*x)))
@@ -375,11 +382,13 @@ function AllocTable(tol = genTol) {
         price = data.tickers[t][1];
         prices += "<td"+(t == data.numer ? ''
             : " title='balance "+tol+' '+t+"'")+">"+price+"</td>";
+        dela = howMuch(t, price);
         del = d-c;
         if(!isNaN(del)) slices[t] = [del,colors[t]];
         if(del>0) imbalance += del;
         tt = (del > 0 ? 'buy ' : 'sell ')+t+' '+price+' '
-            +(sigdig((Math.abs(del/100)*data.total/price),6,8));
+            // +(sigdig((Math.abs(del/100)*data.total/price),6,8));
+            + sigdig(Math.abs(dela),6,8);
         diff += "<td"+(t==data.numer ? ''
             : " title='"+tt+"'")+">"+sigdig(del,5,2)+"</td>";
     };
@@ -406,7 +415,7 @@ function armAlloc() {
                 setCookie('genTol',newTol);
                 // Update the commands
                 $("#Prices td").attr('title',(i,ov) => {
-                    return ov.replace(/[0-9.]+/,newTol);
+                    return ov ? ov.replace(/[0-9.]+/,newTol) : '';
                 });
             }
         }

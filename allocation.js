@@ -134,6 +134,7 @@ function Allocation(j=false) { // Allocation object constructor
             c, del,tooMuch,notEnough,pairA;
         console.log("Total:",FullValue,pnum);
         if(assets[0].ticker != pnum) throw new Error("First asset must be Numeraire!");
+        if(size() < 3) tkr = assets[1].ticker;
         if(tkr > '') {
             if(c = current.get(tkr)) {  // Assignment is intentional!
                 get(tkr);   // Update adjustment if necessary
@@ -151,6 +152,7 @@ function Allocation(j=false) { // Allocation object constructor
             }
         } else { 
             assets.forEach(a => {
+                if(a.ticker == pnum) return;
                 c = current.get(a.ticker);  // Note: this calls actual allocation "target"
                 get(a.ticker); // This updates the adjustment if there is one
                 if('undefined' != typeof(c)) {
@@ -241,7 +243,8 @@ function Allocation(j=false) { // Allocation object constructor
         }
         if(buysell && pair && price && amt)
             console.log('Trade:',buysell+pair+' '+price+' '+amt);
-        else throw Error("226: No trade could be made.");
+        else console.log("226: No trade could be made [buysell,pair,price,amt].",
+            [buysell,pair,price,amt]);
         if(pending > '') {
             console.log("Waiting for",pending,"to execute first.");
             let found = bot.portfolio.O.find(o => {return o[0] == pending;});
@@ -444,13 +447,15 @@ function Allocation(j=false) { // Allocation object constructor
     // the last 24 hours (1), as per Kraken.
     function setRanges(tickersLH) {
         let pair,tk,mr,rt,tl,th,f,p,moved=false;
+//console.log(tickersLH);
         Object.entries(tickersLH).forEach((t) => {
             [pair,mr] = t;
             tk = Bot.findPair(pair,undefined,1).base;
             [tl,th,p] = [mr.l[1],mr.h[1],mr.c[0]].map(Number);
             if(rt = ranges[tk]) {   // Assignment is intentional!
                 f = rt[0]/rt[1];    // get % of Price range to use.
-                if(th >= rt[0] || tl <= rt[1] ) {     // Price escaped our range. 
+                if((th >= rt[0] || tl <= rt[1])       // Price escaped our range. 
+                    && (p > rt[0] || p < rt[1])) {  // ...and range hasn't been updated. 
 //console.log("Price escaped range today:[th>rt0|tl<rt1,p]",[th,rt[0],tl,rt[1],p]);
                     if( (rt[0]-p) < (p-rt[1]) )     // Price closer to high
                         rt[1] = 0;  // Force the low to be updated.
@@ -468,8 +473,8 @@ function Allocation(j=false) { // Allocation object constructor
                 if(moved) console.log("Range for",tk,"updated: ",ranges[tk]);
             }
         });
-        if(!moved) console.log("No range was changed:[t,tk,mr,rt0,rt1,tl,th,moved]:",
-            [pair,tk,mr,rt[0],rt[1],tl,th,moved]+".");
+        //if(!moved) console.log("No range was changed:[t,tk,mr,rt0,rt1,tl,th,p,moved]:",
+        //    [pair,tk,mr,rt[0],rt[1],tl,th,p,moved]+".");
     }
 
     async function getAlloc(tkr,alloc) { 
@@ -480,7 +485,7 @@ function Allocation(j=false) { // Allocation object constructor
     async function Allocations(tkrsX) {
         let tkrs = Array.from(bot.portfolio.Tickers);
 //console.trace("ID,assets,Tkrs:",ID,assets,tkrs.join(','));
-        let allocs = await Manager.s.doCommands(["allocation"]),
+        let allocs = await Manager.s.doCommands(["allocation quiet"]),
             current = {}, 
             desired = {}, 
             adjust = {},

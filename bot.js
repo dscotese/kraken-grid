@@ -433,6 +433,7 @@ if(FLAGS.verbose) console.log(p);
             ci = od.pair+od.price+od.type; // pair picks up externals
             if(FLAGS.verbose) console.log("comps index: "+ci);
             if(!comps[ci]) {
+                if(FLAGS.verbose) console.log("Creating ci for",o);
                 comps[ci]={
                     total:          rv,
                     volume:         Number(oo.vol),
@@ -447,6 +448,7 @@ if(FLAGS.verbose) console.log(p);
                     hasClose:       Boolean(od.close)
                 };
             } else {
+                if(FLAGS.verbose) console.log("Adding",o);
                 comps[ci].total+=rv;        // Volume for combined order.
                 comps[ci].ids.push(o);
                 comps[ci].volume += Number(oo.vol); // Volume for extended order.
@@ -655,7 +657,7 @@ if(FLAGS.verbose) console.log(p);
                 ? adjust[tkr].split('+')
                 : [desired[0],0]).map(Number),
             f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp)),
-            tot1 = 0,       // How much BTC is off the Exchange?
+            tot1 = 0,   // How much of this crypto is off the Exchange?
             ov = 0,     // What is the value of everything else?
             tt = {},
             a, t2, t2s, trade;
@@ -664,7 +666,7 @@ if(FLAGS.verbose) console.log(p);
                 .forEach((t)=>{tt[t]=portfolio[t];
             });
         portfolio.Savings.forEach((s) => { s.assets.forEach((a) => {
-            tot1 += a.ticker=='XXBT'?a.amount:0;
+            tot1 += a.ticker==tkr?a.amount:0;
             ov += [tkr,'ZUSD'].includes(a.ticker)?0:a.amount;
             });});
         Object.keys(tt).forEach((s) => {
