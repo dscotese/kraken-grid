@@ -98,7 +98,7 @@ function howMuch(tkr, np) {
         t = data.total,
         [hp,lp] = data.ranges[tkr],
         f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp)),
-        [b,ma] = data.adjust.[tkr].split('+').map(Number),
+        [b,ma] = data.adjust[tkr].split('+').map(Number),
         tot1 = 0,    // How much is off the Exchange?
         ov = 0,        // What is the value of other cryptos?
         allCrypto = false,
@@ -365,6 +365,7 @@ function AllocTable(tol = genTol) {
         prices = "<tr id='Prices'><th>Prices</th>",
         b,r,tr,rh,rl,c,d,del,dela,tt,price,imbalance = 0, slices=[];
     for(t in tkrs) {
+        if(t == data.numer) continue; 
         [b,r,tr] = data.adjust[t]
             ? data.adjust[t].split('+').map((x) => (sigdig(100*x)))
             : [data.desired[t],0,0];

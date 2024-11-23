@@ -454,8 +454,8 @@ function Allocation(j=false) { // Allocation object constructor
             [tl,th,p] = [mr.l[1],mr.h[1],mr.c[0]].map(Number);
             if(rt = ranges[tk]) {   // Assignment is intentional!
                 f = rt[0]/rt[1];    // get % of Price range to use.
-                if((th >= rt[0] || tl <= rt[1])       // Price escaped our range. 
-                    && (p > rt[0] || p < rt[1])) {  // ...and range hasn't been updated. 
+                if((th >= rt[0] || tl <= rt[1])       // Price escaped our range.
+                    && (p > rt[0] || p < rt[1])) {  // ...and range hasn't been updated.
 //console.log("Price escaped range today:[th>rt0|tl<rt1,p]",[th,rt[0],tl,rt[1],p]);
                     if( (rt[0]-p) < (p-rt[1]) )     // Price closer to high
                         rt[1] = 0;  // Force the low to be updated.
