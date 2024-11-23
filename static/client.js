@@ -104,6 +104,11 @@ function howMuch(tkr, np) {
         allCrypto = false,
         a, a2, a2s, t2, t2s, trade;
 
+    // If new price beyond range, adjust range, recalculate factor.
+    if(np > hp || np < lp) {
+        [hp,lp] = [hp,lp].map(x => x*(np/(np<lp?lp:hp))); 
+        f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp));
+    }
     data.savings.forEach((s) => { s.assets.forEach((a) => {
             tot1 += a.ticker==tkr?a.amount:0;
             ov += [tkr,'ZUSD'].includes(a.ticker)?0:a.amount;
@@ -365,7 +370,6 @@ function AllocTable(tol = genTol) {
         prices = "<tr id='Prices'><th>Prices</th>",
         b,r,tr,rh,rl,c,d,del,dela,tt,price,imbalance = 0, slices=[];
     for(t in tkrs) {
-        if(t == data.numer) continue; 
         [b,r,tr] = data.adjust[t]
             ? data.adjust[t].split('+').map((x) => (sigdig(100*x)))
             : [data.desired[t],0,0];
@@ -383,7 +387,7 @@ function AllocTable(tol = genTol) {
         price = data.tickers[t][1];
         prices += "<td"+(t == data.numer ? ''
             : " title='balance "+tol+' '+t+"'")+">"+price+"</td>";
-        dela = howMuch(t, price);
+        dela = t==data.numer ? 0 : howMuch(t, price);
         del = d-c;
         if(!isNaN(del)) slices[t] = [del,colors[t]];
         if(del>0) imbalance += del;

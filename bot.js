@@ -662,9 +662,14 @@ if(FLAGS.verbose) console.log(p);
             tt = {},
             a, t2, t2s, trade;
 
-            Array.from(portfolio.Tickers)
-                .forEach((t)=>{tt[t]=portfolio[t];
-            });
+        // If new price beyond range, adjust range, recalculate factor.
+        if(np > hp || np < lp) {
+            [hp,lp] = [hp,lp].map(x => x*(np/(np<lp?lp:hp)));
+            f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp));
+        }
+        Array.from(portfolio.Tickers)
+            .forEach((t)=>{tt[t]=portfolio[t];
+        });
         portfolio.Savings.forEach((s) => { s.assets.forEach((a) => {
             tot1 += a.ticker==tkr?a.amount:0;
             ov += [tkr,'ZUSD'].includes(a.ticker)?0:a.amount;

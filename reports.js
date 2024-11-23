@@ -1,11 +1,11 @@
 function Reports(bot) {
-    let offset = 0,
-        closed = {offset:0, forward:false, orders:{}};
+    let closed = {offset:0, forward:false, orders:{}};
     const TxIDPattern = /[0-9A-Z]{6}-[0-9A-Z]{5}-[0-9A-Z]{6}/; 
 
     // This function will collect count executed orders in reverse chronological order,
 	// first the most recent (ofs=0) and then earlier history (ofs from known).
     async function getExecuted(count, known = {}) {
+        let offset = 0; // Since the last call, one or more orders may have executed.
         if(!known.hasOwnProperty('orders')) { // Is old format or not collected yet
             known = {offset:0, forward:false, orders:{}};
             console.log("known passed has no 'orders' property.");
@@ -60,7 +60,7 @@ function Reports(bot) {
 		count = 0;
             } else if(Object.keys(known.orders || {}).includes(executed[elen-1][0])
                 && (known.offset == -1 || offset < known.offset) ) {
-                // Last order retrieved already on disk
+                // Oldest order retrieved was already on disk
                 console.log("Jumping to the end... ("+known.offset+")");
 		offset = known.offset;	// so jump to the end.
                 closed.offset = offset;
@@ -74,9 +74,8 @@ function Reports(bot) {
             }
         }
 	closed = keyOrder(closed);
-        // We set offset to 0 when done because we must ask for more
-        // orders since some may have executed since the previous call.
-        offset = offset == -1 ? 0 : offset;
+        // If we are still working on collecting the oldest orders,
+        // known must include it to avoid recollecting a lot of orders. 
         return closed;
     }
 
