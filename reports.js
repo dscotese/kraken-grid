@@ -47,8 +47,10 @@ function Reports(bot) {
                 ? -1 : offset);
             count -= elen;
             if(elen > 0) {
-                console.log("Retrieved",elen,"executed orders and",executed[0][0],
-                    (known.orders.hasOwnProperty(executed[0][0])?'is':'is not'),"known.");
+                console.log("Retrieved",elen,"executed orders and first,",executed[0][0],
+                    (known.orders[executed[0][0]] ? 'is' : 'is not'),"known,",
+                    "and last,",executed[elen-1][0],
+                    (known.orders[executed[elen-1][0]] ? 'is' : 'is not'),"known,");
             }
             const KRAKEN_GCO_MAX = 50;
             Object.assign(closed.orders, Object.fromEntries(executed));

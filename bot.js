@@ -305,7 +305,7 @@ if(FLAGS.verbose) console.log(p);
         }
         if(gPrices.length == 0) {   // When we have no grid prices, collect 100 orders.
             console.log("Reading grid from 100 closed orders...");
-            let closed = await moreOrders(),
+            let closed = await moreOrders(100),
                 closedIDs = Object.keys(closed.orders);
             if(closedIDs.length > 0) {
                 lCOts = closed.orders[closedIDs.pop()].closetm;
@@ -489,6 +489,8 @@ if(FLAGS.verbose) console.log(p);
         portfolio['O'] = opensA;
         if(oldRefs.length > 0) {
             console.log("Gone: "+oldRefs);
+            // If trades are gone, check for freshly executed orders.
+            moreOrders();
         }
 
         return [bSidesR, bSidesP, comps];
@@ -844,7 +846,6 @@ if(FLAGS.verbose) console.log(p);
             orders = [];
             let closed = await moreOrders();
             closed.forward = early;
-            portfolio.Closed = closed;
             for( var o of closed.orders) {
                 let oo = closed.orders[o];
                 if(!ur || oo.userref==ur) orders.push([o,oo]);
