@@ -283,13 +283,12 @@ if(FLAGS.verbose) console.log(p);
 
     async function moreOrders(count = 100) {
         let pc = portfolio.Closed,
-            preCount = Object.keys(pc.orders || {}).length,
+            preOffset = pc.offset,
             closed = await Reports.getExecuted(count, pc),
             closedIDs = Object.keys(closed.orders);
         // Store closed orders in portfolio
-        console.log((Array.isArray(pc.orders)?"Array":"Object"),
-            "had",preCount,"orders and now has",closedIDs.length, "orders.");
-        if(preCount < closedIDs.length) { // || closed.offset == -1) {
+        console.log("At offset",preOffset+"... Now", closedIDs.length, "orders.");
+        if(preOffset < closed.offset || closed.offset == -1) {
             console.log("(Re-?)Saving,"+closedIDs.length+",closed orders...");
             portfolio.Closed = closed;
             save();

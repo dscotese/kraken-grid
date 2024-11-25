@@ -1,11 +1,14 @@
 function Reports(bot) {
-    let closed = {offset:0, forward:false, orders:{}};
     const TxIDPattern = /[0-9A-Z]{6}-[0-9A-Z]{5}-[0-9A-Z]{6}/; 
+    const KRAKEN_GCO_MAX = 50;
 
     // This function will collect count executed orders in reverse chronological order,
 	// first the most recent (ofs=0) and then earlier history (ofs from known).
     async function getExecuted(count, known = {}) {
-        let offset = 0; // Since the last call, one or more orders may have executed.
+        let offset = 0, // Since the last call, one or more orders may have executed.
+            midway = false,
+            closed = {offset:0, forward:false, orders:{}};
+        closed.hasFirst = known.hasFirst || known.offset == -1;
         if(!known.hasOwnProperty('orders')) { // Is old format or not collected yet
             known = {offset:0, forward:false, orders:{}};
             console.log("known passed has no 'orders' property.");
@@ -14,7 +17,9 @@ function Reports(bot) {
             "Closed:",Object.keys(closed.orders).length, [known.offset,closed.offset]);
 	if(Object.keys(known.orders).length > Object.keys(closed.orders).length)
             Object.assign(closed,known);
-        while(count > 0 && offset > -1) {
+        while(count > 0) {
+            console.log("Known:",Object.keys(known.orders).length,
+                "Closed:",Object.keys(closed.orders).length, [known.offset,closed.offset]);
             let mixed = await bot.kapi(['ClosedOrders',{ofs:offset, closetime:'close'}]),
 		total = mixed.result.count;
             if(mixed.error.length > 0) {
@@ -33,51 +38,38 @@ function Reports(bot) {
             let executed = Object.entries(mixed.result.closed).filter((e) =>
                 (e[1].status == 'closed')),
                 rCount = Object.keys(mixed.result.closed).length,
-		elen = executed.length;
+                elen = executed.length,
+                earliest = undefined != known.orders[executed[elen-1][0]],
+                latest   = undefined != known.orders[executed[0][0]];
 	    offset += rCount;
-	    // If offset >= total, we have collected the earliest order
-		// so we can collect only new ones (returned first) from now
-		// on. This is what it means when offset on disk is -1.
-            // If known.offset is -1 then the only orders left to collect
-            // are the newest ones, and if the first one we get is already
-            // in known.orders, then there are no new ones and we have everything.
-            // -------------------------------------------------------------------
-	    closed.offset = ((offset >= total 
-                || (known.orders.hasOwnProperty(executed[0][0]) && known.offset == -1))
-                ? -1 : offset);
+	    closed.offset = offset;
             count -= elen;
             if(elen > 0) {
-                console.log("Retrieved",elen,"executed orders and first,",executed[0][0],
-                    (known.orders[executed[0][0]] ? 'is' : 'is not'),"known,",
-                    "and last,",executed[elen-1][0],
-                    (known.orders[executed[elen-1][0]] ? 'is' : 'is not'),"known,");
+                console.log("Retrieved",elen,"executed orders and most recent,",
+                    executed[0][0],(latest ? 'is' : 'is not'),"known, and oldest,",
+                    executed[elen-1][0],(earliest ? 'is' : 'is not'),"known.");
             }
-            const KRAKEN_GCO_MAX = 50;
             Object.assign(closed.orders, Object.fromEntries(executed));
-	    if(rCount < KRAKEN_GCO_MAX) {  // We must have reached the earliest order.
-		if(closed.offset > -1) // Should be impossible, so...
-		    throw(offset+" still < "+total+" API returns < 50");
-		console.log("Total Executed orders collected: "
-                    +(Object.keys(closed.orders).length));
-		count = 0;
-            } else if(Object.keys(known.orders || {}).includes(executed[elen-1][0])
-                && (known.offset == -1 || offset < known.offset) ) {
-                // Oldest order retrieved was already on disk
-                console.log("Jumping to the end... ("+known.offset+")");
-		offset = known.offset;	// so jump to the end.
-                closed.offset = offset;
-            } else {    // We are now collecting the oldest orders.
-                console.log("Collecting the oldest orders...");
-                if(known.offset == -1) offset = -1; 
-//console.log("I just set offset (reports.js file scope) to -1",
-//    " because:[KeyLen TXIDs don't include ee0 & (ko=-1 or is > o)",
-//    {KeyLen: Object.keys(known.orders || {}).length,
-//    ee0: executed[elen-1][0], ko: known.offset, o:offset});
+            if(!closed.hasFirst) {  // But do we have the latest yet?
+                if(rCount < KRAKEN_GCO_MAX) {  // We must have reached the earliest order.
+                    if(closed.offset < total) // Should be impossible, so...
+                        throw(offset+" still < "+total+" API returns < 50");
+                    console.log("Total Executed orders collected: "
+                        +(Object.keys(closed.orders).length));
+                    closed.hasFirst = true;
+                    break;
+                } else if(earliest && !midway) {  // The earliest order was already collected.
+                    console.log("Jumping to the end... ("+known.offset+")");
+                    offset = known.offset;	// so jump to the end.
+                    closed.offset = offset;
+                    midway = true;
+                }
+            } else {
+                console.log("We already have your earliest orders.");
+                if(earliest) break;  // All new orders collected.
             }
         }
 	closed = keyOrder(closed);
-        // If we are still working on collecting the oldest orders,
-        // known must include it to avoid recollecting a lot of orders. 
         return closed;
     }
 
