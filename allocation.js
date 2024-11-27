@@ -9,9 +9,8 @@ function Allocation(j=false) { // Allocation object constructor
         atargs = [],
         pending = '';   // When bestTrade makes an order, we remember it
                         // in order to avoid placing another while it pends.
-    Allocation.tkrs = new Set();
 
-//console.trace("Allocation: ", ID);
+//console.trace("Allocation: ", ID, j);
 
     function whoami() { return whoami.caller.name; }
 
@@ -26,15 +25,16 @@ function Allocation(j=false) { // Allocation object constructor
             }
         } else assets = j.assets;
         assets.forEach(a => {
+//console.trace("Adjusting",a.ticker);
             if(a.adjust) adjust(a.ticker,a.adjust[0],a.adjust[1]);
             else atargs[a.ticker] = a.target;
-            Allocation.tkrs.add(a.ticker);
         });
     }
 
     if(j) {
         recover(j);
-        // console.log("Allocation Recovered: ",j);
+//        console.trace("Allocation Recovered: ",j);
+//        console.trace("Ranges[XXBT]:",ranges['XXBT']);
     }
 
     function save() { return JSON.stringify({assets}); }
@@ -165,7 +165,7 @@ function Allocation(j=false) { // Allocation object constructor
                 }
             });
             priorities.sort((a,b) => { return a.d - b.d; }); // +d goes after -d
- console.log(priorities);
+ //console.log(priorities);
             tooMuch = priorities.shift();
             notEnough = priorities.pop();
         }
@@ -301,20 +301,26 @@ function Allocation(j=false) { // Allocation object constructor
         // the allocation function (and subtract it from  the allocation
         // of cash).  This is what get() does and why targets must be
         // retrieved using that function.
-        ranges[ticker] = await findRange(ticker, apct, ppct);
+        ranges[ticker] = await findRange(ticker, ppct);
     }
 
-    async function findRange(ticker, apct, ppct) {
+    async function findRange(ticker, ppct, today = false) {
         if(['args',whoami()].includes(process.TESTING))
             console.log(whoami(),"called with",arguments);
         let bot = Bot.s,
             pair = Bot.findPair(ticker, bot.portfolio.Numeraire),
             HB,SL,response, result, prices, peidx = -1, pidx,
-            pHB,pSL;
+            pHB,pSL, params;
         const periods = [21600,10080,1440,240,60,30,15,5,1];
     //console.log("Adjust for",ticker,apct,ppct);
         if(pair > '') {
-            response = await Bot.s.kapi(["OHLC",{pair:pair,interval:periods[++peidx]}]);
+            params = {pair:pair,interval:periods[++peidx]};
+            if(today) {
+                params.since = (new Date())/1000 - 86400;   // Since 24 hours ago
+                params.interval = 5;                        // We will get 288 OHLC data.
+                peidx = 7;
+            }
+            response = await Bot.s.kapi(["OHLC",params]);
             // prices is an array of arrays of:
             // timestamp, open, high, low, etc.
             // --------------------------------
@@ -387,7 +393,6 @@ function Allocation(j=false) { // Allocation object constructor
         if(target < 0) throw 'Cannot allocate a negative amount.';
         if(!already) {
             assets.push(already = {ticker:ticker,target:Number(target)});
-            Allocation.tkrs.add(ticker);
         } else {
             assets[0].target += already.target;
             already.target = target;
@@ -446,6 +451,7 @@ function Allocation(j=false) { // Allocation object constructor
     // indicating the low and high for today (0) and for
     // the last 24 hours (1), as per Kraken.
     function setRanges(tickersLH) {
+//console.log("My ID is",ID);
         let pair,tk,mr,rt,tl,th,f,p,moved=false;
 //console.log(tickersLH);
         Object.entries(tickersLH).forEach((t) => {
@@ -454,27 +460,23 @@ function Allocation(j=false) { // Allocation object constructor
             [tl,th,p] = [mr.l[1],mr.h[1],mr.c[0]].map(Number);
             if(rt = ranges[tk]) {   // Assignment is intentional!
                 f = rt[0]/rt[1];    // get % of Price range to use.
-                if((th >= rt[0] || tl <= rt[1])       // Price escaped our range.
-                    && (p > rt[0] || p < rt[1])) {  // ...and range hasn't been updated.
-//console.log("Price escaped range today:[th>rt0|tl<rt1,p]",[th,rt[0],tl,rt[1],p]);
-                    if( (rt[0]-p) < (p-rt[1]) )     // Price closer to high
-                        rt[1] = 0;  // Force the low to be updated.
-                    else rt[0] = th;    // Force the high to be updated.
-                    if( rt[0] <= th ) {
-                        rt[0] = Number(th);     // High is from today.
-                        rt[1] = th / f; // Calculate the low.
-                        moved = true;
-                    } else if( rt[1] >= tl ) {
-                        rt[1] = Number(tl);
-                        rt[0] = tl * f;
-                        moved = true;
-                    }
+                if(th/tl > f) {     // The prices today exceeded our range, so...
+                    findRange(tk,f-1,true);
+                    moved = true;
+                } else if( rt[0] < th ) {
+                    rt[0] = th;     // High is from today.
+                    rt[1] = th / f; // Calculate the low.
+                    moved = true;
+                } else if( rt[1] > tl ) {
+                    rt[1] = tl;
+                    rt[0] = tl * f;
+                    moved = true;
                 }
                 if(moved) console.log("Range for",tk,"updated: ",ranges[tk]);
-            }
+                else console.log("No range was changed:[t,tk,mr,rt0,rt1,tl,th,p,moved]:",
+                    [pair,tk,mr,rt[0],rt[1],tl,th,p,moved]+".");
+            }   // If !ranges[tk] then we don't have a range to set!
         });
-        //if(!moved) console.log("No range was changed:[t,tk,mr,rt0,rt1,tl,th,p,moved]:",
-        //    [pair,tk,mr,rt[0],rt[1],tl,th,p,moved]+".");
     }
 
     async function getAlloc(tkr,alloc) { 
