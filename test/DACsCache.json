@@ -1,10 +1,10 @@
 {"hh966828264":{"error":[],"result":[]},
 "h1339816305":{"error":[],"result":{"eb":"111442.9335","tb":"111442.9335","m":"0.0000","uv":"0.0000","n":"0.0000","c":"0.0000","v":"0.0000","e":"111442.9335","mf":"111442.9335"}},
 "hh1415836089":{"error":[],"result":{"eb":"111442.9335","tb":"111442.9335","m":"0.0000","uv":"0.0000","n":"0.0000","c":"0.0000","v":"0.0000","e":"111442.9335","mf":"111442.9335"}},
-"hh1232682369":{"error":[],"result":{"XXBT":"0.8951609700","ZUSD":"30042.1946"}},
-"hh866229851":{"error":[],"result":{
+"{\"fnName\":\"kapi\",\"args\":\"Balance\"}":{"error":[],"result":{"XXBT":"0.8951609700","ZUSD":"30042.1946"}},
+"{\"fnName\":\"kapi\",\"args\":[\"Ticker\",{\"pair\":\"XXBTZUSD\"}]}":{"error":[],"result":{
 	"XXBTZUSD":{"a":["63025.00000","1","1.000"],"b":["63024.90000","16","16.000"],"c":["63025.00000","0.00040177"],"v":["1563.17136390","1621.98392855"],"p":["63466.87646","63433.39620"],"t":[27947,30734],"l":["63025.50000","63025.00000"],"h":["64419.30000","75630.00000"],"o":"63809.40000"}}},
-"hh1355001918":{"error":[],"result":{"open":{
+"{\"fnName\":\"kapi\",\"args\":\"OpenOrders\"}":{"error":[],"result":{"open":{
 	"O56I6T-ZGUWM-L7QJS3":{"refid":null,"userref":1742062777,"status":"open","opentm":1728310322.0618975,"starttm":0,"expiretm":0,"descr":{"pair":"XBTUSD","type":"buy","ordertype":"limit","price":"62777.0","price2":"0","leverage":"none","order":"buy 0.12320000 XBTUSD @ limit 62777.0","close":"close position @ limit 63718.7"},"vol":"0.12320000","vol_exec":"0.00000000","cost":"0.00000","fee":"0.00000","price":"0.00000","stopprice":"0.00000","limitprice":"0.00000","misc":"","oflags":"fciq"},
 	"ORCCJZ-DVT5K-DTJISN":{"refid":null,"userref":1742618492,"status":"open","opentm":1728230626.226437,"starttm":0,"expiretm":0,"descr":{"pair":"XBTUSD","type":"buy","ordertype":"limit","price":"61849.2","price2":"0","leverage":"none","order":"buy 0.12320000 XBTUSD @ limit 61849.2","close":"close position @ limit 62777.0"},"vol":"0.12320000","vol_exec":"0.00000000","cost":"0.00000","fee":"0.00000","price":"0.00000","stopprice":"0.00000","limitprice":"0.00000","misc":"","oflags":"fciq"},
 	"OULD2X-ZY4HW-32QYNB":{"refid":null,"userref":1742609351,"status":"open","opentm":1728057794.8328562,"starttm":0,"expiretm":0,"descr":{"pair":"XBTUSD","type":"buy","ordertype":"limit","price":"60935.1","price2":"0","leverage":"none","order":"buy 0.09320000 XBTUSD @ limit 60935.1","close":"close position @ limit 61849.2"},"vol":"0.09320000","vol_exec":"0.00000000","cost":"0.00000","fee":"0.00000","price":"0.00000","stopprice":"0.00000","limitprice":"0.00000","misc":"","oflags":"fciq"},

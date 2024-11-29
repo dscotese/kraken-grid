@@ -4,6 +4,7 @@
   "description": "Bot repeatedly buys & sells on kraken from a conditional close order.",
   "main": "init.js",
   "bin": "./init.js",
+  "type": "commonjs",
   "scripts": {
     "test": "ava --timeout=10000 --verbose"
   },
@@ -51,6 +52,8 @@
     "ws": "^8.4.0"
   },
   "devDependencies": {
-    "ava": "^4.3.3"
+    "@eslint/js": "^8.57.1",
+    "ava": "^4.3.3",
+    "eslint": "^8.57.1"
   }
 }

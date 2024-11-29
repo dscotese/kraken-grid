@@ -1,10 +1,10 @@
 {"hh966828264":{"error":[],"result":[]},
 "h1339816305":{"error":[],"result":{"eb":"111442.9335","tb":"111442.9335","m":"0.0000","uv":"0.0000","n":"0.0000","c":"0.0000","v":"0.0000","e":"111442.9335","mf":"111442.9335"}},
 "hh1415836089":{"error":[],"result":{"eb":"111442.9335","tb":"111442.9335","m":"0.0000","uv":"0.0000","n":"0.0000","c":"0.0000","v":"0.0000","e":"111442.9335","mf":"111442.9335"}},
-"hh1232682369":{"error":[],"result":{"XXBT":"0.6251609700","ZUSD":"72042.1946"}},
-"hh866229851":{"error":[],"result":{
+"{\"fnName\":\"kapi\",\"args\":\"Balance\"}":{"error":[],"result":{"XXBT":"0.6251609700","ZUSD":"72042.1946"}},
+"{\"fnName\":\"kapi\",\"args\":[\"Ticker\",{\"pair\":\"XXBTZUSD\"}]}":{"error":[],"result":{
 	"XXBTZUSD":{"a":["63025.00000","1","1.000"],"b":["63024.90000","16","16.000"],"c":["63025.00000","0.00040177"],"v":["1563.17136390","1621.98392855"],"p":["63466.87646","63433.39620"],"t":[27947,30734],"l":["63025.50000","63025.00000"],"h":["64419.30000","75630.00000"],"o":"63809.40000"}}},
-"hh1355001918":{"error":[],"result":{"open":{
+"{\"fnName\":\"kapi\",\"args\":\"OpenOrders\"}":{"error":[],"result":{"open":{
 	"OOAFKB-WR3O4-3MNIDI":{"refid":null,"userref":1742637187,"status":"open","opentm":1727690291.1471012,"starttm":0,"expiretm":0,"descr":{"pair":"XBTUSD","type":"sell","ordertype":"limit","price":"64674.5","price2":"0","leverage":"none","order":"sell 0.15320000 XBTUSD @ limit 64674.5","close":"close position @ limit 63718.7"},"vol":"0.15320000","vol_exec":"0.00000000","cost":"0.00000","fee":"0.00000","price":"0.00000","stopprice":"0.00000","limitprice":"0.00000","misc":"","oflags":"fciq"},
 	"OTT537-VTPOO-D5TE7K":{"refid":null,"userref":1741646745,"status":"open","opentm":1727662275.794195,"starttm":0,"expiretm":0,"descr":{"pair":"XBTUSD","type":"sell","ordertype":"limit","price":"65644.6","price2":"0","leverage":"none","order":"sell 0.15320000 XBTUSD @ limit 65644.6","close":"close position @ limit 64674.5"},"vol":"0.15320000","vol_exec":"0.00000000","cost":"0.00000","fee":"0.00000","price":"0.00000","stopprice":"0.00000","limitprice":"0.00000","misc":"","oflags":"fciq"},
 	"OEJY3F-ZA2SW-EZNUHN":{"refid":null,"userref":741666293,"status":"open","opentm":1727542128.4268553,"starttm":0,"expiretm":0,"descr":{"pair":"XBTUSD","type":"sell","ordertype":"limit","price":"66629.3","price2":"0","leverage":"none","order":"sell 0.12160000 XBTUSD @ limit 66629.3","close":"close position @ limit 65644.6"},"vol":"0.12160000","vol_exec":"0.00000000","cost":"0.00000","fee":"0.00000","price":"0.00000","stopprice":"0.00000","limitprice":"0.00000","misc":"","oflags":"fciq"}}}},

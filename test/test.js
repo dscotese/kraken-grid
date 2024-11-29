@@ -37,6 +37,7 @@ test.before('Load Allocation code...', t => {
     const objInit = require("../init.js");
     bot = objInit.bot;
     man = objInit.man;
+    bot.tfc.useFile(path.join(localDir,"7open.json"));
     // console.log('bot is ', bot);
 });
 
@@ -66,10 +67,8 @@ test.serial('setBase to EUR', all => {
 });
 
 test.serial('Wait for the portfolio', async all => {
-    //await man.init('abc123');
     await bot.report();
     all.log("bot.portfolio.Allocation.assets:\n", bot.portfolio.Allocation.assets);
-    await bot.report();
     all.true(Object.keys(bot.portfolio).length > 6,
         'Portfolio has fewer than 6 properties.');
 },10000);
@@ -97,7 +96,7 @@ test.serial('Symbols, toggles, showPair...', async all => {
     // ----------------
     await bot.report();
     let order_count = bot.portfolio['O'].length;
-    console.log("Order count is",order_count,":",bot.portfolio['O']);
+    all.log("Order count is",order_count,":",bot.portfolio['O']);
     captureLog("99 in test.js",all);
     await man.doCommands(['buy NSSXPDQ 0.01 1']);
     all.true(/NSSX/.test(logged));
@@ -110,7 +109,10 @@ test.serial('Symbols, toggles, showPair...', async all => {
     await man.doCommands(['buy XBT 1 25']);    // I wish!
     // Install file with extra order:
     bot.tfc.useFile(path.join(localDir,'8open.json'));
+    captureLog("Reporting 8open...", all);
     await bot.report();
+    captureLog("8open done.", all);
+    all.log("Order count is",order_count,":",bot.portfolio['O']);
     all.true(bot.portfolio['O'].length == 1+order_count);
     if(bot.portfolio['O'].length == 1+order_count) {
         bot.FLAGS.safe = false;

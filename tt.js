@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // process.TESTING = 'findRange';
 process.USECACHE = true;
 let pw = process.argv[2] || 'abc123';

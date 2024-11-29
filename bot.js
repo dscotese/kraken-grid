@@ -155,7 +155,8 @@ if(FLAGS.verbose) console.log(p);
         let cached = tfc.isCached('kapi',arg);
         if( cached.answer && process.USECACHE ) {
             ret = cached.cached;
-        } else if( process.USECACHE=='must' ) { ret = { result: { descr: "No Cache." } }; 
+        } else if( process.USECACHE=='must' ) { return { result: { 
+            descr: "No Cache for "+cached.id } }; 
         } else try { // Because failure is not an option here, sometimes.
             if(Array.isArray(arg)) {
                 ret = await exchange.api(...arg);
@@ -683,8 +684,8 @@ if(FLAGS.verbose) console.log(p);
         t2 = t + (dp*(p*a + ov));
         t2s = t + (dp*p*a);     // If other asset values are constant.
         a2 = (b+ma*f) * t2/np;
-//console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
-//    [p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]);
+console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
+    [p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]);
         return a2 - a;
     }
 
@@ -1155,8 +1156,8 @@ if(FLAGS.verbose) console.log(p);
     async function marginReport(show = true) {
         let positions = await kapi(['OpenPositions',{consolidation:"market",ctr:60}]);
         let brief = [];
-        if(Object.keys(positions.result).length) {
-            positions.result.forEach( (pos) => {
+        if(Object.keys(positions.result).length) { try {
+            positions.result.forEach( (pos) => { 
                 let vol = (1*pos.vol-1*pos.vol_closed)*(pos.type=='sell' ? -1 : 1),
                     pair = Bot.findPair(pos.pair,'',1),
                     sym = pair.base,
@@ -1169,7 +1170,7 @@ if(FLAGS.verbose) console.log(p);
                     margin:     pos.margin };
             });
             if(show) console.log(475,brief);
-        }
+        } catch(e){console.trace(e,positions.result);} }
         return brief;
     }
 

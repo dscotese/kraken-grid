@@ -19,6 +19,7 @@
 */
 function TFC(verbose = false,id = '') {
     if(TFC.s) return TFC.s;     // Singleton!!
+    TFC.s = this;
     const base = "TFC"+id;
     const fs = require('fs');
     const path = require('path');
@@ -39,7 +40,7 @@ function TFC(verbose = false,id = '') {
         if(err && 'EEXIST' != err.code) throw err;
     };
 
-    let cached={}, callCache = {}, now = new Date, slf = '???', 
+    let cached={}, callCache = {}, now = new Date, slf, 
         dontCache=[], inIDFile=[],
     // We store the filename of the latest file in lastFile.txt
         lf = path.join(base, new Date( // Use local time as filename.
@@ -62,20 +63,23 @@ function TFC(verbose = false,id = '') {
                 // hash to find the old property name (and so remove the old
                 // property). This will shrink our file size.
                 let hashes = Object.keys(cached).map(hashArg);
+                console.log("Removing:",hashes);
                 hashes.forEach(h => delete cached[h]);
-console.log('cached[{"fnName":"kapi","args":["Ticker",{"pair":"XXBTZUSD"}]}]:',
-    cached['{"fnName":"kapi","args":["Ticker",{"pair":"XXBTZUSD"}]}']); 
                 inIDFile = Object.keys(cached);
-                console.log("Using ",fName);
+                console.log("Using ",fName,"with keys:\n",
+                    inIDFile.join('\n'));
                 file2Read = fName;
+                Object.assign(callCache, cached);
             } else {
                 console.log("Cache is empty.");
             }
         } catch(err) { if('ENOENT' != err.code) throw err; }
     }
 
-    useFile( fs.existsSync(slf = MUSTCACHE)
-        ? slf : fs.readFileSync(lastFile).toString().trim() );
+    try {
+        useFile( fs.existsSync(slf = MUSTCACHE)
+            ? slf : slf = fs.readFileSync(lastFile).toString().trim() );
+    } catch(e) { console.log(e); }
 
     try {
         let recorded = JSON.parse('['+fs.readFileSync(idFile).slice(0,-2)+']');
@@ -94,13 +98,8 @@ console.log('cached[{"fnName":"kapi","args":["Ticker",{"pair":"XXBTZUSD"}]}]:',
     }
 
     let cachedKeys = Object.keys(cached);
-    if( cachedKeys.length>0 ) { 
-        console.log("Using Cache:",file2Read);
-        if(verbose) console.log("with keys",cachedKeys);
-        //if( slf == MUSTCACHE ) {
-        //    reCache(cachedKeys);
-        //}
-    } else console.log("LastFile ("+slf+") apparently not found.");
+    if( cachedKeys.length==0 ) 
+        console.log("LastFile ("+slf+") apparently not found.");
     console.log("Creating cache:",lf);
 
     function hashArg(arg) {
@@ -131,18 +130,17 @@ console.log('cached[{"fnName":"kapi","args":["Ticker",{"pair":"XXBTZUSD"}]}]:',
             ri = hashArg(call), // "Response Identifier"
             blocked = dontCache.includes(ri);
         console.log("Seeking:",call,'(',ri,')');
-        if(!inIDFile.includes(ri)) {
-            inIDFile.push(ri);
-            fs.appendFile(idFile,JSON.stringify({ri,call})+',\n',(err) => {
-                if(err) throw err;
-            });
+        if(callCache[call]) {
+            if(verbose) console.log("New hit in",file2Read);
+            return {answer:true, id:call, cached:callCache[call]};
+        } else {
+            console.log(call,"isn't in",Object.keys(callCache));
         }
-        if(callCache.call) return {answer:true, id:call, cached:callCache.call};
 
         let ret = (cached && cached[ri] && !dontCache.includes(ri)) 
             ? {answer:true, id:call, cached:cached[ri]}
             : {answer:false, id:call};
-        if(verbose) console.log(ret.answer ? "Hit in" 
+        if(verbose) console.log(ret.answer ? "Old hit in" 
             : (blocked ? "Blocked by" : "Miss in"), file2Read);
 
         // If we have it, and it isn't in callCache yet, add it.
@@ -158,31 +156,23 @@ console.log('cached[{"fnName":"kapi","args":["Ticker",{"pair":"XXBTZUSD"}]}]:',
         fs.writeFile(callCacheFile, asBuffer, (err) => {
             if(err) throw err;
         });
-        console.log("Wrote callCache with",Object.keys(callCache).length,
+        console.log("Wrote callCache to",callCacheFile,"with",Object.keys(callCache).length,
             "cached calls.");
     }
 
-    // store( name, args, reply ) will store the result of calling
-    // name on args in the cache.
     // store( ID, reply ) will store the result of a call that
-    // hashes (see hashArg) to ID in the cache.
-    // Use the second version with the id that comes back from
-    // isCached if the call changes any of the arguments.
-    // -----------------------------------------------------------
-    function store(fNameOrID,argsOrReply,reply=false) {
+    // hashes (see hashArg) to ID in the cache. See isCached to
+    // get the ID for a call.
+    // --------------------------------------------------------
+    function store(call,reply) {
         if(!process.TESTING) {
             if(verbose) 
                 console.log("Caching requires process.TESTING to evaluate to true.");
             return;
         }
-        let call = typeof(fNameOrID)=='string' 
-            ? JSON.stringify({fnName:fNameOrID,args:argsOrReply})
-            : fNameOrID,
-            ri = reply ? hashArg(call) : fNameOrID;
-        // if(ri[0] != 'h') throw "store called with "+call+" created bad ID "+ri;
-        // cached[ri] = reply ? reply : argsOrReply;
         if(callCache[call]) return;
-        callCache[call] = cached[ri];
+        callCache[call] = reply;
+console.log("Just added",call,"to callCache.");
         saveCallCache();
         // Now that we've stored something in it, record its name
         // ------------------------------------------------------
