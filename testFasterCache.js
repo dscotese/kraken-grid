@@ -17,43 +17,56 @@
     are safe from stringify's failures to faithfully represent some JS
     objects.
 */
+import fs from 'fs';
+import path from 'path';
+
 function TFC(verbose = false,id = '') {
     if(TFC.s) return TFC.s;     // Singleton!!
     TFC.s = this;
-    const base = "TFC"+id;
-    const fs = require('fs');
-    const path = require('path');
+    const base = `TFC${id}`;
     const MUSTCACHE = path.join(base,"cached.json");
-    let lastFile = path.join(base,"lastFile.txt"),
-        file2Read;
+    let lastFile = path.join(base,"lastFile.txt");
+        let file2Read;
     const blockFile = path.join(base,"blockFile.json");
     // The idFile contains a series of JSON objects, {h...: fName+args},
     // as well as the trailing comma. The comma gets stripped to create
     // valid JSON so the cache knows what IDs have already been recorded.
     // ------------------------------------------------------------------
-    const idFile = path.join(base,"IDFile.txt"); 
     const callCacheFile = path.join(base,"callCache.json");
 
     try {
         fs.mkdirSync(base);
     } catch(err) {
-        if(err && 'EEXIST' != err.code) throw err;
+        if(err && err.code !== 'EEXIST') throw err;
     };
 
-    let cached={}, callCache = {}, now = new Date, slf, 
-        dontCache=[], inIDFile=[],
-    // We store the filename of the latest file in lastFile.txt
-        lf = path.join(base, new Date( // Use local time as filename.
-            (now - (now.getTimezoneOffset()*60000)))
-            .toJSON().replaceAll(':','-').slice(0,-5)+".json");
+    const cached={}; const callCache = {}; const now = new Date; 
+    let slf = MUSTCACHE; 
+    let dontCache=[]; let inIDFile=[];
+// We store the filename of the latest file in lastFile.txt
+    const lf = path.join(base, `${new Date( // Use local time as filename.
+        (now - (now.getTimezoneOffset()*60000)))
+        .toJSON().replaceAll(':','-').slice(0,-5)}.json`);
+
+    function hashArg(arg) {
+        let hash = 0; const string = JSON.stringify(arg);
+        for (let i = 0; i < string.length; i += 1) {
+            const code = string.charCodeAt(i);
+            // eslint-disable-next-line no-bitwise
+            hash = ((hash<<5)-hash)+code;
+            // eslint-disable-next-line no-bitwise
+            hash &= hash; // Convert to 32bit integer
+        }
+        return (`h${hash}`).replace('-','h');
+    }
 
     function useFile(fName) {
         try {
-            console.log("Trying Cache:",fName); //path.join(base,slf));
-            let content = fs.readFileSync(fName); //path.join(base,slf));
-            if(content.toString().length) {
+            console.log("Trying Cache:",fName); // path.join(base,slf));
+            const content = fs.readFileSync(fName,{encoding:"utf8"}); // path.join(base,slf));
+            if(content.length) {
                 // console.log("Parsing ",content);
-                let nc = JSON.parse(content);
+                const nc = JSON.parse(content);
                 Object.assign(cached,nc);       // Overwrite with new answers.
                 // We may now have properties that can be collapsed because:
                 // A) The old property names are hashes and their values
@@ -62,7 +75,7 @@ function TFC(verbose = false,id = '') {
                 // B) The new property names are the calls which we can
                 // hash to find the old property name (and so remove the old
                 // property). This will shrink our file size.
-                let hashes = Object.keys(cached).map(hashArg);
+                const hashes = Object.keys(cached).map(hashArg);
                 console.log("Removing:",hashes);
                 hashes.forEach(h => delete cached[h]);
                 inIDFile = Object.keys(cached);
@@ -73,50 +86,31 @@ function TFC(verbose = false,id = '') {
             } else {
                 console.log("Cache is empty.");
             }
-        } catch(err) { if('ENOENT' != err.code) throw err; }
+        } catch(err) { if(err.code !== 'ENOENT') throw err; }
     }
 
     try {
-        useFile( fs.existsSync(slf = MUSTCACHE)
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        useFile( fs.existsSync(slf)
             ? slf : slf = fs.readFileSync(lastFile).toString().trim() );
     } catch(e) { console.log(e); }
 
-    try {
-        let recorded = JSON.parse('['+fs.readFileSync(idFile).slice(0,-2)+']');
-        inIDFile = recorded.map(e => (e.ri));
-        // if(verbose) console.log({recorded,inIDFile});
-    } catch(err) { 
-        console.log("Unable to open record of IDs for cached calls")
-        if('ENOENT' != err.code) throw err; 
-    }
-
-    if( slf != MUSTCACHE ) try {
-        let bf = JSON.parse(fs.readFileSync(blockFile));
+    if( slf !== MUSTCACHE ) try {
+        const bf = JSON.parse(fs.readFileSync(blockFile));
         if(Array.isArray(bf)) dontCache = bf;
     } catch(err) {
-        if(err && 'ENOENT' != err.code) throw err;
+        if(err && err.code !== 'ENOENT') throw err;
     }
 
-    let cachedKeys = Object.keys(cached);
-    if( cachedKeys.length==0 ) 
-        console.log("LastFile ("+slf+") apparently not found.");
+    const cachedKeys = Object.keys(cached);
+    if( cachedKeys.length===0 ) 
+        console.log(`LastFile (${slf}) apparently not found.`);
     console.log("Creating cache:",lf);
-
-    function hashArg(arg) {
-        var hash = 0, string = JSON.stringify(arg);
-        for (var i = 0; i < string.length; i++) {
-            var code = string.charCodeAt(i);
-            hash = ((hash<<5)-hash)+code;
-            hash = hash & hash; // Convert to 32bit integer
-        }
-        return ("h"+hash).replace('-','h');
-    }
-
 
     // Pass an array of IDs to prevent calls from being cached.
     // --------------------------------------------------------
     function noCache(IDs) { 
-        if( slf == MUSTCACHE ) {
+        if( slf === MUSTCACHE ) {
             console.log("Ignoring call to noCache because of cached.json");
         } else dontCache.concat(IDs); }
 
@@ -125,21 +119,37 @@ function TFC(verbose = false,id = '') {
     // ------------------------------------------------------
     function reCache(IDs) { dontCache = dontCache.filter(x => !IDs.includes(x)); }
 
+    function saveCallCache() {
+        const asBuffer = Buffer.from(JSON.stringify(callCache,null,1));
+        fs.writeFileSync(callCacheFile, asBuffer, (err) => {
+            if(err) throw err;
+        });
+        console.log("Wrote callCache to",callCacheFile,"with",Object.keys(callCache).length,
+            "cached calls.");
+    }
+
     function isCached(fnName,args) {
-        let call = JSON.stringify({fnName,args}),
-            ri = hashArg(call), // "Response Identifier"
-            blocked = dontCache.includes(ri);
+        const call = JSON.stringify({fnName,args});
+            const ri = hashArg(call); // "Response Identifier"
+            const blocked = dontCache.includes(ri);
         console.log("Seeking:",call,'(',ri,')');
         if(callCache[call]) {
             if(verbose) console.log("New hit in",file2Read);
+            if( callCache[call].inFile ) {   // Data stored in separate file.
+                const inName = path.join(path.dirname(file2Read),callCache[call].inFile);
+                // eslint-disable-next-line react-hooks/rules-of-hooks
+                useFile(inName);
+                if(callCache[call].inFile) throw Error("Nope!");
+            }
             return {answer:true, id:call, cached:callCache[call]};
-        } else {
+        } 
             console.log(call,"isn't in",Object.keys(callCache));
-        }
+        
 
-        let ret = (cached && cached[ri] && !dontCache.includes(ri)) 
+        const ret = (cached && cached[ri] && !dontCache.includes(ri)) 
             ? {answer:true, id:call, cached:cached[ri]}
             : {answer:false, id:call};
+        // eslint-disable-next-line no-nested-ternary
         if(verbose) console.log(ret.answer ? "Old hit in" 
             : (blocked ? "Blocked by" : "Miss in"), file2Read);
 
@@ -149,15 +159,6 @@ function TFC(verbose = false,id = '') {
             saveCallCache();
         }
         return ret;
-    }
-
-    function saveCallCache() {
-        let asBuffer = Buffer.from(JSON.stringify(callCache,null,1));
-        fs.writeFile(callCacheFile, asBuffer, (err) => {
-            if(err) throw err;
-        });
-        console.log("Wrote callCache to",callCacheFile,"with",Object.keys(callCache).length,
-            "cached calls.");
     }
 
     // store( ID, reply ) will store the result of a call that
@@ -178,9 +179,9 @@ console.log("Just added",call,"to callCache.");
         // ------------------------------------------------------
         if(lastFile > '') {
             fs.writeFile(lastFile,lf,(err)=>{if(err)throw(err);});
-            lastFile = '';  //Protect it from being overwritten.
+            lastFile = '';  // Protect it from being overwritten.
         }
-        if(verbose) console.log("Items in",lf+":",Object.keys(callCache));
+        if(verbose) console.log("Items in",`${lf}:`,Object.keys(callCache));
     }
 
     TFC.s = {isCached, store, hashArg, cached, noCache, reCache, useFile};
@@ -188,4 +189,4 @@ console.log("Just added",call,"to callCache.");
     return TFC.s;
 }
 
-module.exports = TFC;
+export default TFC;

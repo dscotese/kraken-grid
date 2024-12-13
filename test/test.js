@@ -1,6 +1,7 @@
-const test = require('ava');
-const fs = require('fs');
-const path = require('path');
+/* eslintx-disable import/extensions */
+/* eslint-disable no-console */
+import {expect, describe, test, jest} from '@jest/globals';
+import path from 'path';
 /* Uncomment this to eliminate ava...
 function test(title, fn) {
     console.log("Running ",title);
@@ -21,144 +22,164 @@ test('bar', async t => {
     t.is(await bar, 'bar');
 });
 */
-const Allocation = require('../allocation.js');
-let localDir, a, bot, man;
+import { AllocCon } from '../allocation';
+// TestPW is a special password that blocks encryption so that
+// the file storing API keys and other sensitive data can be
+// altered as necessary for tests. By setting global.kgPassword,
+// we bypass the call to prompt so no user input is required.
+global.kgPassword = "TestPW"; // Also set in init just in case.
+// Initializes man, which initializes bot using kgPassword.
+// eslint-disable-next-line import/first
+import objInit from "../init";
 
-test.before('Load Allocation code...', t => {
-    process.TESTING = 'cacheOnly';  // Do not use Kraken during testing.
-    process.USECACHE = 'must';
-    localDir = path.dirname(__filename);
+process.TESTING = 'cacheOnly';  // Do not use Kraken during testing.
+process.USECACHE = 'must';
+const localDir = process.cwd();
+let a; 
+let bot; 
+let man;
 
-    a = Allocation();
-    a.addAsset('XBT',0.4);
-    a.addAsset('XMR',0.4);
-    global.kgPassword = "TestPW";
-    // Initializes man, which initializes bot using kgPassword.
-    const objInit = require("../init.js");
+beforeAll(() => {
+
     bot = objInit.bot;
     man = objInit.man;
-    bot.tfc.useFile(path.join(localDir,"7open.json"));
+    // Not testing the command ine interface (yet?)
+    man.ignore();
+    a = AllocCon({bot, Savings:null});
+    a.addAsset('XBT',0.4);
+    a.addAsset('XMR',0.4);
+    bot.tfc.useFile(path.join(localDir,'test',"7open.json"));
     // console.log('bot is ', bot);
 });
 
-test.serial('Overallocation prevention', all => {
+test('Overallocation prevention', () => {
+    let gotErr = false;
     try {
         a.addAsset('DASH',0.3);
-        let gotErr = false;
     } catch(err) {
         gotErr = true;
     }
-    all.is(gotErr, true);
+    expect(gotErr).toBe(true);
 });
 
-test.serial('Base Currency Tracking', all => {
-    all.is(Math.round(10*a.get(0).target), 2);
+test('Base Currency Tracking', () => {
+    expect(Math.round(10*a.get(0).target)).toBe(2);
 });
 
-test.serial('Update Allocation', all => {
+test('Update Allocation', () => {
     a.addAsset('XBT',0.5);
-    all.is(Math.round(10*a.get(0).target), 1);
+    expect(Math.round(10*a.get(0).target)).toBe(1);
 });
 
-test.serial('setBase to EUR', all => {
-    all.is(a.get(0).ticker,"ZUSD");
+test('setBase to EUR', () => {
+    expect(a.get(0).ticker).toBe("ZUSD");
     a.setNumeraire('EUR');
-    all.is(a.get(0).ticker,"EUR");
+    expect(a.get(0).ticker).toBe("EUR");
 });
 
-test.serial('Wait for the portfolio', async all => {
+test('Wait for the portfolio', async () => {
     await bot.report();
-    all.log("bot.portfolio.Allocation.assets:\n", bot.portfolio.Allocation.assets);
-    all.true(Object.keys(bot.portfolio).length > 6,
-        'Portfolio has fewer than 6 properties.');
+    console.log("bot.getPortfolio().Allocation.assets:\n", 
+        bot.getPortfolio().Allocation.assets);
+    expect(Object.keys(bot.getPortfolio()).length > 6).toBeTruthy();
 },10000);
 
-const original_log = console.log;
-let logged = '';
 
-function captureLog(line, t) {
-    if(console.log == original_log) {
-        if(logged > '') console_log("How can logged be", logged,"?!??!");
-        t.log("Start Capture at",line);
+/*
+function captureLog(line) {
+    if(console.log === console.log) {
+        if(logged > '') console.log("How can logged be", logged,"?!??!");
+        console.log("Start Capture at",line);
         console.log = (...args) => { 
-            logged += '\n'+args.join(' ');
-            //all.log("Captured ",logged);
+            logged += `\n${args.join(' ')}`;
+            // all.log("Captured ",logged);
         };
     } else {
-        t.log("Captured",logged,"at",line);
-        console.log = original_log;
+        console.log("Captured",logged,"at",line);
+        console.log = console.log;
         logged = '';
     }
 }  
-
-test.serial('Symbols, toggles, showPair...', async all => {
+*/
+test('Symbols, toggles, showPair...', async () => {
     // Try a bad symbol
     // ----------------
     await bot.report();
-    let order_count = bot.portfolio['O'].length;
-    all.log("Order count is",order_count,":",bot.portfolio['O']);
-    captureLog("99 in test.js",all);
+    const orderCount = bot.getPortfolio().O.length;
+    console.log("Order count is",orderCount,":",bot.getPortfolio().O);
+    const consoleSpy = jest.spyOn(console, 'log');
+    //    captureLog("99 in test.js",all);
     await man.doCommands(['buy NSSXPDQ 0.01 1']);
-    all.true(/NSSX/.test(logged));
-    captureLog("Done at 102",all);
-    all.true(bot.portfolio['O'].length == order_count);
-//},10000);
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining("not a recognized"));
+//    captureLog("Done at 102",all);
+    expect(bot.getPortfolio().O.length === orderCount).toBeTruthy();
+    consoleSpy.mockRestore();
+// },10000);
 
     // Try a good symbol
     // -----------------
     await man.doCommands(['buy XBT 1 25']);    // I wish!
     // Install file with extra order:
-    bot.tfc.useFile(path.join(localDir,'8open.json'));
-    captureLog("Reporting 8open...", all);
+    bot.tfc.useFile(path.join(localDir,'test','8open.json'));
+//    captureLog("Reporting 8open...", all);
     await bot.report();
-    captureLog("8open done.", all);
-    all.log("Order count is",order_count,":",bot.portfolio['O']);
-    all.true(bot.portfolio['O'].length == 1+order_count);
-    if(bot.portfolio['O'].length == 1+order_count) {
+//    captureLog("8open done.", all);
+    console.log("Order count is",orderCount,":",bot.getPortfolio().O);
+    expect(bot.getPortfolio().O.length === 1+orderCount).toBeTruthy();
+    if(bot.getPortfolio().O.length === 1+orderCount) {
         bot.FLAGS.safe = false;
-        await bot.kill(1,bot.portfolio['O']);
+        await bot.kill(1,bot.getPortfolio().O);
         bot.FLAGS.safe = true;
-        bot.tfc.useFile(path.join(localDir,'7open.json'));
+        bot.tfc.useFile(path.join(localDir,'test','7open.json'));
         await bot.report();
-        all.true(bot.portfolio['O'].length == order_count,
-            bot.portfolio['O'].length + ' != ' + order_count);
+        expect(bot.getPortfolio().O.length === orderCount).toBeTruthy();
     }
 
     // Toggling risky
     // --------------
-    let r0 = bot.showState().substr(-2,1);
+    const r0 = bot.showState().substr(-2,1);
     await man.doCommands(['risky','risky','risky']);
-    all.true(bot.showState().substr(0,1) != r0,
-        'Three calls failed to toggle risky');
+    expect(bot.showState().substr(0,1) !== r0).toBeTruthy();
 
     // Test that Safemode prevents orders over $25
     // -------------------------------------------
     await man.doCommands(['buy XBT 1 50']); // Fails because not safe.
-    all.true(bot.portfolio['O'].length == order_count,
-        bot.portfolio['O'].length + ' != ' + order_count);
-    await bot.showPair('XREPZUSD');
-
+    expect(bot.getPortfolio().O.length === orderCount).toBeTruthy();
+    bot.showPair('XREPZUSD');        
     // Test that showPair returns a real pair
     // --------------------------------------
-    let pair = bot.pairInfo('XREPZUSD');
-    all.is(pair.quote,'ZUSD');
-    all.is(pair.base,'XREP');
-},60000);
-
-test.serial('Dynamic Sell Amount Calculation', async t => {
-    bot.tfc.useFile(path.join(localDir,'DACsCache.json'));  // Simulate no sells
-    captureLog("Add a sell",t);
-    await bot.report();
-    t.true(/selling 0.023742124645772522 XBTUSD at 64674.5/.test(logged));
-    captureLog("Sell tested.",t);
+    const pair = bot.pairInfo('XREPZUSD');
+    expect(pair.quote === 'ZUSD').toBeTruthy();
+    expect(pair.base === 'XREP').toBeTruthy();
 },10000);
 
-test.serial('Dynamic Buy Amount Calculation', async t => {
-    bot.tfc.useFile(path.join(localDir,'DACbCache.json'));  // Simulate no buys
-    captureLog("Add a buy",t);
+test('Dynamic Sell Amount Calculation', async () => {
+    bot.tfc.useFile(path.join(localDir,'test','DACsCache.json'));  // Simulate no sells
+//    captureLog("Add a sell",console);
+    const consoleSpy = jest.spyOn(console, 'log');
     await bot.report();
-    t.true(/buying 0.6573442493668066 XBTUSD at 62777/.test(logged));
-    captureLog("Buy tested.",t);
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/selling 0.023742124645772522 XBTUSD at 64674.5/));
+    consoleSpy.mockRestore();
+//    captureLog("Sell tested.",console);
 },10000);
 
+test('Dynamic Buy Amount Calculation', async () => {
+    bot.tfc.useFile(path.join(localDir,'test','DACbCache.json'));  // Simulate no buys
+//    captureLog("Add a buy",console);
+    const consoleSpy = jest.spyOn(console, 'log');
+    await bot.report();
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/buying 0.6573442493668066 XBTUSD at 62777/));
+    consoleSpy.mockRestore();
 
+        //    captureLog("Buy tested.",console);
+},10000);
+
+/*
+test('Quitting...', async() => {
+    await man.doCommands(['quit']);
+    expect(man.doCommands('')).toThrow();
+}, 1000);
+*/

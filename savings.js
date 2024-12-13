@@ -1,10 +1,16 @@
-const prompt = require('prompt-sync')({sigint: true});
-const Allocation = require('./allocation.js');
-const Bot = require('./bot.js');
+import { globSync } from 'glob'; 
+import path from 'path';
+import PSCon from 'prompt-sync';
+
+const prompt = PSCon({sigint: true});
+let bot;
+
 function Savings(j=false) { // Constructor for savings
-    let assets = [{ticker:'ZUSD',amount:0}],
-        label = "default",
-        myTotal = 0;
+    let assets = [{ticker:'ZUSD',amount:0}];
+    let label = "default";
+    let myTotal = 0;
+    // eslint-disable-next-line global-require
+    let AllocCon;
 
     function labelMe(l) { label = l; }
 
@@ -12,6 +18,7 @@ function Savings(j=false) { // Constructor for savings
         return JSON.stringify({assets,label});
     }
 
+    // eslint-disable-next-line no-unused-vars
     function toString() {
         return save();
     }
@@ -20,40 +27,41 @@ function Savings(j=false) { // Constructor for savings
         return myTotal;
     }
 
-    async function getAlloc(numeraire, numeraires) {
-        let already = assets.find(a => a.ticker == numeraire),
-            i = 0,
-            bot = Bot.s,
-            total = 0,
-            price = 0,
-            pairs = [], 
-            values = [],
-            alloc = [],
-            pairMap = []; 
+    async function getAlloc(numeraireIn, numeraires) {
+        let already = assets.find(a => a.ticker === numeraireIn);
+            let i = 0;
+            let total = 0;
+            let price = 0;
+            const pairs = []; 
+            const values = [];
+            const alloc = [];
+            const pairMap = []; 
         while(!already) {
-            already = assets.find(a => a.ticker == numeraires[i++]);
+            const n = numeraires[i];
+            already = assets.find(a => a.ticker === n);
+            i += 1;
         }
         if(!already) {
-            throw("Unable to determine default asset");
+            throw new Error("Unable to determine default asset");
         }
-        numeraire = already.ticker;
-        for(a of assets) {
-            if(a.ticker != numeraire) {
-                pairMap[a.ticker] = Bot.findPair(a.ticker, numeraire);
-                if(pairMap[a.ticker] != '' && !pairs.includes(pairMap[a.ticker]))
+        const numeraire = already.ticker;
+        Object.entries(assets).forEach(([,a]) => {
+            if(a.ticker !== numeraire) {
+                pairMap[a.ticker] = bot.findPair(a.ticker, numeraire);
+                if(pairMap[a.ticker] !== '' && !pairs.includes(pairMap[a.ticker]))
                     pairs.push(pairMap[a.ticker]);
-                if(!Bot.pairs[pairMap[a.ticker]]) {
-                    price = await bot.getPrice(a.ticker);
+                if(!bot.getPairs()[pairMap[a.ticker]]) {
+                    price = bot.getPrice(a.ticker);
                     values[a.ticker] = a.amount * price;
                 }
             }
-        };
-        prices = await bot.kapi(['Ticker',{ pair: 
+        });
+        const prices = await bot.kapi(['Ticker',{ pair: 
             pairs.join().replace(/^,+|,+$/g,'').replace(/,,/g,',')}]);
         assets.forEach(a => {
-            if('undefined' == typeof(values[a.ticker])) {  // `.c[0]` is specific to Kraken's price JSON
-                values[a.ticker] = a.amount * (a.ticker == numeraire ? 1
-                    : prices.result[Bot.pairs[pairMap[a.ticker]].pair].c[0]);
+            if(typeof(values[a.ticker]) === 'undefined') {  // `.c[0]` is specific to Kraken's price JSON
+                values[a.ticker] = a.amount * (a.ticker === numeraire ? 1
+                    : prices.result[bot.getPairs()[pairMap[a.ticker]].pair].c[0]);
             }
             total += values[a.ticker];
         });
@@ -61,10 +69,10 @@ function Savings(j=false) { // Constructor for savings
             alloc.push({ticker:a.ticker, target:values[a.ticker]/total});
         });
         myTotal = total;
-        return Allocation(alloc);
+        return AllocCon({bot, Savings},alloc);
     }  
 
-    function recover(j) {
+    function recover() {
         let x;
         if(typeof j === 'string' || j instanceof String) {
             try {
@@ -74,60 +82,67 @@ function Savings(j=false) { // Constructor for savings
                 throw err;
             }
         } else x = j;
-        assets = x.assets;
-        label = x.label;
-//console.log("Savings recovered:",{x:x,assets:assets,label:label});
+        assets = x.assets || assets;
+        label = x.label || label;
+        AllocCon = x.AllocCon;
+// console.log("Savings recovered:",{x:x,assets:assets,label:label});
     }
 
-    if(j) recover(j);
+    if(j) recover();
 
-    function updateAsset(ticker,amount,ask,add = false) {
-        let already = assets.find(a => a.ticker == ticker);
+    function badTickerOK(ticker) {
+        return prompt(`Use unrecognized ${  ticker  }?`).toLowerCase() === 'y';
+    }
+
+    function updateAsset(ticker,amountIn,ask,allowAdd = false) {
+        const already = assets.find(a => a.ticker === ticker);
+        let amount = amountIn;
         if(!already && !Savings.tickers.has(ticker) 
             && (ask && !badTickerOK(ticker)))
             return false;
-        if(!already && (add || amount != 0)) {
-            assets.push({ticker:ticker,amount:Number(amount)});
+        if(!already && (allowAdd || amount !== 0)) {
+            assets.push({ticker,amount:Number(amount)});
         } else {
-            if( !already && amount == 0 ) {
+            if( !already && amount === 0 ) {
                 console.log("Ignoring request to record 0 units of", ticker);
                 return false;
             }
-            if(add) amount += already.amount;
+            if(allowAdd) amount += already.amount;
 
-            if(!ask || 'y' == prompt('Update ' + already.amount + ticker 
-                + ' to ' + amount + '?').toLowerCase()) {
+            if(!ask || prompt(`Update ${  already.amount  }${ticker 
+                 } to ${  amount  }?`).toLowerCase() === 'y') {
                 already.amount = amount;
             } else return false;
         }
         return true;
     }
 
-    function w(n,x) { let s = n.toString(); return s+' '.repeat(x-s.length); }
+    function w(n,x) { const s = n.toString(); return s+' '.repeat(x-s.length); }
 
     function setTickers(validTickers) {
         validTickers.forEach(i => { Savings.tickers.add(i); });
     }
 
-    this.validTicker = (t) => { return Savings.tickers.has(t); }
+    function validTicker(t) { return Savings.tickers.has(t); }
 
-    function list(label = this.label, copySort = false) {
-        //return "Would list "+assets.length+" assets.";
+    function showAsset(a,sep='\t') { return w(a.ticker,6) + sep + a.amount; }
 
-        let str = "ticker\tunits (Account: "+label+")",
-            a,j=0,
-            assetsL=copySort
-                ? Array.from(assets).sort((a,b)=>{return a.ticker<b.ticker?-1:1;})
+    function list(labelIn = this.label, copySort = false) {
+        // return "Would list "+assets.length+" assets.";
+
+        let str = `ticker\tunits (Account: ${labelIn})`;
+            let a; let lj=0;
+            const assetsL=copySort
+                ? Array.from(assets).sort((la,b)=>la.ticker<b.ticker?-1:1)
                 : assets;;
-        for(let h=0; h < assetsL.length; ++h) {
+        for(let h=0; h < assetsL.length; h += 1) {
             a = assetsL[h];
-            str = str + "\n(" + h + ") " + showAsset(a,"\t");
-            if(100 < (j = j+1)) break;
+            str = `${str  }\n(${  h  }) ${ showAsset(a,"\t")}`;
+            lj += 1;
+            if(lj > 100) break;
         }
         return str;
     }
-
-    function showAsset(a,sep='\t') { return w(a.ticker,6) + sep + a.amount; }
 
     function setBase(ticker) {
         // TODO: We may already have this in this savings,
@@ -141,25 +156,21 @@ function Savings(j=false) { // Constructor for savings
             assets[0].ticker = ticker;
     }
 
-    function badTickerOK(ticker) {
-        return 'y' == prompt('Use unrecognized ' + ticker + '?').toLowerCase();
-    }
-
     function remove(ticker) {
-        let idx = assets.findIndex(a=> {return a.ticker == ticker});
-        if(idx == -1) { // findIndex didn't find an index!
+        const idx = assets.findIndex(a=> a.ticker === ticker);
+        if(idx === -1) { // findIndex didn't find an index!
             console.log("No such asset: ticker");
         } else {
-            let r = assets.splice(idx,1);
+            const r = assets.splice(idx,1);
             console.log("Removed", r,':\n', list());
         }
     }
 
     function add(sav2) {
         let ea;
-        sav2.assets.forEach(a => {    
-            if('undefined' ==
-                typeof((ea = assets.find(t => {return t.ticker == a.ticker})))) {
+        sav2.assets.forEach(a => {
+            ea = assets.find(t => t.ticker === a.ticker);   
+            if(typeof ea === 'undefined') {
                 assets.push({ticker: a.ticker, amount: a.amount});
             } else {
                 ea.amount += a.amount;
@@ -169,34 +180,44 @@ function Savings(j=false) { // Constructor for savings
     }
 
     function get(ticker) {
-        let a = assets.find(a=>{return a.ticker == ticker;});
-        return 'undefined'==typeof(a) ? '' : showAsset(a);
+        return typeof((assets.find(a => a.ticker === ticker)))==='undefined' 
+            ? '' : showAsset(assets.find(a => a.ticker === ticker));
     }
 
     return {setBase, list, setTickers, updateAsset, recover,
         labelMe, save, label, getAlloc, getTotal, add, remove,
-        get, assets, validTicker:this.validTicker};
+        get, assets, validTicker};
 }
-Savings.tickers = Savings.tickers || new Set();
-var glob = require( 'glob' )
-  , path = require( 'path' );
 
-Savings.setPricer = (pricer, assets) => {
-    // pricer must be an async function price(a)
-    // which accepts an asset symbol and returns the
-    // price you want to use for it.
-//console.trace("pricer:",pricer);
-    assets.forEach(a => { 
-        if('function' == typeof(pricer.price)) Savings.pricers[a] = pricer;
-        else throw 'setPricer received pricer without price function.';
+Savings.init = function init(initbot) {
+    bot = initbot;
+    Savings.tickers = Savings.tickers || new Set(bot.getTickers());
+
+    Savings.setPricer = (pricer, assets) => {
+        // pricer must be an async function price(a)
+        // which accepts an asset symbol and returns the
+        // price you want to use for it.
+    // console.trace("pricer:",pricer);
+        assets.forEach(a => { 
+            if(typeof(pricer.price) === 'function') Savings.pricers[a] = pricer;
+            else throw new Error('setPricer received pricer without price function.');
+        });
+    }
+    if(!bot.getExtra()) throw new Error('You must pass an initialized bot to Savings.init().');
+
+    Savings.pricers = [];
+    const bex = bot.getExtra();             // What is it now?
+    const ExAsStr = JSON.stringify(bex);    // To see if it changes.
+    globSync("./pricers/*.js").forEach( async ( file ) => {
+        // eslint-disable-next-line import/no-dynamic-require, global-require
+        import(path.resolve( file ))
+            .then(p1 => {
+                p1.default.then(pricer => {
+                pricer(bex,Savings); 
+            })});
     });
+    if(JSON.stringify(bex) !== ExAsStr) 
+        bot.save();
 }
-if(!Bot.extra) throw 'Initialize bot before loading savings.';
 
-Savings.pricers = [];
-//console.log('glob.sync("./pricers/*.js"):',glob.sync("./pricers/*.js"));
-glob.sync("./pricers/*.js").forEach( function( file ) {
-    require( path.resolve( file ) )(Bot,Savings);
-});
-
-module.exports = Savings;
+export default Savings;
