@@ -2,6 +2,7 @@
 /* eslint-disable no-console */
 import {expect, describe, test, jest} from '@jest/globals';
 import path from 'path';
+import http from 'http';
 /* Uncomment this to eliminate ava...
 function test(title, fn) {
     console.log("Running ",title);
@@ -177,6 +178,66 @@ test('Dynamic Buy Amount Calculation', async () => {
         //    captureLog("Buy tested.",console);
 },10000);
 
+test('Closed Order lists', async () => {
+    bot.tfc.useFile(path.join(localDir,'test','DACbCache.json'));  // Simulate no buys
+    const consoleSpy = jest.spyOn(console, 'log');
+    await man.doCommands(['list C 5']);
+    // await bot.sleep(2000);
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/OYKGBX-A5JA2-VATI6N/));
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/OY3JGW-HVFLA-U2S3L4/));
+    await man.doCommands(['list C -5']);
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/OX57R3-REKZO-3GL7HY/));
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/OBTWTY-46LXB-7UCHKW/));
+    consoleSpy.mockRestore();
+});
+
+test('Web Page Data', (done) => {
+    async function WPD() {
+        bot.tfc.useFile(path.join(localDir,'test','DACbCache.json'));  // Simulate no buys
+        // const consoleSpy = jest.spyOn(console, 'log');
+        await man.doCommands(['web on 8155']);
+        const options = {
+            host: 'localhost',
+            port: 8155,
+            path: '/data',
+            auth: 'admin:TestPW'
+        }
+        const request = http.request(options, (res) => {
+            let data = '';
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
+            res.on('end', () => {
+                const objData = JSON.parse(data);
+                expect(objData).toHaveProperty('orders');
+                expect(objData).toHaveProperty('grid');
+                expect(objData).toHaveProperty('savings');
+                expect(objData).toHaveProperty('exsaves');
+                expect(objData).toHaveProperty('numer');
+                expect(objData).toHaveProperty('tickers');
+                expect(objData).toHaveProperty('total');
+                expect(objData).toHaveProperty('current');
+                expect(objData).toHaveProperty('desired');
+                expect(objData).toHaveProperty('adjust');
+                expect(objData).toHaveProperty('ranges');
+                expect(objData).toHaveProperty('FLAGS');
+                expect(objData).toHaveProperty('refresh_period');
+                expect(objData).toHaveProperty('closed');
+                man.doCommands(['web off']);
+                done();
+            });
+        });
+        request.on('error', (e) => {
+            console.log(e.message);
+        });
+        request.end();
+    }
+    WPD();
+}, 25000);
 /*
 test('Quitting...', async() => {
     await man.doCommands(['quit']);

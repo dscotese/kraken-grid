@@ -8,9 +8,9 @@ function ReportCon(bot) {
     // ---------------------------------------------------------------
     function keyOrder(keyed, pattern = TxIDPattern) {
         // eslint-disable-next-line no-param-reassign
-        keyed.forward = true;
+//        keyed.forward = true;
         const keys = Object.keys(keyed.orders);
-            const K = keys.filter((x) => (pattern.test(x)));
+        const K = keys.filter((x) => (pattern.test(x)));
         if( keys.length > K.length ) { // Keys that don't match.
             console.log("Ignoring",(keys.length - K.length,"non-matching keys:"));
             console.log(keys.filter((x) => (!pattern.test(x))));
@@ -18,10 +18,13 @@ function ReportCon(bot) {
 
         K.sort((a,b) => (keyed.orders[a].closetm - keyed.orders[b].closetm));
         const Kr = K.toReversed();
-
         // eslint-disable-next-line no-param-reassign
-        keyed.orders[Symbol.iterator] = function* reportOrder () {
-            (keyed.forward ? K : Kr).forEach(yield);}
+        keyed.keysFwd = () =>  K;
+        // eslint-disable-next-line no-param-reassign
+        keyed.keysBkwd = () => Kr;
+        // eslint-disable-next-line no-param-reassign
+//        keyed.orders[Symbol.iterator] = function* reportOrder () {
+//            (keyed.forward ? K : Kr).forEach(yield);}
         return keyed;
     }
 
@@ -66,8 +69,8 @@ function ReportCon(bot) {
                 const elen = executed.length;
                 const earliest = undefined !== known.orders[executed[elen-1][0]];
                 const latest   = undefined !== known.orders[executed[0][0]];
-	    offset += rCount;
-	    closed.offset = offset;
+	        offset += rCount;
+	        closed.offset = offset;
             // eslint-disable-next-line no-param-reassign
             count -= elen;
             if(elen > 0) {
@@ -92,6 +95,7 @@ function ReportCon(bot) {
                 }
             } else {
                 console.log("We already have your earliest orders.");
+                closed.offset = known.offset;
                 if(earliest) break;  // All new orders collected.
             }
         }

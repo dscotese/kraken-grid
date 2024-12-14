@@ -1016,8 +1016,9 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             }
             orders = [];
             const closed = await moreOrders();
-            closed.forward = early;
-            Object.entries(closed.orders).forEach(([o,oo]) => {
+            (early ? closed.keysFwd() : closed.keysBkwd())
+                .forEach((o) => {
+                const oo = closed.orders[o];
                 if(orders.length < count && (!ur || oo.userref===ur)) 
                     orders.push([o,oo]);
             });
@@ -1030,9 +1031,10 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         orders.forEach((x,i) => {
             const ldo = x[1].descr.order;
             if(args.length===1 || RegExp(args[1]).test(ldo))
-                console.log(x[0],i+1,ldo,x[1].userref,x[1].status==='closed'
+                console.log(`${x[0]} ${i+1} ${ldo} ${x[1].userref
+                } ${x[1].status==='closed'
                     ? new Date(1000*x[1].closetm)
-                    : x[1].descr.close);
+                    : x[1].descr.close}`);
             else if(x[1][args[1]]) sortedA[i+1]=x;
             else if(x[1].descr[args[1]]) sortedA[i+1]=x;
         });

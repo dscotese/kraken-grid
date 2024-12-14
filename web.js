@@ -187,7 +187,7 @@ function Web(config) {
             exsaves: bot.ExchangeSavings(),
             numer:   portfolio.Numeraire,
             tickers: tt,
-            total:   portfolio.getTotal(),
+            total:   portfolio.Allocation.getTotal(),
             current,
             desired,
             adjust,
