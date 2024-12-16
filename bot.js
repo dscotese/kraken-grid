@@ -352,11 +352,12 @@ export const Bot = (config) => {
                 lCOts = closed.orders[closedIDs.pop()].closetm;
                 let counter = closedIDs.length-1;
                 console.log("Last five executed orders:");
-                Object.entries(closed.orders).forEach(([o,oo]) => {  // fill in the grid prices from existing orders.
-                        const od = oo.descr;
-                        const op = od.price;
-                        const ur = oo.userref;
-			            const cd = new Date(oo.closetm * 1000);
+                closed.keysBkwd().forEach((o) => {  // fill in the grid prices from existing orders.
+                    const oo = closed.orders[o];
+                    const od = oo.descr;
+                    const op = od.price;
+                    const ur = oo.userref;
+                    const cd = new Date(oo.closetm * 1000);
                     let gp = gPrices.find(x => x.userref===ur); // If we already saw this grid point.
 	                if( counter < 6 ) {
                         console.log(o,ur,op,od.type,od.close,`${cd.getFullYear()}/${1+cd.getMonth()
@@ -904,9 +905,9 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
 
     async function report(showBalance=true) {
         const balP = kapi('Balance'); 
-            const tikP = kapi(['TradeBalance',{ctr:30}]); 
-            const marP = marginReport(false);
-            const [bal,trb,mar] = await Promise.all([balP,tikP,marP]); 
+        const tikP = kapi(['TradeBalance',{ctr:30}]); 
+        const marP = marginReport(false);
+        const [bal,trb,mar] = await Promise.all([balP,tikP,marP]); 
         portfolio.M = mar;
         portfolio.lastUpdate = new Date;
         Object.keys(bal.result).forEach(p => {
@@ -1033,7 +1034,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             if(args.length===1 || RegExp(args[1]).test(ldo))
                 console.log(`${x[0]} ${i+1} ${ldo} ${x[1].userref
                 } ${x[1].status==='closed'
-                    ? new Date(1000*x[1].closetm)
+                    ? new Date(1000*x[1].closetm).toISOString()
                     : x[1].descr.close}`);
             else if(x[1][args[1]]) sortedA[i+1]=x;
             else if(x[1].descr[args[1]]) sortedA[i+1]=x;
@@ -1060,7 +1061,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                     ldo,x[1].userref,x[1].descr.close);
             });
         };
-        const isMore = portfolio.Closed.offset > -1;
+        const isMore = !portfolio.Closed.hasFirst;
         console.log("We have collected", isMore
             ? portfolio.Closed.offset : "all",
             "orders.", isMore ? "Try again for more." : "");

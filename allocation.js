@@ -494,8 +494,9 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
                     moved = true;
                 }
                 if(moved) console.log("Range for",tk,"updated: ",ranges[tk]);
-                else console.log("No range was changed:[t,tk,mr,rt0,rt1,tl,th,p,moved]:",
-                    `${[pair,tk,mr,rt[0],rt[1],tl,th,p,moved]}.`);
+                else if( config.bot.FLAGS.verbose )
+                    console.log("No range was changed:[t,tk,mr,rt0,rt1,tl,th,p,moved]:"
+                        +`${[pair,tk,mr,rt[0],rt[1],tl,th,p,moved]}.`);
             }   // If !ranges[tk] then we don't have a range to set!
         });
     }

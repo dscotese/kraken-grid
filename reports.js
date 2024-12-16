@@ -94,7 +94,6 @@ function ReportCon(bot) {
                     midway = true;
                 }
             } else {
-                console.log("We already have your earliest orders.");
                 closed.offset = known.offset;
                 if(earliest) break;  // All new orders collected.
             }

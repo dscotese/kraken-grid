@@ -76,10 +76,10 @@ function TFC(verbose = false,id = '') {
                 // hash to find the old property name (and so remove the old
                 // property). This will shrink our file size.
                 const hashes = Object.keys(cached).map(hashArg);
-                console.log("Removing:",hashes);
+                if(verbose) console.log("Removing:",hashes);
                 hashes.forEach(h => delete cached[h]);
                 inIDFile = Object.keys(cached);
-                console.log("Using ",fName,"with keys:\n",
+                if(verbose) console.log("Using ",fName,"with keys:\n",
                     inIDFile.join('\n'));
                 file2Read = fName;
                 Object.assign(callCache, cached);
@@ -124,15 +124,15 @@ function TFC(verbose = false,id = '') {
         fs.writeFileSync(callCacheFile, asBuffer, (err) => {
             if(err) throw err;
         });
-        console.log("Wrote callCache to",callCacheFile,"with",Object.keys(callCache).length,
-            "cached calls.");
+        if(verbose) console.log("Wrote callCache to",callCacheFile,
+            "with",Object.keys(callCache).length,"cached calls.");
     }
 
     function isCached(fnName,args) {
         const call = JSON.stringify({fnName,args});
-            const ri = hashArg(call); // "Response Identifier"
-            const blocked = dontCache.includes(ri);
-        console.log("Seeking:",call,'(',ri,')');
+        const ri = hashArg(call); // "Response Identifier"
+        const blocked = dontCache.includes(ri);
+        if(verbose) console.log("Seeking:",call,'(',ri,')');
         if(callCache[call]) {
             if(verbose) console.log("New hit in",file2Read);
             if( callCache[call].inFile ) {   // Data stored in separate file.
@@ -143,7 +143,7 @@ function TFC(verbose = false,id = '') {
             }
             return {answer:true, id:call, cached:callCache[call]};
         } 
-            console.log(call,"isn't in",Object.keys(callCache));
+        if(verbose) console.log(call,"isn't in",Object.keys(callCache));
         
 
         const ret = (cached && cached[ri] && !dontCache.includes(ri)) 

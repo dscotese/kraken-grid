@@ -1,4 +1,4 @@
-import { globSync } from 'glob'; 
+import fs from 'fs';
 import path from 'path';
 import PSCon from 'prompt-sync';
 
@@ -208,13 +208,21 @@ Savings.init = function init(initbot) {
     Savings.pricers = [];
     const bex = bot.getExtra();             // What is it now?
     const ExAsStr = JSON.stringify(bex);    // To see if it changes.
-    globSync("./pricers/*.js").forEach( async ( file ) => {
+    const files = fs.readdirSync('./pricers');
+    files.forEach( async ( file ) => {
         // eslint-disable-next-line import/no-dynamic-require, global-require
-        import(path.resolve( file ))
-            .then(p1 => {
-                p1.default.then(pricer => {
-                pricer(bex,Savings); 
-            })});
+        const toImport = path.join(process.cwd(),'pricers',file).replace('\\','/');
+        console.log(toImport);
+        if(file.endsWith('.js')) {
+            // import( './pricers/openex.js' ) .jstoImport )
+            import( process.env.VSCODE_NONCE || process.env.VSCODE_STABLE
+                ? './pricers/openex.js' : toImport )
+                .then(p1 => {
+                    p1.default.then(pricer => {
+                    pricer(bex,Savings); 
+                })
+            });
+        }
     });
     if(JSON.stringify(bex) !== ExAsStr) 
         bot.save();
