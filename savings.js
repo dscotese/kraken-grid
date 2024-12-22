@@ -220,12 +220,12 @@ Savings.init = function init(initbot) {
                 .then(p1 => {
                     p1.default.then(pricer => {
                     pricer(bex,Savings); 
-                })
-            });
+                    if(JSON.stringify(bex) !== ExAsStr) 
+                        bot.save();
+                    })
+                });
         }
     });
-    if(JSON.stringify(bex) !== ExAsStr) 
-        bot.save();
 }
 
 export default Savings;

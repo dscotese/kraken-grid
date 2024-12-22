@@ -3,3 +3,7 @@ node_modules
 TFC*
 package-lock.json
 *.swp
+coverage
+coverage/
+JestTesting
+JestTesting/

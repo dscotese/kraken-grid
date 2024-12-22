@@ -3,22 +3,18 @@
 /* eslint-disable no-console */
 import PSCon from 'prompt-sync';
  // ({sigint: true});
-import ExchClient from 'kraka-djs';
+import KrakenClient from 'kraka-djs';
+import Gclient from './krak2gem.js';
 import ssModule from './safestore.js';     // encrypted sorage
 import ReportCon from './reports.js';
 import TFC from'./testFasterCache.js';
 
 const  tfc = TFC(process.TESTING,process.argv[2]);
 const prompt = PSCon({sigint: true});
-const myConfig = {exch: 'kraka-djs'};
+const myConfig = {exch: 'K'};
 export const Bot = (config) => {
     if(config.bot) return config.bot; // Singleton!
     Object.assign(myConfig, config);
-    /*
-    if( process.env.NODE_ENV === 'production' ) {
-        // eslint-disable-next-line import/no-dynamic-require, global-require
-        import * as ExchClient from myConfig.exch; // Implements the Kraken API
-    } */
     const {Savings, AllocCon} = myConfig;
     let safestore;
     let Reports;
@@ -29,8 +25,8 @@ export const Bot = (config) => {
     let Extra = {};
     const alts = {};
 
-    let exchange;           // The ExchClient from kraka-djs
-    const portfolio = {};     // A record of what's on the exchange
+    let exchange;           // The API, either kraka-djs or krak2gem
+    const portfolio = {};   // A record of what's on the exchange
     let lCOts = 0;          // Timestamp for use in collecting executed trades.
     const FLAGS = {safe:true,verbose:process.TESTING,risky:false};
 
@@ -196,7 +192,9 @@ export const Bot = (config) => {
             config.stored = safestore;
             const p = await safestore.read();
             Extra = p.Extra || Extra;
-            exchange = new ExchClient(p.key, p.secret);
+            exchange = config.exch==='K' 
+                ? new KrakenClient(p.key, p.secret)
+                : new Gclient(p.key, p.secret);
             pairs = await cachePairs();
             tickers = await cacheTickers();
             Savings.init(this);
@@ -204,7 +202,8 @@ export const Bot = (config) => {
             portfolio.secret = p.secret;
             portfolio.Savings = p.savings ? p.savings : []; 
 	        portfolio.Closed = p.Closed || {orders: {}, offset: 0};      // Must be something for new accounts.
-            portfolio.Allocation = AllocCon(config, p.Alloc.assets);
+            portfolio.Allocation = AllocCon(config, 
+                p.Alloc ? p.Alloc.assets : undefined);
             portfolio.Pairs = new Set(Array.isArray(p.Pairs) ? p.Pairs : []);
             portfolio.Tickers = new Set();
             portfolio.Numeraire = p.Numeraire || 'ZUSD';
@@ -325,13 +324,14 @@ export const Bot = (config) => {
 
     async function moreOrders(count = 100) {
         const pc = portfolio.Closed;
-            const preOffset = pc.offset;
+            const preCount = Object.keys(pc.orders).length;
             const closed = await Reports.getExecuted(count, pc);
             const closedIDs = Object.keys(closed.orders);
         // Store closed orders in portfolio
-        console.log("At offset",`${preOffset}... Now`, closedIDs.length, "orders.");
-        if(preOffset < closed.offset || closed.offset === -1) {
-            console.log(`(Re-?)Saving,${closedIDs.length},closed orders...`);
+        console.log(`Had ${preCount} @ ${pc.offset}, now ${closedIDs.length} orders.`);
+        if(preCount < closedIDs.length || !closed.hasFirst) {
+            console.log(`(Re-?)Saving ${closedIDs.length
+                } closed orders @ ${closed.offset}.`);
             portfolio.Closed = closed;
             save();
         }
@@ -352,7 +352,7 @@ export const Bot = (config) => {
                 lCOts = closed.orders[closedIDs.pop()].closetm;
                 let counter = closedIDs.length-1;
                 console.log("Last five executed orders:");
-                closed.keysBkwd().forEach((o) => {  // fill in the grid prices from existing orders.
+                closed.keysFwd().forEach((o) => {  // fill in the grid prices from existing orders.
                     const oo = closed.orders[o];
                     const od = oo.descr;
                     const op = od.price;
@@ -904,8 +904,8 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         }
 
     async function report(showBalance=true) {
-        const balP = kapi('Balance'); 
-        const tikP = kapi(['TradeBalance',{ctr:30}]); 
+        const balP = await kapi('Balance'); 
+        const tikP = await kapi(['TradeBalance',{ctr:30}]); 
         const marP = marginReport(false);
         const [bal,trb,mar] = await Promise.all([balP,tikP,marP]); 
         portfolio.M = mar;
@@ -1009,9 +1009,9 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                 save();
             }
             let count = 50; 
-                let ur = args[2] ? args.pop() : false;
+                let ur = args[2] ? Number(args.pop()) : false;
                 const early = ur < 0; 
-            if(ur && !Number.isNaN(ur) && Number(ur) < 10000) {
+            if(ur && !Number.isNaN(ur) && ur < 10000) {
                 count = Math.abs(ur);
                 ur = false;
             }
@@ -1019,10 +1019,11 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             const closed = await moreOrders();
             (early ? closed.keysFwd() : closed.keysBkwd())
                 .forEach((o) => {
-                const oo = closed.orders[o];
-                if(orders.length < count && (!ur || oo.userref===ur)) 
-                    orders.push([o,oo]);
-            });
+                    const oo = closed.orders[o];
+                    if(orders.length < count && (!ur || oo.userref===ur)) 
+                        orders.push([o,oo]);
+                }
+            );
             console.log("Orders.length:",orders.length,"Era:",
                 early ? "Earliest" : "Latest");
             // Either way, we display the latest at the bottom by:
@@ -1030,10 +1031,14 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             args.pop();
         }
         orders.forEach((x,i) => {
-            const ldo = x[1].descr.order;
+            const ld = x[1].descr;
+            const partDone = ![x[1].vol,"0.00000000"].includes(x[1].vol_exec);
+            const ldo = partDone
+                ? `${ld.type} ${x[1].vol_exec} ${ld.pair} @ limit ${x[1].price}`
+                : ld.order;
             if(args.length===1 || RegExp(args[1]).test(ldo))
                 console.log(`${x[0]} ${i+1} ${ldo} ${x[1].userref
-                } ${x[1].status==='closed'
+                } ${(partDone || x[1].status === "closed")
                     ? new Date(1000*x[1].closetm).toISOString()
                     : x[1].descr.close}`);
             else if(x[1][args[1]]) sortedA[i+1]=x;
@@ -1144,10 +1149,10 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             const closed = await moreOrders(50);
         // eslint-disable-next-line no-param-reassign
         p.Closed = closed;
-        // If p.Closed.offset is -1, then we have
+        // If p.Closed.hasFirst, then we have
         //  collected all completed orders and we can search them
         //  for this Userref.
-        if(p.Closed.offset === -1) {
+        if(p.Closed.hasFirst) {
             haveAll = true;
             once = false;   // We have everything, so we can update all grid points.
             if(!once) console.log("All orders have been retrieved.");

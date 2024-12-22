@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import PSCon from 'prompt-sync';
+ 
+const prompt = PSCon({sigint: true});
  
 function Manager(config) {
     if( config.man ) return config.man;

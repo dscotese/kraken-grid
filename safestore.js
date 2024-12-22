@@ -43,8 +43,8 @@ function Safestore(pwp = 'abc123') {
     async function replace(obj) {
         // Turn object into a string
         const toWrite = JSON.stringify(obj);
-        // When pw is TestPW, we do not encrypt.
-        if(pw === 'TestPW') {
+        // When pw starts with TestPW, we do not encrypt.
+        if(/^TestPW/.test(pw)) {
             return fs.writeFileSync(keyFile, toWrite);
         }
         // Encrypt the string
@@ -94,7 +94,7 @@ function Safestore(pwp = 'abc123') {
         // Put the file contents into a string
         const enc64 = fs.readFileSync(f).toString();
         let ret = enc64;
-        if(pw !== 'TestPW') {
+        if(!/^TestPW/.test(pw)) {
             await cryptex.decrypt(enc64)
                 .then(async (r) => {
                     try { ret = JSON.parse(r); 

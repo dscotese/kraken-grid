@@ -23,7 +23,6 @@ test('bar', async t => {
     t.is(await bar, 'bar');
 });
 */
-import { AllocCon } from '../allocation';
 // TestPW is a special password that blocks encryption so that
 // the file storing API keys and other sensitive data can be
 // altered as necessary for tests. By setting global.kgPassword,
@@ -31,7 +30,7 @@ import { AllocCon } from '../allocation';
 global.kgPassword = "TestPW"; // Also set in init just in case.
 // Initializes man, which initializes bot using kgPassword.
 // eslint-disable-next-line import/first
-import objInit from "../init";
+import fnInit from "../init";
 
 process.TESTING = 'cacheOnly';  // Do not use Kraken during testing.
 process.USECACHE = 'must';
@@ -39,11 +38,12 @@ const localDir = process.cwd();
 let a; 
 let bot; 
 let man;
+let AllocCon;
 
-beforeAll(() => {
+beforeAll(async () => {
 
-    bot = objInit.bot;
-    man = objInit.man;
+    const allConfig = await fnInit();
+    ({bot, man, AllocCon} = allConfig);
     // Not testing the command ine interface (yet?)
     man.ignore();
     a = AllocCon({bot, Savings:null});

@@ -32,8 +32,8 @@ function ReportCon(bot) {
 	// first the most recent (ofs=0) and then earlier history (ofs from known).
     async function getExecuted(count, known = {}) {
         let offset = 0; // Since the last call, one or more orders may have executed.
-            let midway = false;
-            let closed = {offset:0, forward:false, orders:{}};
+        let midway = false;
+        let closed = {offset:0, forward:false, orders:{}};
         closed.hasFirst = known.hasFirst || known.offset === -1;
         // Is old format or not collected yet?
         if(!Object.prototype.hasOwnProperty.call(known, 'orders')) { 
@@ -64,7 +64,7 @@ function ReportCon(bot) {
             //  orders too.  Remove them.
             // ------------------------------------------------------
             const executed = Object.entries(mixed.result.closed).filter((e) =>
-                (e[1].status === 'closed'));
+                (e[1].vol_exec !== "0.00000000"));
                 const rCount = Object.keys(mixed.result.closed).length;
                 const elen = executed.length;
                 const earliest = undefined !== known.orders[executed[elen-1][0]];
