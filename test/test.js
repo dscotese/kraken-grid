@@ -238,9 +238,26 @@ test('Web Page Data', (done) => {
     }
     WPD();
 }, 25000);
-/*
-test('Quitting...', async() => {
-    await man.doCommands(['quit']);
-    expect(man.doCommands('')).toThrow();
-}, 1000);
-*/
+
+test('Collect more old orders', async () => {
+    bot.tfc.useFile(path.join(localDir, 'test', 'co474.json'));
+    const consoleSpy = jest.spyOn(console, 'log');
+    await man.doCommands(['list CR']);  // Clear and collect 300 results
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/Restting closed orders record./));
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/OUBWSG-GNKS3-PJ24H5/));
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/OYKGBX-A5JA2-VATI6N/));
+    await man.doCommands(['list C']);   // Collect the rest
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/OX57R3-REKZO-3GL7HY/));
+    await man.doCommands(['list C -2']);   // See the first two.
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/OBTWTY-46LXB-7UCHKW/));
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/OX57R3-REKZO-3GL7HY/));
+    // Test that it will continue collecting when there are
+    // freshly executed orders and still very old orders.
+    
+})

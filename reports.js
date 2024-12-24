@@ -74,9 +74,9 @@ function ReportCon(bot) {
             // eslint-disable-next-line no-param-reassign
             count -= elen;
             if(elen > 0) {
-                console.log("Retrieved",elen,"executed orders and most recent,",
-                    executed[0][0],(latest ? 'is' : 'is not'),"known, and oldest,",
-                    executed[elen-1][0],(earliest ? 'is' : 'is not'),"known.");
+                console.log(`Retrieved ${elen} executed orders and most recent, ${
+                    executed[0][0]} ${(latest ? 'is' : 'is not')} known, and oldest, ${
+                    executed[elen-1][0]} ${(earliest ? 'is' : 'is not')} known.`);
             }
             Object.assign(closed.orders, Object.fromEntries(executed));
             if(!closed.hasFirst) {  // But do we have the latest yet?
