@@ -85,23 +85,6 @@ test('Wait for the portfolio', async () => {
     expect(Object.keys(bot.getPortfolio()).length > 6).toBeTruthy();
 },10000);
 
-
-/*
-function captureLog(line) {
-    if(console.log === console.log) {
-        if(logged > '') console.log("How can logged be", logged,"?!??!");
-        console.log("Start Capture at",line);
-        console.log = (...args) => { 
-            logged += `\n${args.join(' ')}`;
-            // all.log("Captured ",logged);
-        };
-    } else {
-        console.log("Captured",logged,"at",line);
-        console.log = console.log;
-        logged = '';
-    }
-}  
-*/
 test('Symbols, toggles, showPair...', async () => {
     // Try a bad symbol
     // ----------------
@@ -243,15 +226,15 @@ test('Collect more old orders', async () => {
     bot.tfc.useFile(path.join(localDir, 'test', 'co474.json'));
     const consoleSpy = jest.spyOn(console, 'log');
     await man.doCommands(['list CR']);  // Clear and collect 300 results
+//    CR might not be doing enough.  
+//    The offset goes to 200 too fast for this test to work.
     expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringMatching(/Restting closed orders record./));
+    await man.doCommands(['list C']);
     expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringMatching(/OUBWSG-GNKS3-PJ24H5/));
     expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringMatching(/OYKGBX-A5JA2-VATI6N/));
-    await man.doCommands(['list C']);   // Collect the rest
-    expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/OX57R3-REKZO-3GL7HY/));
     await man.doCommands(['list C -2']);   // See the first two.
     expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringMatching(/OBTWTY-46LXB-7UCHKW/));
@@ -259,5 +242,59 @@ test('Collect more old orders', async () => {
         expect.stringMatching(/OX57R3-REKZO-3GL7HY/));
     // Test that it will continue collecting when there are
     // freshly executed orders and still very old orders.
-    
+    // Say it's a new account. (NACache.json has 5 orders.)
+    bot.tfc.clearCache();
+    consoleSpy.mockClear();
+    bot.tfc.useFile(path.join(localDir, 'test', 'NACache.json'));
+    await man.doCommands(['list CR']);
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/Restting closed orders record./));
+    await man.doCommands(['list C']);  // Clear and collect all four results
+        expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/OYKGBX-A5JA2-VATI6N/));
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/OBQMPV-7W5XR-4VGDTT/));
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/collected all orders/));
+
+    // Edge case: Exactly 51 results on first attempt, so the oldest
+    // isn't collected. Later, there are 51 more, so the oldest still
+    // isn't collected. The one in the middle and the oldest are still
+    // uncollected. One request for two more orders should get them
+    // both, but it need only be for one more if the newest was a
+    // cancellation.
+    bot.tfc.clearCache();
+    consoleSpy.mockClear();
+    bot.tfc.useFile(path.join(localDir, 'test', '51A.json'));
+    await man.doCommands(['list CR']);
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/Restting closed orders record./));
+    await man.doCommands(['list C']);  // Clear and collect 1st 50 results
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/OBTWTY-46LXB-7UCHKW/)
+    );
+    expect(consoleSpy).not.toHaveBeenCalledWith(
+        expect.stringMatching(/OX57R3-REKZO-3GL7HY/)
+    );
+
+    bot.tfc.useFile(path.join(localDir, 'test', '51B.json'));
+    await man.doCommands(['list CR']);
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/Restting closed orders record./));
+    await man.doCommands(['list C']);  // Clear and collect 1st 50 results
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/O44O3G-4S7MM-7LH6KN/)
+    );
+
+    bot.tfc.useFile(path.join(localDir, 'test', '51C.json'));
+    await man.doCommands(['list CR']);
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/Restting closed orders record./));
+    await man.doCommands(['list C 100']);  // Collect all orders
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/OXZQ7D-FAKED-WYS5PS/)
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/OX57R3-REKZO-3GL7HY/)
+    );
 })

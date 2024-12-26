@@ -40,7 +40,9 @@ function TFC(verbose = false,id = '') {
         if(err && err.code !== 'EEXIST') throw err;
     };
 
-    const cached={}; const callCache = {}; const now = new Date; 
+    let cached = {}; 
+    let callCache = {}; 
+    const now = new Date; 
     let slf = MUSTCACHE; 
     let dontCache=[]; let inIDFile=[];
 // We store the filename of the latest file in lastFile.txt
@@ -184,7 +186,10 @@ console.log("Just added",call,"to callCache.");
         if(verbose) console.log("Items in",`${lf}:`,Object.keys(callCache));
     }
 
-    TFC.s = {isCached, store, hashArg, cached, noCache, reCache, useFile};
+    function clearCache() { cached = {}; callCache = {}; }
+    
+    TFC.s = {isCached, store, hashArg, cached, noCache, 
+        reCache, useFile, clearCache};
     TFC.s.verbose = verbose;
     return TFC.s;
 }
