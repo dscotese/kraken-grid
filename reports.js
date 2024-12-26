@@ -98,7 +98,7 @@ function ReportCon(bot) {
                 if(earliest) break;  // All new orders collected.
             }
         }
-	closed = keyOrder(closed);
+        closed = keyOrder(closed);
         return closed;
     }
 

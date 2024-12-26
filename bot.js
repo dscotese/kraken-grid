@@ -323,19 +323,24 @@ export const Bot = (config) => {
         return `${gp.userref}:${gp.buy}-${gp.sell} ${gp.bought}/${gp.sold}`; 
     }
 
-    async function moreOrders(count = 100) {
+    async function moreOrders(count = 5) {
         const pc = portfolio.Closed;
-            const preOffset = pc.offset;
-            const closed = await Reports.getExecuted(count, pc);
+        const preCount = Object.keys(pc.orders).length;
+        do {
+            // eslint-disable-next-line no-await-in-loop
+            const closed = await Reports.getExecuted(count < 0 ? 20 
+                : count, portfolio.Closed);
             const closedIDs = Object.keys(closed.orders);
-        // Store closed orders in portfolio
-        console.log("At offset",`${preOffset}... Now`, closedIDs.length, "orders.");
-        if(preOffset < closed.offset || closed.offset === -1) {
-            console.log(`(Re-?)Saving,${closedIDs.length},closed orders...`);
-            portfolio.Closed = closed;
-            save();
-        }
-        return closed;
+            // Store closed orders in portfolio
+            console.log(`Had ${preCount} @ ${pc.offset}, now ${closedIDs.length} orders.`);
+            if(preCount < closedIDs.length || !closed.hasFirst) {
+                console.log(`(Re-?)Saving ${closedIDs.length
+                    } closed orders @ ${closed.offset}.`);
+                portfolio.Closed = closed;
+                save();
+            }            
+        } while( (count < 0 && !portfolio.Closed.hasFirst) );
+        return portfolio.Closed;
     }
     // Initialize the grid by reading closed orders if necessary
     async function initGrid() {
@@ -345,8 +350,8 @@ export const Bot = (config) => {
                 gPrices = portfolio.G;
         }
         if(gPrices.length === 0) {   // When we have no grid prices, collect 100 orders.
-            console.log("Reading grid from 100 closed orders...");
-            const closed = await moreOrders(100);
+            console.log("Reading grid from 20 closed orders...");
+            const closed = await moreOrders(20);
                 const closedIDs = Object.keys(closed.orders);
             if(closedIDs.length > 0) {
                 lCOts = closed.orders[closedIDs.pop()].closetm;
@@ -531,7 +536,7 @@ export const Bot = (config) => {
         if(oldRefs.length > 0) {
             console.log(`Gone: ${oldRefs}`);
             // If trades are gone, check for freshly executed orders.
-            moreOrders();
+            moreOrders(100);
         }
 
         return [bSidesR, bSidesP, comps];
@@ -1007,16 +1012,17 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                 console.log("Restting closed orders record.");
                 portfolio.Closed = {orders: {}, offset: 0};
                 save();
+                return;
             }
             let count = 50; 
-                let ur = args[2] ? args.pop() : false;
-                const early = ur < 0; 
-            if(ur && !Number.isNaN(ur) && Number(ur) < 10000) {
+            let ur = args[2] ? Number(args.pop()) : false;
+            const early = ur < 0; 
+            if(ur && !Number.isNaN(ur) && ur < 10000) {
                 count = Math.abs(ur);
                 ur = false;
             }
             orders = [];
-            const closed = await moreOrders();
+            const closed = await moreOrders(early ? -1 : count);
             (early ? closed.keysFwd() : closed.keysBkwd())
                 .forEach((o) => {
                 const oo = closed.orders[o];
@@ -1062,9 +1068,9 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             });
         };
         const isMore = !portfolio.Closed.hasFirst;
-        console.log("We have collected", isMore
-            ? portfolio.Closed.offset : "all",
-            "orders.", isMore ? "Try again for more." : "");
+        console.log(`We have collected ${ isMore
+            ? portfolio.Closed.keysFwd().length : "all"
+            } orders. ${ isMore ? "Try again for more." : "" }`);
     }
 
     // How to recreate an order with the correct userref.
