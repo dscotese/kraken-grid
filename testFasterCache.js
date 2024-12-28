@@ -130,6 +130,7 @@ function TFC(verbose = false,id = '') {
             "with",Object.keys(callCache).length,"cached calls.");
     }
 
+    // Returns an object with answer (boolean), id, and cached
     function isCached(fnName,args) {
         const call = JSON.stringify({fnName,args});
         const ri = hashArg(call); // "Response Identifier"

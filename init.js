@@ -19,6 +19,7 @@ const argv = yargs
     .alias('h', 'help')
     .argv;
 */        
+import ClientCon from 'kraka-djs';
 import Manager from './manager.js';
 import { Bot } from './bot.js';
 import { AllocCon } from './allocation.js';
@@ -26,7 +27,7 @@ import Savings from './savings.js';
 import Balancer from './balancer.js';
 import Web from './web.js';
 
-export default async function init() {
+export default async function init(initMan = true) {
     process.TESTING = process.TESTING || !(/init.js$|kraken-grid$/.test(process.argv[1]));
     if(process.argv.length > 2) [,,process.TESTING] = process.argv;
     if((typeof process.TESTING)==='string' 
@@ -38,13 +39,13 @@ export default async function init() {
     console.log(`filename is ${process.argv[1]} in ${process.TESTING
         ? `test(${process.TESTING})`
         : 'production'} mode.`);
-    const allConfig = {AllocCon, Savings, Balancer, Web, exch: 'K'};
+    const allConfig = {AllocCon, Savings, Balancer, Web, ClientCon};
     // The two following constructors assign their return
     // values to allConfig.[man, bot].
     Bot(allConfig);
     Manager(allConfig);
     if( process.TESTING ) global.kgPassword = "TestPW";
-    await allConfig.man.init(global.kgPassword);
+    if(initMan) await allConfig.man.init("TestPW");
     return allConfig;
 }
 

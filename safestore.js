@@ -3,16 +3,26 @@ import path from 'path';
 import cryptex from 'cryptex';
 import crypto from 'crypto';
 import PSCon from 'prompt-sync';
-import TFC from './testFasterCache.js';
 
 const prompt = PSCon({sigint: true});
-const tfc = TFC(process.TESTING);
 function Safestore(pwp = 'abc123') {
     console.log(process.TESTING
         ? "Running in TEST mode."
         : "Running in PRODUCTION mode.");
 
-    let fn = tfc.hashArg(pwp);
+    function hashArg(arg) {
+        let hash = 0; const string = JSON.stringify(arg);
+        for (let i = 0; i < string.length; i += 1) {
+            const code = string.charCodeAt(i);
+            // eslint-disable-next-line no-bitwise
+            hash = ((hash<<5)-hash)+code;
+            // eslint-disable-next-line no-bitwise
+            hash &= hash; // Convert to 32bit integer
+        }
+        return (`h${hash}`).replace('-','h');
+    }
+    
+    let fn = hashArg(pwp);
     const homeDir = process.env.APPDATA
         || (process.platform === 'darwin'
             ? path.join(process.env.HOME,"Library","Preferences")
@@ -22,7 +32,7 @@ function Safestore(pwp = 'abc123') {
         ? prompt("Enter your password (or a new one): ",{echo:'*'})
         : pwp;
     if(pw !== pwp) { // New Password means new file.
-        fn = tfc.hashArg(pw);
+        fn = hashArg(pw);
         keyFile = path.join(homeDir,`${process.TESTING ? 'test' : ''}${fn}.txt`);
     }
 
