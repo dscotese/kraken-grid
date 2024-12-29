@@ -8,7 +8,7 @@
   },
   "type": "module",
   "scripts": {
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest --verbose --detectOpenHandles",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest --verbose --detectOpenHandles --runInBand",
     "testLint": "eslint allocation.js && ava --timeout=10000 --verbose",
     "test1": "clear; eslint $* && ava --timeout=10000 --verbose",
     "nolint": "ava --timeout=10000 --verbose"

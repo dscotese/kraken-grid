@@ -8,16 +8,20 @@ import Balancer from './balancer.js';
 import Web from './web.js';
 import ClientCon from './krak2gem.js';
 
-process.TESTING = process.TESTING || !(/ginit.js$|gemini-grid$/.test(process.argv[1]));
-if(process.argv.length > 2) [,,process.TESTING] = process.argv;
-console.log(`filename is ${process.argv[1]} in ${process.TESTING
-    ? `test(${process.TESTING})`
-    : 'production'} mode.`);
-const allConfig = {AllocCon, Savings, Balancer, Web, ClientCon};
-// The three following constructors assign their return
-// values to allConfig.[man, bot, web].
-Bot(allConfig);
-Manager(allConfig);
-if( process.TESTING ) global.kgPassword = "TestPWG";
-allConfig.man.init(global.kgPassword);
-export default allConfig;
+export default async function init(initMan = true) {
+    process.TESTING = process.TESTING || !(/ginit.js$|gemini-grid$/.test(process.argv[1]));
+    if(process.argv.length > 2) [,,process.TESTING] = process.argv;
+    console.log(`filename is ${process.argv[1]} in ${process.TESTING
+        ? `test(${process.TESTING})`
+        : 'production'} mode.`);
+    const allConfig = {AllocCon, Savings, Balancer, Web, ClientCon};
+    // The three following constructors assign their return
+    // values to allConfig.[man, bot, web].
+    Bot(allConfig);
+    Manager(allConfig);
+    if( process.TESTING ) global.kgPassword = "TestPWG";
+    if(initMan) allConfig.man.init(global.kgPassword);
+    return allConfig;
+}
+
+if (/ginit.js$|kraken-grid$/.test(process.argv[1])) init();
