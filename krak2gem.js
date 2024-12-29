@@ -1,8 +1,6 @@
 /* eslint-disable import/extensions */
 import Gem from './gemini.js';
-import TFC from './testFasterCache.js';
 
-//const k2gtfc = TFC(process.TESTING,process.argv[2]);
 // This translates kraken API calls into Gemini API calls
 // so that code written for Kraken will work against Gemini
 // --------------------------------

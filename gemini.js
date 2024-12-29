@@ -1,7 +1,11 @@
+/* eslint-disable import/extensions */
 /* eslint-disable no-param-reassign */
 import got from 'got';
 import crypto from 'crypto';
 import qs from 'qs';
+import TFC from './testFasterCache.js';
+
+const k2gtfc = TFC(process.TESTING,"Gem");
 
 // Public/Private method names
 const endpoints = {
@@ -50,20 +54,16 @@ export default function GeminiClient (key, secret, options = {}) {
     const waiters = [];
     
     function waitForSlot() {
-        console.log(`waitForSlot called, conCurrent = ${conCurrent}`);
         if (conCurrent < maxConcurrent) {
             conCurrent++;
-            console.log('No need to wait, resolving immediately');
             return Promise.resolve();
         }
         
-        console.log('Need to wait, creating new Promise');
         return new Promise(resolve => {
             waiters.push(() => {
                 conCurrent += 1;
                 resolve()
-        });
-            console.log(`Added waiter. Queue length: ${waiters.length}`);
+            });
         });
     }
     
@@ -73,14 +73,11 @@ export default function GeminiClient (key, secret, options = {}) {
         if (conCurrent < maxConcurrent && waiters.length > 0) {
             const resolve = waiters.shift();
             resolve();
-            console.log(`Released waiter. Queue length: ${waiters.length}`);
         }
     }
     
     async function rawRequest(method, path, headers, timeout) {
-        console.log('rawRequest: About to await waitForSlot');
         await waitForSlot();
-        console.log('rawRequest: waitForSlot completed');
 
         headers['User-Agent'] = 'Gemini Javascript API Client';
 
@@ -222,7 +219,10 @@ console.log("reqStr,payload: ",reqStr,payload);
             callback = params;
             params   = {};
         }
-        let reqType; let path; let headers;
+        let reqType; 
+        let path; 
+        let headers;
+        const objCache = k2gtfc.isCached("gemini.api",[endpoint,params]);
 
         if(endpoints.public.includes(endpoint)) {
             [path, headers] = publicMethod(endpoint, params);
@@ -235,8 +235,12 @@ console.log("reqStr,payload: ",reqStr,payload);
         else {
             throw new Error(`${endpoint  } is not (yet?) a supported API endpoint.`);
         }
-    
-        const response = await rawRequest(reqType, path, headers, config.timeout);
+        
+        let response;
+        if(objCache.answer === false) {
+            response = await rawRequest(reqType, path, headers, config.timeout);
+            k2gtfc.store(objCache.id,response);
+        } else response = objCache.cached;
         
         if(typeof callback === 'function') {
             response

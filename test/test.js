@@ -23,12 +23,6 @@ test('bar', async t => {
     t.is(await bar, 'bar');
 });
 */
-// TestPW is a special password that blocks encryption so that
-// the file storing API keys and other sensitive data can be
-// altered as necessary for tests. By setting global.kgPassword,
-// we bypass the call to prompt so no user input is required.
-global.kgPassword = "TestPW"; // Also set in init just in case.
-// Initializes man, which initializes bot using kgPassword.
 // eslint-disable-next-line import/first
 import fnInit from "../init";
 
@@ -41,15 +35,22 @@ let man;
 let AllocCon;
 
 beforeAll(async () => {
-
-    const allConfig = await fnInit();
+    const allConfig = await fnInit(false);    // Do not initialize Manager.
     ({bot, man, AllocCon} = allConfig);
+    bot.tfc.useFile(path.join(localDir,'test',"cached.json"));
+    bot.tfc.useFile(path.join(localDir,'test',"7open.json"));
+    // TestPW is a special password (prefix) that blocks encryption so
+    // that the file storing API keys and other sensitive data can be
+    // altered as necessary for tests. By initializing man with a password,
+    // we bypass the call to prompt so no user input is required.
+    // We pass false to fnInit to avoid initializing man.
+    // man initializes bot using a password passed to it.
+    man.init("TestPW")
     // Not testing the command ine interface (yet?)
     man.ignore();
     a = AllocCon({bot, Savings:null});
     a.addAsset('XBT',0.4);
     a.addAsset('XMR',0.4);
-    bot.tfc.useFile(path.join(localDir,'test',"7open.json"));
     // console.log('bot is ', bot);
 });
 

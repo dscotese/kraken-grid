@@ -3,8 +3,6 @@
 /* eslint-disable no-console */
 import PSCon from 'prompt-sync';
  // ({sigint: true});
-import KrakenClient from 'kraka-djs';
-import Gclient from './krak2gem.js';
 import ssModule from './safestore.js';     // encrypted sorage
 import ReportCon from './reports.js';
 import TFC from'./testFasterCache.js';
@@ -15,7 +13,7 @@ const myConfig = {exch: 'K'};
 export const Bot = (config) => {
     if(config.bot) return config.bot; // Singleton!
     Object.assign(myConfig, config);
-    const {Savings, AllocCon} = myConfig;
+    const {Savings, AllocCon, ClientCon} = myConfig;
     let safestore;
     let Reports;
     let pairs = {};
@@ -24,8 +22,8 @@ export const Bot = (config) => {
     let Numeraires;
     let Extra = {};
     const alts = {};
+    let exchange;
 
-    let exchange;           // The API, either kraka-djs or krak2gem
     const portfolio = {};   // A record of what's on the exchange
     let lCOts = 0;          // Timestamp for use in collecting executed trades.
     const FLAGS = {safe:true,verbose:process.TESTING,risky:false};
@@ -192,9 +190,7 @@ export const Bot = (config) => {
             config.stored = safestore;
             const p = await safestore.read();
             Extra = p.Extra || Extra;
-            exchange = config.exch==='K' 
-                ? new KrakenClient(p.key, p.secret)
-                : new Gclient(p.key, p.secret);
+            exchange = new ClientCon(p.key, p.secret);
             pairs = await cachePairs();
             tickers = await cacheTickers();
             Savings.init(this);
@@ -1261,13 +1257,13 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         return ret;
     }
 
-        // eslint-disable-next-line no-param-reassign
-        config.bot = {order, set, listOpens, deleverage, w, ExchangeSavings,
-        refnum, list, kapi, lessmore, kill, report, howMuch,
-        sleep, marginReport, getLev, showState, getExtra,
-        pairInfo, showPair, FLAGS, save, basesFromPairs, findPair,
-        numerairesFromPairs, init, keys, getPrice, tfc,
-        getPairs, getTickers, getAlts, getPortfolio, getConfig};
+    // eslint-disable-next-line no-param-reassign
+    config.bot = {order, set, listOpens, deleverage, w, ExchangeSavings,
+    refnum, list, kapi, lessmore, kill, report, howMuch,
+    sleep, marginReport, getLev, showState, getExtra,
+    pairInfo, showPair, FLAGS, save, basesFromPairs, findPair,
+    numerairesFromPairs, init, keys, getPrice, tfc,
+    getPairs, getTickers, getAlts, getPortfolio, getConfig};
 
-        return config.bot;
+    return config.bot;
 }
