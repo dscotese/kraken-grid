@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-globals */
 import express from 'express';
 import basicAuth from "express-basic-auth";
 import path from "path";
@@ -121,7 +122,7 @@ function Web(config) {
                 [tkr,amt] = [assets[a].ticker,assets[a].amount];
                 rows[label].push({key:tkr,
                     val:`<td tkr='${tkr}' acct='${label}' amt='${amt}'>${amt}</td>`});
-                if(Number.isNaN(tkrs[tkr])) {
+                if(isNaN(tkrs[tkr])) {
                     tkrs[tkr]=amt;          // Initialized.
                     rows[''].push({key:tkr, val:`<th>${  weblink(tkr)  }</th>`});
                     ktks.push(tkr);

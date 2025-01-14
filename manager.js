@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-restricted-globals */
 import PSCon from 'prompt-sync';
  
 const prompt = PSCon({sigint: true});
@@ -48,11 +49,11 @@ function Manager(config) {
             } else {
                 answer = prompt(`Change ${answer} to what percentage `
                     + `(0.0-100.0 or use + or - for relative changes): `);
-                if(Number.isNaN(answer)) console.log("Only numbers work here.");
+                if(isNaN(answer)) console.log("Only numbers work here.");
                 else if(['+','-'].includes(answer[0])) {
                     answer = Number(answer) + 100*tik.target;
                 }
-                if(!Number.isNaN(answer)) alloc.addAsset(tik.ticker, answer/100);
+                if(!isNaN(answer)) alloc.addAsset(tik.ticker, answer/100);
             }
             console.log(alloc.list());
             portfolio.Allocation = alloc;
@@ -92,7 +93,7 @@ function Manager(config) {
             // Do we need leverage?
             // --------------------
             const lev = bot.getLev(p,buysell,price,amt,xmrbtc,posP);
-            let cPrice = !Number.isNaN(p.G[uref]) 
+            let cPrice = !isNaN(p.G[uref]) 
                 ? p.G[uref][buysell==='buy'?'sell':'buy'] : 0;
             // Without a record of a closing price, use the last one we found.
             // ---------------------------------------------------------------
@@ -140,7 +141,7 @@ function Manager(config) {
                     console.log("Non-existent account:",label);
                     return;
                 }
-                if(Number.isNaN(args[2])) {
+                if(isNaN(args[2])) {
                     console.log(args[2],"is not a number.");
                     return;
                 }
@@ -167,7 +168,7 @@ function Manager(config) {
                 }
                 return;
             }
-            if(Number.isNaN(args[2])) {
+            if(isNaN(args[2])) {
                 console.log(args[2],"is not a number.");
                 return;
             }
@@ -220,7 +221,7 @@ function Manager(config) {
                 if(!a || old) a = await p.Allocation.getAllocation(false);
                 console.log(a.list());
                 await setAlloc(a);
-            } else if(Number.isNaN(args[2]) || !bot.getTickers().includes(args[1])) {
+            } else if(isNaN(args[2]) || !bot.getTickers().includes(args[1])) {
                 console.log(args[2],"isn't a number or",args[1],
                     "isn't a recognized ticker.");
             } else {
@@ -229,7 +230,7 @@ function Manager(config) {
                 if(a === false) a = p.Allocation.getAllocation(false);
                 if(amt<0 || args[2][0]==='+') { // Relative adjustment
                     const rel = a.get(tkr).target;
-                    if(!Number.isNaN(rel)) amt += rel;
+                    if(!isNaN(rel)) amt += rel;
                 }
                 a.addAsset(tkr,amt);
                 bot.save();
@@ -258,7 +259,7 @@ function Manager(config) {
                     "ppct is the percent of the price over which you want\n" +
                     "to do it.";
             if(typeof(alloc) === 'undefined'
-                || Number.isNaN(ppct) || Number.isNaN(a)) {
+                || isNaN(ppct) || isNaN(a)) {
                 console.log(usage);
             } else if(a<0||ppct<0||a>100*(1-alloc.target)||ppct>100) {
                 console.log("apct must be between 0 and",100-100*alloc.target,
@@ -269,7 +270,7 @@ function Manager(config) {
                 await bot.save();
             }
         } else if(args[0] === 'limits') {
-            if(args.length < 3 || Number.isNaN(args[1]) || Number.isNaN(args[2])) {
+            if(args.length < 3 || isNaN(args[1]) || isNaN(args[2])) {
                 console.log(`Usage: limits AtLeast AtMost\n` +
                     `The allocation command will make trades only if the\n` +
                     `amount in ${p.Numeraire} is at least the \n` +
@@ -333,7 +334,7 @@ function Manager(config) {
                 auto = 0;
             } else if(args[0] === "auto") {
                 clearInterval(auto);
-                if(args[1]&&!Number.isNaN(args[1])) [,delay] = args;
+                if(args[1]&&!isNaN(args[1])) [,delay] = args;
                 let counter = 2; // Wait 2 seconds before first run.
                 // eslint-disable-next-line no-loop-func
                 auto = setInterval(async () => {

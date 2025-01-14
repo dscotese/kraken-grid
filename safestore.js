@@ -105,15 +105,13 @@ function Safestore(pwp = 'abc123') {
         const enc64 = fs.readFileSync(f).toString();
         let ret = enc64;
         if(!/^TestPW/.test(pw)) {
-            await cryptex.decrypt(enc64)
+            ret = await cryptex.decrypt(enc64)
                 .then(async (r) => {
-                    try { ret = JSON.parse(r); 
+                    try { return JSON.parse(r); 
                     } catch(e) {
-                        ret = await ssUpdate(enc64);
-                }},async () => {
-                        ret = await ssUpdate(enc64);
+                        return ssUpdate(enc64);
                     }
-                );
+                },async () => ( ssUpdate(enc64) ));
         } else ret = JSON.parse(ret); 
         return ret;
     }

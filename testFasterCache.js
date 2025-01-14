@@ -28,6 +28,7 @@ function TFC(verbose = false,id = '') {
     let lastFile = path.join(base,"lastFile.txt");
         let file2Read;
     const blockFile = path.join(base,"blockFile.json");
+    const cacheFiles = [];
     // The idFile contains a series of JSON objects, {h...: fName+args},
     // as well as the trailing comma. The comma gets stripped to create
     // valid JSON so the cache knows what IDs have already been recorded.
@@ -78,12 +79,14 @@ function TFC(verbose = false,id = '') {
                 // hash to find the old property name (and so remove the old
                 // property). This will shrink our file size.
                 const hashes = Object.keys(cached).map(hashArg);
-                if(verbose) console.log("Removing:",hashes);
+                if(verbose) console.log(`Removing ${hashes.length
+                    } hashes...`);
                 hashes.forEach(h => delete cached[h]);
                 inIDFile = Object.keys(cached);
-                if(verbose) console.log("Using ",fName,"with keys:\n",
-                    inIDFile.join('\n'));
+                if(verbose) console.log(`Using ${fName}, with ${
+                    inIDFile.length} keys.`);
                 file2Read = fName;
+                cacheFiles.push(fName);
                 Object.assign(callCache, cached);
             } else {
                 console.log("Cache is empty.");
@@ -135,26 +138,25 @@ function TFC(verbose = false,id = '') {
         const call = JSON.stringify({fnName,args});
         const ri = hashArg(call); // "Response Identifier"
         const blocked = dontCache.includes(ri);
-        if(verbose) console.log("Seeking:",call,'(',ri,')');
         if(callCache[call]) {
-            if(verbose) console.log("New hit in",file2Read);
             if( callCache[call].inFile ) {   // Data stored in separate file.
-                const inName = path.join(path.dirname(file2Read),callCache[call].inFile);
+                const inName = path.join(base,callCache[call].inFile);
                 // eslint-disable-next-line react-hooks/rules-of-hooks
                 useFile(inName);
                 if(callCache[call].inFile) throw Error("Nope!");
             }
             return {answer:true, id:call, cached:callCache[call]};
         } 
-        if(verbose) console.log(call,"isn't in",Object.keys(callCache));
-        
+        if(verbose) console.log(`${call} isn't in ${
+            cacheFiles.join("\n")}.`);
 
         const ret = (cached && cached[ri] && !dontCache.includes(ri)) 
             ? {answer:true, id:call, cached:cached[ri]}
             : {answer:false, id:call};
         // eslint-disable-next-line no-nested-ternary
         if(verbose) console.log(ret.answer ? "Old hit in" 
-            : (blocked ? "Blocked by" : "Miss in"), file2Read);
+            : (blocked ? `Blocked by ${blockFile}` 
+                : "Miss in"), cacheFiles.join("\n"));
 
         // If we have it, and it isn't in callCache yet, add it.
         if(ret.answer && !callCache[call]) {
@@ -184,13 +186,12 @@ console.log("Just added",call,"to callCache.");
             fs.writeFile(lastFile,lf,(err)=>{if(err)throw(err);});
             lastFile = '';  // Protect it from being overwritten.
         }
-        if(verbose) console.log("Items in",`${lf}:`,Object.keys(callCache));
     }
 
     function clearCache() { cached = {}; callCache = {}; }
     
     TFC.s = {isCached, store, hashArg, cached, noCache, 
-        reCache, useFile, clearCache};
+        reCache, useFile, clearCache, cacheFiles};
     TFC.s.verbose = verbose;
     return TFC.s;
 }

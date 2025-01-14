@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-restricted-globals */
 /* eslint-disable import/extensions */
 /* eslint-disable no-console */
 import PSCon from 'prompt-sync';
@@ -7,7 +8,6 @@ import ssModule from './safestore.js';     // encrypted sorage
 import ReportCon from './reports.js';
 import TFC from'./testFasterCache.js';
 
-const  tfc = TFC(process.TESTING,process.argv[2]);
 const prompt = PSCon({sigint: true});
 const myConfig = {exch: 'K'};
 export const Bot = (config) => {
@@ -23,6 +23,7 @@ export const Bot = (config) => {
     let Extra = {};
     const alts = {};
     let exchange;
+    let tfc;        // So we don't have to use config.bot.tfc
 
     const portfolio = {};   // A record of what's on the exchange
     let lCOts = 0;          // Timestamp for use in collecting executed trades.
@@ -65,10 +66,16 @@ export const Bot = (config) => {
     // you have to pass 1 in as idx. You can pass undefined for quote.
     // TODO: make this function easier to use, like:
     //  findPair('XXBTZUSD', altname) -> 'XBTUSD'.
-    function findPair(base, quote = 'ZUSD', idx = 0) {
+    function findPair(base, quote = portfolio.Numeraire, idx = 0) {
+        const gMarket = exchange.inKraken(base+quote).toLowerCase();
+        const kBase = exchange.inKraken(base, true)
         const p = Object.entries(pairs).find(a => a[1].altname===base 
             || a[0] === base || alts[base] === a[0]
-            || (a[1].quote===quote && ([base,alts[base]].includes(a[1].base))));
+            || (a[1].quote===quote && ([base,alts[base]].includes(a[1].base)))
+            || a[0] === kBase 
+            || base === exchange.inKraken(a[0])
+            || a[0] === gMarket
+            || base+quote === exchange.inKraken(a[0], true));
         if(!p) {
             console.trace("No pair with base",base,"and quote",quote,
                 "in pairs that has",Object.keys(pairs).length,"keys.");
@@ -104,14 +111,18 @@ export const Bot = (config) => {
     }
 
     function sleep(ms) {
-        return new Promise(resolve => {setTimeout(resolve, ms)});
+    // When debugging, step INTO this function and wait at the breakpoint below.
+    // If you step OVER the await that calls sleep(), JavaScript will continue 
+    // executing other code (like the next test file) while waiting for the timeout.
+        return new Promise(resolve => {
+            setTimeout(resolve, ms)});
     }
 
     // Call a Kraken API
     async function kapi(arg,sd=5) {
         let ret;
         const cached = tfc.isCached('kapi',arg);
-        if( cached.answer && process.USECACHE ) {
+        if( cached.answer && ['G','K','must'].includes(process.USECACHE) ) {
             ret = cached.cached;
         } else if( process.USECACHE==='must' ) { return { result: { 
             descr: `No Cache for ${cached.id}` } }; 
@@ -131,7 +142,9 @@ export const Bot = (config) => {
                 || (FLAGS.risky && /Internal error/.test(err.message))
                 || /Unavailable/.test(err.message) 
                 || /Rate limit|Throttled/.test(err.message)) {
-                console.log(22,`${err.message}, so trying again in ${sd}s...(${new Date}):`);
+                if(sd > 5)
+                    console.log(22,`${err.message
+                        }, so trying again in ${sd}s...(${new Date}):`);
                 if(Array.isArray(arg)) {
                     // eslint-disable-next-line no-param-reassign
                     delete arg[1].nonce;
@@ -163,7 +176,7 @@ export const Bot = (config) => {
     async function cachePairs() {
         console.log("Reading Asset Pairs...");
         const kp = await kapi('AssetPairs');
-            const ret = {};
+        const ret = {};
         Object.keys(kp.result).forEach(k => {
             ret[k] = kp.result[k];
             ret[k].pair = k;
@@ -173,7 +186,7 @@ export const Bot = (config) => {
     }
 
     async function cacheTickers() {
-        console.log("Reading Tickers...");
+        await console.log("Reading Tickers...");
         const kp = await kapi('Assets');
             const ret = Object.keys(kp.result);
         ret.forEach(t => {
@@ -184,13 +197,20 @@ export const Bot = (config) => {
 
     // init initializes the bot and accepts a password for testing.
     async function init(pwd = "") { 
+        tfc = TFC(process.TESTING,process.argv[2]);
+        // eslint-disable-next-line no-param-reassign
+        config.bot.tfc = tfc;   // `this` here is not the object, config.bot is.
         if(!exchange) {
             safestore = ssModule(pwd);
             // eslint-disable-next-line no-param-reassign
             config.stored = safestore;
             const p = await safestore.read();
             Extra = p.Extra || Extra;
-            exchange = new ClientCon(p.key, p.secret);
+            exchange = new ClientCon(p.key, p.secret, config);
+            // eslint-disable-next-line no-param-reassign
+            config.exchange = exchange;
+            exchange.inKraken = exchange.inKraken
+                || function inKraken(x) {return x;};
             pairs = await cachePairs();
             tickers = await cacheTickers();
             Savings.init(this);
@@ -198,13 +218,15 @@ export const Bot = (config) => {
             portfolio.secret = p.secret;
             portfolio.Savings = p.savings ? p.savings : []; 
 	        portfolio.Closed = p.Closed || {orders: {}, offset: 0};      // Must be something for new accounts.
-            portfolio.Allocation = AllocCon(config, 
-                p.Alloc ? p.Alloc.assets : undefined);
             portfolio.Pairs = new Set(Array.isArray(p.Pairs) ? p.Pairs : []);
             portfolio.Tickers = new Set();
-            portfolio.Numeraire = p.Numeraire || 'ZUSD';
+            portfolio.Numeraire = p.Numeraire || exchange.inKraken('ZUSD');
             portfolio.limits = p.limits ? p.limits : [0,-1];
             portfolio.lastUpdate = p.lastUpdate ? p.lastUpdate : null;
+            portfolio.Allocation = AllocCon(config, 
+                p.Alloc ? p.Alloc.assets : undefined);
+            // eslint-disable-next-line no-param-reassign
+            config.bot.portfolio = portfolio;
             Reports = ReportCon(this);
         }
         return portfolio;
@@ -280,7 +302,7 @@ export const Bot = (config) => {
 
         console.log(`${(notTrade ? `(>$${maxInNum} not safe, so NOT) ` : '')
             +buysell}ing ${a} ${market} at ${p} with leverage ${lev
-            }${cO===0 ? "" : ` to close at ${Number.isNaN(cO)?`${closeO} is NaN!`:cO}` } as ${uref}`);
+            }${cO===0 ? "" : ` to close at ${isNaN(cO)?`${closeO} is NaN!`:cO}` } as ${uref}`);
         if( cO>0 && (buysell === 'buy' ? cO <= price : cO >= price) )
             throw new Error(`Close price, ${cO} is on the wrong side of ${buysell} at ${price}!`);
         if(process.argv[2]==='fakeTrade') // Just fake it
@@ -318,6 +340,7 @@ export const Bot = (config) => {
         return `${gp.userref}:${gp.buy}-${gp.sell} ${gp.bought}/${gp.sold}`; 
     }
 
+    // Pass a negative numbr for count to collect all orders.
     async function moreOrders(count = 5) {
         const pc = portfolio.Closed;
         const preCount = Object.keys(pc.orders).length;
@@ -328,12 +351,13 @@ export const Bot = (config) => {
             const closedIDs = Object.keys(closed.orders);
             // Store closed orders in portfolio
             console.log(`Had ${preCount} @ ${pc.offset}, now ${closedIDs.length} orders.`);
+            portfolio.Closed = closed;
             if(preCount < closedIDs.length || !closed.hasFirst) {
                 console.log(`(Re-?)Saving ${closedIDs.length
                     } closed orders @ ${closed.offset}.`);
-                portfolio.Closed = closed;
                 save();
-            }            
+            }
+        // If count < 0, keep going until we have the first one.
         } while( (count < 0 && !portfolio.Closed.hasFirst) );
         return portfolio.Closed;
     }
@@ -347,19 +371,19 @@ export const Bot = (config) => {
         if(gPrices.length === 0) {   // When we have no grid prices, collect 100 orders.
             console.log("Reading grid from 20 closed orders...");
             const closed = await moreOrders(20);
-                const closedIDs = Object.keys(closed.orders);
+            const closedIDs = closed.keysFwd();
             if(closedIDs.length > 0) {
-                lCOts = closed.orders[closedIDs.pop()].closetm;
                 let counter = closedIDs.length-1;
+                lCOts = closed.orders[closedIDs[counter]].closetm;
                 console.log("Last five executed orders:");
-                closed.keysFwd().forEach((o) => {  // fill in the grid prices from existing orders.
+                closedIDs.forEach((o) => {  // fill in the grid prices from existing orders.
                     const oo = closed.orders[o];
                     const od = oo.descr;
                     const op = od.price;
                     const ur = oo.userref;
                     const cd = new Date(oo.closetm * 1000);
                     let gp = gPrices.find(x => x.userref===ur); // If we already saw this grid point.
-	                if( counter < 6 ) {
+	                if( counter < 5 ) {
                         console.log(o,ur,op,od.type,od.close,`${cd.getFullYear()}/${1+cd.getMonth()
                             }/${cd.getDate()}`,cd.getHours(),cd.getMinutes(),cd.getSeconds());
                     }
@@ -671,17 +695,21 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
     // ------------------------------------------------
     async function listOpens(isFresh=false) {
         const response = await kapi('OpenOrders');
-            const opens = response.result.open;
+        const opens = response.result.open;
         let comps   = [];       // Orders resulting from partial executions
-            let bSidesR = [];       // Which userrefs have both buys and sells.
-            let bSidesP = [];       // Find highest sell and lowest buy for a pair.
-            let bs; let pair; let sym; let price;
-            // let ci; let oo; let od; let rv; let ur; let op; let cp; let gpi; let gp; let ct; 
-            const pnum = portfolio.Numeraire;
-            // Index for comps, Closing Price, index to grid prices,
-            // and bs is "thish sides", holding an array of objects
-            // holding userref, and two booleans, buy and sell.
+        let bSidesR = [];       // Which userrefs have both buys and sells.
+        let bSidesP = [];       // Find highest sell and lowest buy for a pair.
+        let bs; let pair; let sym; let price;
+        // let ci; let oo; let od; let rv; let ur; let op; let cp; let gpi; let gp; let ct; 
+        const pnum = portfolio.Numeraire;
+        // Index for comps, Closing Price, index to grid prices,
+        // and bs is "thish sides", holding an array of objects
+        // holding userref, and two booleans, buy and sell.
 
+        if(Object.keys(opens).length === 0) {
+            console.log("There are no open orders.");
+            return;
+        }
         await initGrid(); // Also sets portfolio['G'] (the grid).
         const gPrices = portfolio.G;
 
@@ -718,7 +746,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             if(FLAGS.verbose) console.log(`Checking: ${  c.type  } ${
                  sym  } ${  price  } ${  toDec(c.total,4)
                  }${c.open ? ` to ${c.ctype}-close @${c.open}` : '' } (${  c.userref  }):`);
-            if(!Number.isNaN(c.open)) {
+            if(!isNaN(c.open)) {
                 if(!c.hasClose) { // If any doesn't have a close, combine them and add one.
                     console.log(421,Object.values(c.ids));
                     await kill(c.ids.length>1?c.ids:c.ids[0]);
@@ -821,7 +849,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             }
         }));
         // console.log(gPrices);
-        console.log(nexes,"orders did NOT require extension.");
+        // console.log(nexes,"orders did NOT require extension.");
         // console.log(comps);
     }
 
@@ -959,9 +987,9 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         // ----------------------------------------------------------------------
         if(!portfolio[portfolio.Numeraire]) portfolio[portfolio.Numeraire] = [0,1,0,0];
         Object.entries(mCosts).forEach(sym => { 
-            portfolio[sym][3] += mCosts[sym]; 
-            if( Number.isNaN(mCosts[sym]) )
+            if( isNaN(mCosts[sym]) )
                 throw new Error(`Problem with ${sym}, ${mCosts[sym]} in mCosts (895): `);
+            portfolio[sym][3] += mCosts[sym]; 
         });
         // The price of the numeraire is always 1
         // --------------------------------------
@@ -1006,13 +1034,14 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             if(args[1] === 'CR') {
                 console.log("Restting closed orders record.");
                 portfolio.Closed = {orders: {}, offset: 0};
+                delete portfolio.Extra.gemClosed;
                 save();
                 return;
             }
             let count = 50; 
             let ur = args[2] ? Number(args.pop()) : false;
             const early = ur < 0; 
-            if(ur && !Number.isNaN(ur) && ur < 10000) {
+            if(ur && !isNaN(ur) && ur < 10000) {
                 count = Math.abs(ur);
                 ur = false;
             }
@@ -1030,6 +1059,10 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             // Either way, we display the latest at the bottom by:
             if(!closed.forward) orders.reverse();
             args.pop();
+            const isMore = !portfolio.Closed.hasFirst;
+            console.log(`We have collected ${ isMore
+                ? portfolio.Closed.keysFwd().length : "all"
+                } orders. ${ isMore ? "Try again for more." : "" }`);
         }
         orders.forEach((x,i) => {
             const ld = x[1].descr;
@@ -1055,7 +1088,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                     a = a1[1][args[1]];
                     b = b1[1][args[1]];
                 }
-                return Number.isNaN(a)
+                return isNaN(a)
                     ? a.localeCompare(b)
                     : a - b;
             });
@@ -1067,10 +1100,6 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                     ldo,x[1].userref,x[1].descr.close);
             });
         };
-        const isMore = !portfolio.Closed.hasFirst;
-        console.log(`We have collected ${ isMore
-            ? portfolio.Closed.keysFwd().length : "all"
-            } orders. ${ isMore ? "Try again for more." : "" }`);
     }
 
     // How to recreate an order with the correct userref.
@@ -1161,7 +1190,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         await Promise.all(p.G.map(async (x) => {
             since = new Date().getTime()/1000;
             f = toDec(((x.sell-x.buy)*Math.min(x.bought,x.sold)),2);
-            if(!Number.isNaN(f) && (once || x.since)) profits += f;
+            if(!isNaN(f) && (once || x.since)) profits += f;
             else if(!once && !x.open && x.userref !== 0) { // We do this once for each call to set
                            // and remember which grid points are in play so need to stay.
                 if(!haveAll) {
@@ -1218,7 +1247,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                         x[datad.type==='buy'?'bought':'sold'] += Number(data.vol_exec);
                         if(datad.close)
                         {
-                            if(Number.isNaN(x.buy) || Number.isNaN(x.sell)) {
+                            if(isNaN(x.buy) || isNaN(x.sell)) {
                                 // eslint-disable-next-line no-param-reassign
                                 x[datad.type] = data.price;
                                 // eslint-disable-next-line no-param-reassign
@@ -1232,7 +1261,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                 data = p.O.find(o => o.userref===x.userref);
                 // eslint-disable-next-line no-param-reassign
                 x.open = (data !== undefined);
-                if(!Number.isNaN(f)) profits += f;   // Profits from just-retrieved trades.
+                if(!isNaN(f)) profits += f;   // Profits from just-retrieved trades.
             }
             const s2 = (new Date((x.since>1?x.since:since)*1000)).toLocaleString();
             console.log(`${x.userref}: ${x.buy}-${x.sell

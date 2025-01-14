@@ -5,16 +5,25 @@
     "plugin:react-hooks/recommended",
     "prettier"
   ],
+  "plugins": ["promise"],
   "rules": {
     "no-unused-vars": "error",
-    "no-console": "warn",
+    "no-console": "off",
     "no-nested-ternary": "error",
     "arrow-body-style": ["error", "as-needed"],
     "react/prop-types": "error",
     "react/react-in-jsx-scope": "off",
-    "import/prefer-default-export": "off"
-  },
-  "settings": {
+    "import/prefer-default-export": "off",
+    "promise/catch-or-return": "error",
+    "promise/always-return": "error"
+    },
+    "overrides": [{
+      "files": ["test/**/*.js", "test/**/*.mjs"],  // matches all JS/MJS files in test folder
+      "rules": {
+        "no-debugger": "off"  // relaxed for test files
+      }
+    }],
+    "settings": {
     "react": {
       "version": "detect"
     }
@@ -22,7 +31,8 @@
   "env": {
     "node": true,
     "browser": true,
-    "es2021": true  
+    "es2021": true,
+    "jest": true
   },
 //  "extends": "eslint:recommended",
   "parserOptions": {

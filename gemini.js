@@ -2,24 +2,24 @@
 /* eslint-disable no-param-reassign */
 import got from 'got';
 import crypto from 'crypto';
-import qs from 'qs';
+import WebSocket from 'ws';
 import TFC from './testFasterCache.js';
-
-const k2gtfc = TFC(process.TESTING,"Gem");
 
 // Public/Private method names
 const endpoints = {
-    public  : [ 'symbols', 'symbols/details', 'network', 'pubticker', 'ticker',
+    public  : [ 'symbols', 'symbols/details', 'network', 'pubticker', 'v2/ticker',
         'candles', 'derivatives', 'feepromos', 'book', 'trades', 'pricefeed',
-        'fundingamount', 'farxlsx', 'fprxlsx', 'fxrate', 'riskstats' ],
-    private : [ 'new', 'cancel', 'wrap', 'session', 'all', 'order/status', 'orders',
-        'mytrades', 'history', 'notionalvolume', 'tradevolume', 'positions',
-        'balances', 'margin', 'fundingpayment' ]
+        'fundingamount', 'farxlsx', 'fprxlsx', 'fxrate', 'riskstats', 'marketdata' ],
+    private : [ 'order/new', 'order/cancel', 'wrap', 'session', 'all', 
+        'order/events', 'marketdata',
+        'order/status', 'orders', 'mytrades', 'orders/history', 'notionalvolume',
+        'tradevolume', 'positions', 'balances', 'margin', 'fundingpayment' ]
 };
 
 // Default options
 const defaults = {
-    url      : process.TESTING ? 'https://api.sandbox.gemini.com/' : 'https://api.sandbox.gemini.com/',
+    url      : process.TESTING ? 'https://api.sandbox.gemini.com/' 
+                               : 'https://api.sandbox.gemini.com/',
     version : 'v1',
     timeout  : process.TESTING ? 60000 : 5000,
 };
@@ -29,6 +29,7 @@ const getMessageSignature = (message, secret, nonce) => {
 console.log('message, secret, nonce:',message, secret, nonce);
     // const req_buffer    = Buffer.from(message).toString('base64');
     // const hash          = new crypto.createHash('sha256');
+    // eslint-disable-next-line new-cap
     const hmac          = new crypto.createHmac('sha384', secret);
     // const hash_digest   = hash.update(nonce + message).digest('binary');
     return hmac.update(message, 'utf8').digest('hex');
@@ -46,7 +47,8 @@ export default function GeminiClient (key, secret, options = {}) {
     const config = {key, secret, ...defaults, ...options};
     console.log("config:",config);
 
-    // Send an API request
+    const k2gtfc = TFC(process.TESTING,"Gem");
+
     const maxConcurrent = 10;
     let conCurrent = 0;
     
@@ -55,7 +57,7 @@ export default function GeminiClient (key, secret, options = {}) {
     
     function waitForSlot() {
         if (conCurrent < maxConcurrent) {
-            conCurrent++;
+            conCurrent += 1;
             return Promise.resolve();
         }
         
@@ -76,10 +78,14 @@ export default function GeminiClient (key, secret, options = {}) {
         }
     }
     
+    // Send an API request
     async function rawRequest(method, path, headers, timeout) {
         await waitForSlot();
+        const isWS = /(events$|marketdata)/.test(path);
 
-        headers['User-Agent'] = 'Gemini Javascript API Client';
+        headers['User-Agent'] = isWS
+            ? 'Gemini Javascript API Client'
+            : 'Node.js WebSocket Client';
 
         const defopts = { headers, timeout:{
             lookup: process.TESTING ? 30000 : 500,
@@ -97,15 +103,20 @@ export default function GeminiClient (key, secret, options = {}) {
         else delete options.body;
 
 console.log(`config.url(59):${config.url}, conCurrent:${conCurrent}`);
-        const url  = config.url + path;
+        const url  = (isWS ? config.url.replace('https','wss') : config.url) + path;
         try {
+            if(isWS) {
+                return new WebSocket(url, headers);
+            }
             return await got(url, options).json();
         } catch(e) {
-            console.log(`${url} failed because ${e}`);
+            console.log(`${url} failed because ${e}\n
+                headers:${Object.entries(headers)}`);
         } finally {
             console.log('rawRequest: in finally block, about to release slot');
             releaseSlot();
         }
+        return {};
     }
 
     /**
@@ -120,13 +131,18 @@ console.log(`config.url(59):${config.url}, conCurrent:${conCurrent}`);
 
         // Add parameters to APIs that need them.
         // --------------------------------------
-        if(!['symbols','network','feepromos','pricefeed'].includes(method)
-            && params.length !== 1) throw new Error(
-                `${method } requires a parameter.`);
-        let p;
-        for(p in params) method += `/${  params[p]}`;
+        if(!['symbols','network','feepromos','pricefeed']
+            .includes(method) && Object.values(params).length !== 1)
+            throw new Error(`${method } requires a parameter.`);
 
-        const path     = `${config.version  }/${  method}`;
+        if(/^marketdata/.test(method))
+            throw new Error(`MarketData Websockt not yet supported.`);
+        
+        Object.values(params).forEach(v => {method += `/${v}`});
+
+        const path     = /^v\d\//.test(method) // In case we use the new version.
+            ? `${method}`
+            : `${config.version  }/${  method}`;
         return [path, []];
     }
 
@@ -158,11 +174,11 @@ console.log(`config.url(59):${config.url}, conCurrent:${conCurrent}`);
             }
             newNonce = true;
         }
-
+/*
         if(config.otp !== undefined) {
             params.otp = config.otp;
         }
-
+*/
         if(!params.request) {
             params.request = `/${path}`;
         }

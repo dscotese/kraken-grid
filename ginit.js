@@ -7,10 +7,16 @@ import Savings from './savings.js';
 import Balancer from './balancer.js';
 import Web from './web.js';
 import ClientCon from './krak2gem.js';
+import GemSock from './websocket.js';
 
 export default async function init(initMan = true) {
     process.TESTING = process.TESTING || !(/ginit.js$|gemini-grid$/.test(process.argv[1]));
     if(process.argv.length > 2) [,,process.TESTING] = process.argv;
+    if((typeof process.TESTING)==='string' 
+        && process.TESTING.toLowerCase() === 'cacheonly') {
+        if( process.argv.length > 3 ) [,,,process.TESTING] = process.argv;
+        process.USECACHE = 'G';
+    }
     console.log(`filename is ${process.argv[1]} in ${process.TESTING
         ? `test(${process.TESTING})`
         : 'production'} mode.`);
@@ -20,7 +26,8 @@ export default async function init(initMan = true) {
     Bot(allConfig);
     Manager(allConfig);
     if( process.TESTING ) global.kgPassword = "TestPWG";
-    if(initMan) allConfig.man.init(global.kgPassword);
+    if(initMan) await allConfig.man.init(global.kgPassword);
+    // allConfig.gemWS = GemSock(allConfig);
     return allConfig;
 }
 

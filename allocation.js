@@ -25,7 +25,7 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
     function price7(x) { return sigdig(x,6,2); }
 
     async function findRange(ticker, ppct, today = false) {
-        let pair = bot.findPair(ticker, bot.getPortfolio().Numeraire);
+        let pair = bot.findPair(ticker, portfolio.Numeraire);
         let HB;
         let SL;
         let response;
@@ -477,6 +477,7 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
         Object.entries(tickersLH).forEach((t) => {
             [pair,mr] = t;
             tk = bot.findPair(pair,undefined,1).base;
+            if(undefined === tk) return;
             [tl,th,p] = [mr.l[1],mr.h[1],mr.c[0]].map(Number);
             rt = ranges[tk];
             if(rt) {
@@ -564,7 +565,9 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
         let asset;
 // console.trace("assets,Tkrs:",assets,tkrs.join(','));
 // console.log("`allocation quiet` returned:",[allocs.desired.assets,allocs.current.assets]);
-        allocs.desired.assets.forEach(a=>{if(!tkrs.includes(a.ticker)) desired[a.ticker] = 0;});
+        allocs.desired.assets.forEach(a => {
+            if(!tkrs.includes(a.ticker)) desired[a.ticker] = 0;
+        });
         await Promise.all(tkrs.map(async t => {
             current[t] = await getAlloc(t, allocs.current);
             desired[t] = await getAlloc(t, allocs.desired);

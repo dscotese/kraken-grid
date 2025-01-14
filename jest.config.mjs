@@ -196,4 +196,8 @@ const config = {
   // watchman: true,
 };
 
-export default config;
+export default {
+  config,
+  testEnvironment: 'node'  // replaces any previous testEnvironment setting
+  // reporters: [ 'default', './test/customReporter.mjs' ]
+};

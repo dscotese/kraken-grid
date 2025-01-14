@@ -1,7 +1,12 @@
 import fs from 'fs';
-import path from 'path';
 import PSCon from 'prompt-sync';
+import { fileURLToPath } from 'url';
+import path, { dirname } from 'path';
 
+// eslint-disable-next-line no-underscore-dangle
+const __filename = fileURLToPath(import.meta.url);
+// eslint-disable-next-line no-underscore-dangle
+const __dirname = dirname(__filename);
 const prompt = PSCon({sigint: true});
 let bot;
 
@@ -45,13 +50,13 @@ function Savings(j=false) { // Constructor for savings
             throw new Error("Unable to determine default asset");
         }
         const numeraire = already.ticker;
-        Object.entries(assets).forEach(([,a]) => {
+        Object.entries(assets).forEach(async ([,a]) => {
             if(a.ticker !== numeraire) {
                 pairMap[a.ticker] = bot.findPair(a.ticker, numeraire);
                 if(pairMap[a.ticker] !== '' && !pairs.includes(pairMap[a.ticker]))
                     pairs.push(pairMap[a.ticker]);
                 if(!bot.getPairs()[pairMap[a.ticker]]) {
-                    price = bot.getPrice(a.ticker);
+                    price = await bot.getPrice(a.ticker);
                     values[a.ticker] = a.amount * price;
                 }
             }
@@ -208,22 +213,31 @@ Savings.init = function init(initbot) {
     Savings.pricers = [];
     const bex = bot.getExtra();             // What is it now?
     const ExAsStr = JSON.stringify(bex);    // To see if it changes.
-    const files = fs.readdirSync('./pricers');
+    const files = fs.readdirSync(path.join(__dirname,'pricers'));
+//    const files = fs.readdirSync('./pricers');
     files.forEach( async ( file ) => {
         // eslint-disable-next-line import/no-dynamic-require, global-require
-        const toImport = path.join(process.cwd(),'pricers',file).replace('\\','/');
+//        const toImport = path.join(process.cwd(),'pricers',file).replace('\\','/');
+        const toImport = path.join(__dirname,'pricers',file).replace('\\','/');
         console.log(toImport);
         if(file.endsWith('.js')) {
+            // Unless we import the static string under test conditions,
+            // the debugger (VSCode or eslint) chokes on this import.
             // import( './pricers/openex.js' ) .jstoImport )
             import( process.env.VSCODE_NONCE || process.env.VSCODE_STABLE
                 ? './pricers/openex.js' : toImport )
-                .then(p1 => {
-                    p1.default.then(pricer => {
+                .then(p1 => { p1.default.then(pricer => {
                     pricer(bex,Savings); 
                     if(JSON.stringify(bex) !== ExAsStr) 
                         bot.save();
-                    })
+                    return true;
+                }).catch((e) => {
+                    console.log(`Pricer from ${toImport} unavailable: ${e.message}.`);
                 });
+                return true;
+            }).catch((e) => {
+                console.log(`Import of ${toImport} failed: ${e.message}.`);
+            });
         }
     });
 }

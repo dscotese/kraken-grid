@@ -39,7 +39,8 @@ const Balancer = (target) => { // pass in an Allocation object.
         const calcs = target.assets.forEach(async a => {
             if(port[a.ticker] && a.ticker !== bot.portfolio.Numeraire)
                 cryptp += await target.atarg(a.ticker);
-            if(Number.isNaN(cryptp)) console.log("Cryptp isNaN after atarg of ",a.ticker,
+            // eslint-disable-next-line no-restricted-globals
+            if(isNaN(cryptp)) console.log("Cryptp isNaN after atarg of ",a.ticker,
                 "was",(await target.atarg(a.ticker)));
         }); // What percentage of the allocation is in crypto?
         await Promise.all(calcs);

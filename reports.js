@@ -5,6 +5,8 @@ function ReportCon(bot) {
 
     // This function adds an iterator and the "forward" key to iterate
     //  through the orders property backwards or forwards.
+    // KeysFwd means getting an array in which the zeroth
+    // element is the trade with the lowest timestamp (first).
     // ---------------------------------------------------------------
     function keyOrder(keyed, pattern = TxIDPattern) {
         // eslint-disable-next-line no-param-reassign
@@ -15,7 +17,7 @@ function ReportCon(bot) {
             console.log("Ignoring",(keys.length - K.length,"non-matching keys:"));
             console.log(keys.filter((x) => (!pattern.test(x))));
         }
-
+        // "A negative value indicates that a should come before b."
         K.sort((a,b) => (keyed.orders[a].closetm - keyed.orders[b].closetm));
         const Kr = K.toReversed();
         // eslint-disable-next-line no-param-reassign
@@ -40,9 +42,7 @@ function ReportCon(bot) {
             Object.assign(known,{offset:0, forward:false, orders:{}});
             console.log("known passed has no 'orders' property.");
         }
-        console.log("Known:",Object.keys(known.orders).length,
-            "Closed:",Object.keys(closed.orders).length, [known.offset,closed.offset]);
-	if(Object.keys(known.orders).length > Object.keys(closed.orders).length)
+	    if(Object.keys(known.orders).length > Object.keys(closed.orders).length)
             Object.assign(closed,known);
         while(count > 0) {
             console.log("Known:",Object.keys(known.orders).length,
@@ -54,6 +54,7 @@ function ReportCon(bot) {
                 console.log("Errors:\n",mixed.error.join("\n"));
             }
             console.log("At",offset,"of",total,"results.");
+            if(total === 0) return keyOrder(closed);
             // If more orders closed since our previous call, they will
             //  push everything further down the list and cause some old
             //  orders to be reported again.  These duplicates do not
@@ -65,10 +66,10 @@ function ReportCon(bot) {
             // ------------------------------------------------------
             const executed = Object.entries(mixed.result.closed).filter((e) =>
                 (e[1].vol_exec !== "0.00000000"));
-                const rCount = Object.keys(mixed.result.closed).length;
-                const elen = executed.length;
-                const earliest = undefined !== known.orders[executed[elen-1][0]];
-                const latest   = undefined !== known.orders[executed[0][0]];
+            const rCount = Object.keys(mixed.result.closed).length;
+            const elen = executed.length;
+            const earliest = undefined !== known.orders[executed[elen-1][0]];
+            const latest   = undefined !== known.orders[executed[0][0]];
 	        offset += rCount;
 	        closed.offset = offset;
             // eslint-disable-next-line no-param-reassign
@@ -93,7 +94,15 @@ function ReportCon(bot) {
                     closed.offset = offset;
                     midway = true;
                 }
+            } else if(offset < known.offset && count > 0) { 
+                // We have the earliest order, but more may have
+                // executed since the last save. Let's at least
+                // collect what was asked for if we haven't passed the
+                // recorded offset.
+                console.log("Checking for gaps in order collection...");
             } else {
+                // If you wait long enough between running the bot, you
+                // might get here without having collected all orders.
                 closed.offset = known.offset;
                 if(earliest) break;  // All new orders collected.
             }
