@@ -119,7 +119,7 @@ export const Bot = (config) => {
     }
 
     // Call a Kraken API
-    async function kapi(arg,sd=5) {
+    async function protectedKapi(arg,sd=5) {
         let ret;
         const cached = tfc.isCached('kapi',arg);
         if( cached.answer && ['G','K','must'].includes(process.USECACHE) ) {
@@ -153,7 +153,7 @@ export const Bot = (config) => {
                     console.log(arg);
                 }
                 await sleep(sd*1000);
-                ret = await kapi(arg,sd>300?sd:2*sd);
+                ret = await protectedKapi(arg,sd>300?sd:2*sd);
             // For error conditions that can be ignored.
             } else if( /Unknown order/.test(err.message) && /CancelOrder/.test(arg[0])) {
                 console.log("Ignoring: ", err.message, ...arg);
@@ -171,6 +171,32 @@ export const Bot = (config) => {
         // if(FLAGS.verbose||!cached) console.log(ret);
         if(!cached || !cached.answer) tfc.store(cached.id,ret);
         return ret;
+    }
+
+    const mutex = {
+        locked: false,
+        queue: [],
+        lock: async function lock() {
+            if (this.locked) {
+            // eslint-disable-next-line no-promise-executor-return
+            await new Promise(resolve => this.queue.push(resolve));
+            }
+            this.locked = true;
+        },
+        unlock: function unlock() {
+            this.locked = false;
+            const next = this.queue.shift();
+            if (next) next();
+        }
+    }
+    
+    async function kapi(...args) {
+        await mutex.lock();
+        try {
+            return await protectedKapi(...args);
+        } finally {
+            mutex.unlock();
+        }
     }
 
     async function cachePairs() {

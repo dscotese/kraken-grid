@@ -339,12 +339,12 @@ function Manager(config) {
                 // eslint-disable-next-line no-loop-func
                 auto = setInterval(async () => {
                     counter -= 1;
-                    if(counter > 0) {
+                    if(counter < 0) {
+                        counter = delay;
                         if(!autoOnHold) {
                             await bot.report(false);
                         }
                         bot.showState(auto > 0 ? 'A' : '.');
-                        counter = delay;
                     }
                 },1000);
             } else if(args[0] === "risky") {
