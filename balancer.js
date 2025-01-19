@@ -1,7 +1,11 @@
-const Balancer = (target) => { // pass in an Allocation object.
+const Balancer = (config) => { // pass in an Allocation object.
+    const {bot} = config;
+    const target = (bot.portfolio.Allocation 
+        && bot.portfolio.Allocation.size() > 0)
+        ? bot.portfolio.Allocation
+        : false;  // Get desired allocation.
     const already = [];   // Pairs that are already gridded
     const {sigdig} = target.sigdig; // Import this useful function
-    const bot = target.getBot();
     
     // The first arg can be an order to place and that
     // indicates that we want to add the opposite

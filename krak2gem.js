@@ -179,12 +179,12 @@ export default function Gclient(key, secret, options) {
     const ret = {}; let bc; let qc;
     await Promise.all(gSyms.map(async tp => {
       const details = await gem.api("symbols/details",[tp]);
-      qc = details.quote_currency;
-      bc = details.base_currency;
+      qc = inKraken(details.quote_currency, true);
+      bc = inKraken(details.base_currency, true);
       if(!assets[qc]) {
         assets[qc] = {
           aclass:"currency",
-          altname:inKraken(qc, true),
+          altname:details.quote_currency,
           decimals:2,
           display_decimals:5,
           status:"enabled"
@@ -196,7 +196,7 @@ export default function Gclient(key, secret, options) {
           const dd = -Math.log10(details.tick_size);
           assets[bc] = {
               aclass:"currency",
-              altname:inKraken(bc, true),
+              altname:details.base_currency,
               decimals:dd,
               display_decimals:dd,
               status:details.status==='open'?'enabled':'disabled'
@@ -219,7 +219,7 @@ export default function Gclient(key, secret, options) {
       let qc; const result = {};
       GBalances.forEach((balobj,i,gb) => {
         qc = inKraken(balobj.currency, true);
-        if(assets[balobj.currency]) result[qc] = balobj.amount;
+        if(assets[qc]) result[qc] = balobj.amount;
       });
       return result;
   }
@@ -391,7 +391,8 @@ export default function Gclient(key, secret, options) {
           limit_orders: 500,
           include_trades: true
         });
-      orders = orders.filter(pco => pco.trades.length > 0);  // Array of obj
+      if(orders.length > 0)
+        orders = orders.filter(pco => pco.trades.length > 0);  // Array of obj
       // Gemini returns an array, but at some point, the returned
       // array will include orders we already have.  We can rely on
       // Javascript to overwrite them if they are properties of an
@@ -497,7 +498,7 @@ export default function Gclient(key, secret, options) {
   async function addOrder(params) {
     const {pair, userref, type, price, volume, close} = params;
     const ret = await gem.api('order/new', {
-      client_order_id: String(userref),
+      client_order_id: `${userref}u${new Date().toISOString().slice(0,19)}`,
       symbol: pair,
       amount: String(volume),
       price: String(price),

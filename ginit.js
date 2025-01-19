@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* eslint-disable import/extensions */
 import Manager from './manager.js';
-import { Bot } from './bot.js';
+import { Bot } from './bot.ts';
 import { AllocCon } from './allocation.js';
 import Savings from './savings.js';
 import Balancer from './balancer.js';

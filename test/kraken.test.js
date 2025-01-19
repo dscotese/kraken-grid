@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import path, { dirname } from 'path';
 import fnInit from "../init";
 import customExpect from './customExpect';
+import TFC from '../testFasterCache.js'
 
 // eslint-disable-next-line no-underscore-dangle
 const __filename = fileURLToPath(import.meta.url);
@@ -37,7 +38,10 @@ describe('Test Kraken', () => {
     beforeAll(async () => {
         setArgv();
         jest.setTimeout(30000); // Increase timeout to 30 seconds
-        const allConfig = await fnInit();    // Do not initialize Manager.
+        const tfc = TFC(true,'test');        // Create or use the TFCtest folder.
+        // Load the singleton Cache with test data:
+        tfc.useFile(path.join(__dirname,'krakCache.json'));
+        const allConfig = await fnInit();    // Initialize Manager.
         ({bot, man, AllocCon} = allConfig);
         // TestPW is a special password (prefix) that blocks encryption so
         // that the file storing API keys and other sensitive data can be

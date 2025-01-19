@@ -96,8 +96,8 @@ function howMuch(tkr, np) {
     let p = data.tickers[tkr][1],
         dp = (np - p)/p,     // % change in price
         t = data.total,
-        [hp,lp] = data.ranges[tkr],
-        f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp)),
+        [hp,lp] = data.ranges[tkr] || [0,0],
+        f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp)) || 1,
         [b,ma] = data.adjust[tkr].split('+').map(Number),
         tot1 = 0,    // How much is off the Exchange?
         ov = 0,        // What is the value of other cryptos?
@@ -433,27 +433,30 @@ function OrderTable() {
         oo, od, odo, parsed, ret = "<table id='oDiv'><tr><th>ID</th><th>Type</th>"
             + "<th>Units</th>"
             + "<th>Pair</th><th>Price</th><th>UserRef</th><th>Close</th></tr>";
-    data.orders.forEach((o,i) => {
-        oo = o[1];
-        oo['ID'] = oo['ID'] || i+1;
-    });
-    data.orders.sort((a,b) => {
-        let aval = orderCompare(ordSort, a),
-            bval = orderCompare(ordSort, b);
-        return (neg ? -1 : 1) * (aval < bval ? -1 :
-            (aval == bval ? 0 : 1));
-    });
-    data.orders.forEach((o,i) => {
-        oo = o[1];
-        od = oo.descr;
-        odo = od.order;
-        parsed = odo.split(' ');
-        ret += "\n<tr>" + tag('td',oo['ID'],"title='"+o+"'") + tag('td',parsed[0]) 
-            + tag('td',parsed[1])+tag('td',parsed[2]) + tag('td',parsed[5])
-            + tag('td',oo.userref) + tag('td',od.close.match(/[0-9.]+$/))
-            + tag('th','less') + tag('th','more') + tag('th','kill') 
-            + tag('th',(oo.descr.leverage=='none'?'add':'de')+'lev') + '</tr>';
-    });
+    
+    if(data.orders && data.orders.length > 0) {
+        data.orders.forEach((o,i) => {
+            oo = o[1];
+            oo['ID'] = oo['ID'] || i+1;
+        });
+        data.orders.sort((a,b) => {
+            let aval = orderCompare(ordSort, a),
+                bval = orderCompare(ordSort, b);
+            return (neg ? -1 : 1) * (aval < bval ? -1 :
+                (aval == bval ? 0 : 1));
+        });
+        data.orders.forEach((o,i) => {
+            oo = o[1];
+            od = oo.descr;
+            odo = od.order;
+            parsed = odo.split(' ');
+            ret += "\n<tr>" + tag('td',oo['ID'],"title='"+o+"'") + tag('td',parsed[0]) 
+                + tag('td',parsed[1])+tag('td',parsed[2]) + tag('td',parsed[5])
+                + tag('td',oo.userref) + tag('td',od.close.match(/[0-9.]+$/))
+                + tag('th','less') + tag('th','more') + tag('th','kill') 
+                + tag('th',(oo.descr.leverage=='none'?'add':'de')+'lev') + '</tr>';
+        });
+    } else ret = `\n<tr> ${tag('td','There are no open orders.',"span='7'")}</tr>`;
     return ret + getClosed() + "</table>";
 }
 function tag(t,i,attrs){return '<'+t+(attrs ? ' '+attrs : '')+'>'+i+'</'+t+'>';}

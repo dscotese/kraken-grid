@@ -22,7 +22,10 @@ function Web(config) {
     function log(...a) {
         logged += `\n${a.join(' ')}`;
         // a.length = a.length - 2; // callee and Symbol
-        logOriginal("Web!",...a);
+        if(logged.length > 1000) {
+            logOriginal("Web!",logged);
+            logged = '';
+        }
     }
 
     // Initialize
@@ -182,7 +185,7 @@ function Web(config) {
             const orderedClosed = Object.entries(portfolio.Closed.orders)
                 .sort((a,b) => a[1].closetm - b[1].closetm);
         res.send(JSON.stringify({
-            orders:  portfolio.O,
+            orders:  portfolio.O || [],
             grid:    portfolio.G,
             savings: portfolio.Savings,
             exsaves: bot.ExchangeSavings(),

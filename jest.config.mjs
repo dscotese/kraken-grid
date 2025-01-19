@@ -175,7 +175,14 @@ const config = {
 
   // A map from regular expressions to paths to transformers
   // transform: undefined,
-  transform: {},
+  transform: {
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        useESM: true,
+      },
+    ],
+  },
 
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
   // transformIgnorePatterns: [
@@ -194,10 +201,14 @@ const config = {
 
   // Whether to use watchman for file crawling
   // watchman: true,
+  testEnvironment: 'node',  // replaces any previous testEnvironment setting
+  // reporters: [ 'default', './test/customReporter.mjs' ]
+
+  preset: 'ts-jest',
+  extensionsToTreatAsEsm: ['.ts'],
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  }
 };
 
-export default {
-  config,
-  testEnvironment: 'node'  // replaces any previous testEnvironment setting
-  // reporters: [ 'default', './test/customReporter.mjs' ]
-};
+export default config;

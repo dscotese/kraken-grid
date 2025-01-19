@@ -26,7 +26,6 @@ function TFC(verbose = false,id = '') {
     const base = `TFC${id}`;
     const MUSTCACHE = path.join(base,"cached.json");
     let lastFile = path.join(base,"lastFile.txt");
-        let file2Read;
     const blockFile = path.join(base,"blockFile.json");
     const cacheFiles = [];
     // The idFile contains a series of JSON objects, {h...: fName+args},
@@ -85,8 +84,7 @@ function TFC(verbose = false,id = '') {
                 inIDFile = Object.keys(cached);
                 if(verbose) console.log(`Using ${fName}, with ${
                     inIDFile.length} keys.`);
-                file2Read = fName;
-                cacheFiles.push(fName);
+                if(!cacheFiles.includes(fName)) cacheFiles.push(fName);
                 Object.assign(callCache, cached);
             } else {
                 console.log("Cache is empty.");
@@ -126,6 +124,7 @@ function TFC(verbose = false,id = '') {
 
     function saveCallCache() {
         const asBuffer = Buffer.from(JSON.stringify(callCache,null,1));
+        // eslint-disable-next-line promise/prefer-await-to-callbacks
         fs.writeFileSync(callCacheFile, asBuffer, (err) => {
             if(err) throw err;
         });
@@ -183,7 +182,8 @@ console.log("Just added",call,"to callCache.");
         // Now that we've stored something in it, record its name
         // ------------------------------------------------------
         if(lastFile > '') {
-            fs.writeFile(lastFile,lf,(err)=>{if(err)throw(err);});
+            // eslint-disable-next-line promise/prefer-await-to-callbacks
+            fs.writeFileSync(lastFile,lf,(err)=>{if(err)throw(err);});
             lastFile = '';  // Protect it from being overwritten.
         }
     }

@@ -22,7 +22,7 @@ function Manager(config) {
         auto = 0;
     }
 
-    async function setAlloc(alloc) {
+    function setAlloc(alloc) {
         let answer;
         // eslint-disable-next-line no-cond-assign
         while( (answer = prompt(
@@ -109,7 +109,7 @@ function Manager(config) {
             console.log(`New order: ${ret}`);
             
         } else if(args[0] === 'set') {
-            await bot.set(p, args[1], args[2], args[3]);
+            await bot.set(args[1], args[2], args[3]);
         } else if(args[0] === 'reset') {
             // eslint-disable-next-line no-param-reassign
             p.G = [];
@@ -237,8 +237,7 @@ function Manager(config) {
             }
         } else if(args[0] === 'balance') {
             if(args[1]) {
-                const a = await p.Allocation.getAllocation(true);  // Get desired allocation.
-                const b = Balancer(a);
+                const b = Balancer(config);
                 b.setTrades(args[1],args[2]?args[2].toUpperCase():''); // Tolerance, Ticker
             } else {
                 console.log("Usage: balance tolerance [ticker]\n"

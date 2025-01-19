@@ -16,14 +16,6 @@ const endpoints = {
         'tradevolume', 'positions', 'balances', 'margin', 'fundingpayment' ]
 };
 
-// Default options
-const defaults = {
-    url      : process.TESTING ? 'https://api.sandbox.gemini.com/' 
-                               : 'https://api.sandbox.gemini.com/',
-    version : 'v1',
-    timeout  : process.TESTING ? 60000 : 5000,
-};
-
 // Create a signature for a request
 const getMessageSignature = (message, secret, nonce) => {
 console.log('message, secret, nonce:',message, secret, nonce);
@@ -44,6 +36,14 @@ console.log('message, secret, nonce:',message, secret, nonce);
  * @param {Number}        [options.timeout] Maximum timeout (in milliseconds) for all API-calls (passed to `request`)
  */
 export default function GeminiClient (key, secret, options = {}) {
+    // Default options
+    const defaults = {
+        url      : process.TESTING ? 'https://api.sandbox.gemini.com/' 
+                                : 'https://api.gemini.com/',
+        version : 'v1',
+        timeout  : process.TESTING ? 60000 : 5000,
+    };
+
     const config = {key, secret, ...defaults, ...options};
     console.log("config:",config);
 
@@ -174,45 +174,29 @@ console.log(`config.url(59):${config.url}, conCurrent:${conCurrent}`);
             }
             newNonce = true;
         }
-/*
-        if(config.otp !== undefined) {
-            params.otp = config.otp;
-        }
-*/
+
         if(!params.request) {
             params.request = `/${path}`;
         }
-/* Prove it works using code from https://docs.gemini.com/rest-api/#private-api-invocation:
 
-params = {
-    "request": "/v1/order/status",
-    "nonce": 123456,
-    "order_id": 18834
-}
-config = {secret:'1234abcd', key:'mykey'};
-*/
-const reqStr = JSON.stringify(params);
-/*
-'{\n'+
-'    "request": "/v1/order/status",\n'+
-'    "nonce": 123456,\n'+
-'\n'+
-'    "order_id": 18834\n'+
-'}\n';
-*/
+        const reqStr = JSON.stringify(params);
+
         const payload = Buffer.from(reqStr).toString('base64');
-console.log("reqStr,payload: ",reqStr,payload);
-        const signature = getMessageSignature(
-            payload,
-            config.secret,
-            params.nonce
-        );
+        console.log("reqStr,payload: ",reqStr,payload);
+            const signature = getMessageSignature(
+                payload,
+                config.secret,
+                params.nonce
+            );
 
         const headers = {
             'X-GEMINI-PAYLOAD'   : payload,
             'X-GEMINI-APIKEY'    : config.key,
             'X-GEMINI-SIGNATURE' : signature,
         };
+        if(/(events$|marketdata)/.test(path)) {
+            console.log(headers);
+        }
 
         // const response = this.rawRequest('POST', headers, params, config.timeout);
 

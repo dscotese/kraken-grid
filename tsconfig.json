@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "allowJs": false,
+    "target": "ES2021",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "esModuleInterop": true,
+    "outDir": ".",
+    "strict": false,
+    "noImplicitAny": false,
+    "skipLibCheck": true
+  },
+  
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -3,8 +3,6 @@
 export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
     // Hang on to the bot when it's passed...
     const {bot, Savings} = config;
-    // eslint-disable-next-line no-param-reassign
-    const   ID = 1 * new Date();
     const   portfolio = bot.getPortfolio();
     let myTotal = 0;
     const   ranges = [];
@@ -216,17 +214,16 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
 
     function get(i) { 
 //        console.log("Allocation.get ",i);
-        const ret = Number.isInteger(i) 
+        const ret = (Number.isInteger(i) 
             ? assets[i]
-            : assets.find(a => (a.ticker === i)); 
+            : assets.find(a => (a.ticker === i)))
+            || (assets[assets.push({ticker:i, target:0})-1]);
         // adjust everything to determine numeraire allocation
         // ---------------------------------------------------
         atargs[assets[0].ticker] = assets[0].target;
         assets.forEach(a => {
             if(a.adjust) update(a);
         });
-        if(typeof(ret) === 'undefined')
-            console.trace(ID,`No allocation (${i}) in`,assets);
         return ret;
     }
 
@@ -465,43 +462,6 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
     // Return the trading range for an adjusted asset
     function getRange(ticker) { return ranges[ticker]; }
 
-    // Update ranges if today's hi/lo exceeds.
-    // tickerLH is an object with tickers for property names,
-    // each one being an object itself with l and h arrays
-    // indicating the low and high for today (0) and for
-    // the last 24 hours (1), as per Kraken.
-    function setRanges(tickersLH) {
-// console.log("My ID is",ID);
-        let pair; let tk; let mr; let rt; let tl; let th; let f; let p; let moved=false;
-// console.log(tickersLH);
-        Object.entries(tickersLH).forEach((t) => {
-            [pair,mr] = t;
-            tk = bot.findPair(pair,undefined,1).base;
-            if(undefined === tk) return;
-            [tl,th,p] = [mr.l[1],mr.h[1],mr.c[0]].map(Number);
-            rt = ranges[tk];
-            if(rt) {
-                f = rt[0]/rt[1];    // get % of Price range to use.
-                if(th/tl > f) {     // The prices today exceeded our range, so...
-                    findRange(tk,f-1,true);
-                    moved = true;
-                } else if( rt[0] < th ) {
-                    rt[0] = th;     // High is from today.
-                    rt[1] = th / f; // Calculate the low.
-                    moved = true;
-                } else if( rt[1] > tl ) {
-                    rt[1] = tl;
-                    rt[0] = tl * f;
-                    moved = true;
-                }
-                if(moved) console.log("Range for",tk,"updated: ",ranges[tk]);
-                else if( config.bot.FLAGS.verbose )
-                    console.log("No range was changed:[t,tk,mr,rt0,rt1,tl,th,p,moved]:"
-                        +`${[pair,tk,mr,rt[0],rt[1],tl,th,p,moved]}.`);
-            }   // If !ranges[tk] then we don't have a range to set!
-        });
-    }
-
     async function getAlloc(tkr,alloc) { 
         const ret = await alloc.atarg(tkr);
         return ret ? sigdig(100*ret,5,2) : 0;
@@ -553,6 +513,41 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
         return ret;
     }
 
+    // Update ranges if today's hi/lo exceeds.
+    // tickerLH is an object with tickers for property names,
+    // each one being an object itself with l and h arrays
+    // indicating the low and high for today (0) and for
+    // the last 24 hours (1), as per Kraken.
+    function setRanges(tickersLH) {
+        let pair; let tk; let mr; let rt; let tl; let th; let f; let p; let moved=false;
+        Object.entries(tickersLH).forEach((t) => {
+            [pair,mr] = t;
+            tk = bot.findPair(pair,undefined,1).base;
+            if(undefined === tk) return;
+            [tl,th,p] = [mr.l[1],mr.h[1],mr.c[0]].map(Number);
+            rt = ranges[tk];
+            if(rt) {
+                f = rt[0]/rt[1];    // get % of Price range to use.
+                if(th/tl > f) {     // The prices today exceeded our range, so...
+                    findRange(tk,f-1,true);
+                    moved = true;
+                } else if( rt[0] < th ) {
+                    rt[0] = th;     // High is from today.
+                    rt[1] = th / f; // Calculate the low.
+                    moved = true;
+                } else if( rt[1] > tl ) {
+                    rt[1] = tl;
+                    rt[0] = tl * f;
+                    moved = true;
+                }
+                if(moved) console.log("Range for",tk,"updated: ",ranges[tk]);
+                else if( config.bot.FLAGS.verbose )
+                    console.log("No range was changed:[t,tk,mr,rt0,rt1,tl,th,p,moved]:"
+                        +`${[pair,tk,mr,rt[0],rt[1],tl,th,p,moved]}.`);
+            }   // If !ranges[tk] then we don't have a range to set!
+        });
+    }
+
     async function Allocations() {
         const tkrs = Array.from(portfolio.Tickers);
 // console.trace("ID,assets,Tkrs:",ID,assets,tkrs.join(','));
@@ -571,7 +566,8 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
         await Promise.all(tkrs.map(async t => {
             current[t] = await getAlloc(t, allocs.current);
             desired[t] = await getAlloc(t, allocs.desired);
-            asset = allocs.desired.assets.find((a) => (a.ticker===t));
+            asset = allocs.desired.assets.find((a) => (a.ticker===t))
+                || {ticker:t, target:0};
             outRanges[t] = allocs.desired.getRange(t);
             outAdjust[t] = String(asset.target) + (asset.adjust 
                 ? `+${  asset.adjust.join('+')}` : "");

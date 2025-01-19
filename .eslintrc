@@ -15,12 +15,18 @@
     "react/react-in-jsx-scope": "off",
     "import/prefer-default-export": "off",
     "promise/catch-or-return": "error",
-    "promise/always-return": "error"
+    "promise/always-return": "error",
+    "require-await": "error",
+    "no-async-promise-executor": "error",
+    "promise/prefer-await-to-then": "error",
+    "promise/prefer-await-to-callbacks": "error",
+    "no-return-await": "error",
+    "no-await-in-loop": "warn"
     },
     "overrides": [{
-      "files": ["test/**/*.js", "test/**/*.mjs"],  // matches all JS/MJS files in test folder
+      "files": ["test/**/*.js", "test/**/*.mjs"],
       "rules": {
-        "no-debugger": "off"  // relaxed for test files
+        "no-debugger": "off"
       }
     }],
     "settings": {
@@ -34,7 +40,6 @@
     "es2021": true,
     "jest": true
   },
-//  "extends": "eslint:recommended",
   "parserOptions": {
     "ecmaVersion": "latest",
     "sourceType": "module"
