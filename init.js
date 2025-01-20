@@ -22,7 +22,7 @@ const argv = yargs
 */        
 import ClientCon from 'kraka-djs';
 import Manager from './manager.js';
-import { Bot } from './bot.js';
+import Bot from './bot.js';
 import { AllocCon } from './allocation.js';
 import Savings from './savings.js';
 import Balancer from './balancer.js';

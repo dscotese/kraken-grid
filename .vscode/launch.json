@@ -37,11 +37,14 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch Program",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "program": "${workspaceFolder}\\init.js"
+            "name": "Debug bot.ts",
+            "skipFiles": ["<node_internals>/**"],
+            "program": "${workspaceFolder}/bot.ts",
+            "preLaunchTask": "tsc: watch - tsconfig.json",
+            "outFiles": ["${workspaceFolder}/**/*.js"],
+            "sourceMaps": true,
+            "smartStep": true,
+            "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"]
         }
     ]
 }

@@ -15,7 +15,7 @@ import {GridPoint, BothSidesRef, BothSidesPair, OrderEntry,
 const prompt = PSCon({sigint: true});
 const myConfig : any = {exch: 'K'};
 export{}
-export function Bot(config: any) {
+export default function Bot(config: any) {
     if(config.bot) return config.bot; // Singleton!
     Object.assign(myConfig, config);
     const {Savings, AllocCon, ClientCon} = myConfig;
@@ -741,12 +741,12 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         // and bs is "both sides", holding an array of objects
         // holding userref, and two booleans, buy and sell.
 
+        await initGrid(); // Also sets portfolio['G'] (the grid).
+        const gPrices = portfolio.G;
         if(Object.keys(opens).length === 0) {
             console.log("There are no open orders.");
             return;
         }
-        await initGrid(); // Also sets portfolio['G'] (the grid).
-        const gPrices = portfolio.G;
 
         // Save the old order array so we can see the diff
         // -----------------------------------------------
