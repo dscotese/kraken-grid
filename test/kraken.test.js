@@ -1,4 +1,4 @@
-/* eslintx-disable import/extensions */
+/* eslint-disable import/extensions */
 /* eslint-disable no-console */
 import {expect, describe, test, jest} from '@jest/globals';
 import http from 'http';

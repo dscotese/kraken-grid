@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 /* eslint-disable import/extensions */
 /*
 const yargs = require('yargs');

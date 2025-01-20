@@ -13,7 +13,17 @@
     "typeRoots": ["./node_modules/@types", "./"]
   },
   
-  "include": ["**/*.ts", "global.d.ts"],
-  "exclude": ["node_modules", "dist"],
+  // "include": ["*.ts", "global.d.ts", "test/*.ts"],
+  // "exclude": ["node_modules", "dist", "**/*.test.ts"],
+  "include": [
+    "bot.ts",
+    "global.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "**/*.test.ts"
+  ],
   "files": ["global.d.ts"]
 }

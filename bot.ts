@@ -14,7 +14,8 @@ import {GridPoint, BothSidesRef, BothSidesPair, OrderEntry,
 
 const prompt = PSCon({sigint: true});
 const myConfig : any = {exch: 'K'};
-export const Bot = (config: any) => {
+export{}
+export function Bot(config: any) {
     if(config.bot) return config.bot; // Singleton!
     Object.assign(myConfig, config);
     const {Savings, AllocCon, ClientCon} = myConfig;
@@ -1337,8 +1338,8 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
     function roundTrips() {}
 
     function showState(prefix = '') {
-        const ret = `${prefix + (FLAGS.risky?'R':'.') + (FLAGS.safe?'S':'.')
-             } at ${  new Date}`;
+        const ret = `${prefix + (FLAGS.risky?'R':'.') 
+            + (FLAGS.safe?'S':'.')} at ${  new Date}`;
         console.log(ret);
         return ret;
     }
