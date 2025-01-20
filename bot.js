@@ -50,6 +50,7 @@ exports.Bot = void 0;
 /* eslint-disable no-restricted-globals */
 /* eslint-disable import/extensions */
 /* eslint-disable no-console */
+//import type { Process } from 'node';
 var prompt_sync_1 = require("prompt-sync");
 // ({sigint: true});
 var safestore_js_1 = require("./safestore.js"); // encrypted sorage

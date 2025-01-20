@@ -2,9 +2,10 @@
 /* eslint-disable no-restricted-globals */
 /* eslint-disable import/extensions */
 /* eslint-disable no-console */
+//import type { Process } from 'node';
 import PSCon from 'prompt-sync';
  // ({sigint: true});
-import ssModule from './safestore.js';     // encrypted sorage
+import ssModule from './safestore.js';    // encrypted sorage
 import ReportCon from './reports.js';
 import TFC from'./testFasterCache.js';
 import {GridPoint, BothSidesRef, BothSidesPair, OrderEntry, 
@@ -814,7 +815,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                     }
                     // Calculate price for missing side
                     // --------------------------------
-                    const dp = gp.buy.indexOf('.'); // "indexOf not a function??"
+                    const dp = gp.buy.indexOf('.');
                     const decimals=10**(dp > 0
                         ? gp.buy.length - dp - 1
                         : 0);

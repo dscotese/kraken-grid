@@ -1,16 +1,19 @@
 {
   "compilerOptions": {
     "allowJs": false,
-    "target": "ES2021",
+    "target": "es2020",
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "esModuleInterop": true,
     "outDir": ".",
     "strict": false,
     "noImplicitAny": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "downlevelIteration": true,
+    "typeRoots": ["./node_modules/@types", "./"]
   },
   
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["**/*.ts", "global.d.ts"],
+  "exclude": ["node_modules", "dist"],
+  "files": ["global.d.ts"]
 }
