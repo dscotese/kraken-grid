@@ -8,7 +8,7 @@ import TFC from './testFasterCache.js';
 // Public/Private method names
 const endpoints = {
     public  : [ 'symbols', 'symbols/details', 'network', 'pubticker', 'v2/ticker',
-        'candles', 'derivatives', 'feepromos', 'book', 'trades', 'pricefeed',
+        'v2/candles', 'derivatives', 'feepromos', 'book', 'trades', 'pricefeed',
         'fundingamount', 'farxlsx', 'fprxlsx', 'fxrate', 'riskstats', 'marketdata' ],
     private : [ 'order/new', 'order/cancel', 'wrap', 'session', 'all', 
         'order/events', 'marketdata',
@@ -77,21 +77,21 @@ export default function GeminiClient (key, secret, options = {}) {
             resolve();
         }
     }
-    
+
     // Send an API request
-    async function rawRequest(method, path, headers, timeout) {
+    async function protectedRequest(method, path, headers, timeout) {
         await waitForSlot();
         const isWS = /(events$|marketdata)/.test(path);
 
-        headers['User-Agent'] = isWS
+        headers['User-Agent'] = !isWS
             ? 'Gemini Javascript API Client'
             : 'Node.js WebSocket Client';
 
         const defopts = { headers, timeout:{
-            lookup: process.TESTING ? 30000 : 500,
-            connect: process.TESTING ? 30000 : 500,
-            secureConnect: process.TESTING ? 30000 : 500,
-            socket: process.TESTING ? 30000 : 1000,
+            lookup: process.TESTING ? 30000 : 5000,
+            connect: process.TESTING ? 30000 : 5000,
+            secureConnect: process.TESTING ? 30000 : 5000,
+            socket: process.TESTING ? 30000 : 5000,
             send: process.TESTING ? 30000 : 2000,
         } };
         defopts.timeout.response = timeout;
@@ -102,21 +102,52 @@ export default function GeminiClient (key, secret, options = {}) {
         if(method === 'POST') options.body = '';
         else delete options.body;
 
-console.log(`config.url(59):${config.url}, conCurrent:${conCurrent}`);
         const url  = (isWS ? config.url.replace('https','wss') : config.url) + path;
-        try {
-            if(isWS) {
-                return new WebSocket(url, headers);
+        console.log(`path:${url}, conCurrent:${conCurrent}`);
+        let retries = 3;
+        while(--retries > 0) {
+            try {
+                if(isWS) {
+                    return new WebSocket(url, headers);
+                }
+                const response =  await got(url, options);
+                const ret = await JSON.parse(response.body);
+                return ret;
+            } catch(e) {
+                console.log(`${url} failed because ${e}\n
+                    headers:${Object.entries(headers)}`);
+                throw e;
+            } finally {
+                console.log('rawRequest: in finally block, about to release slot');
+                releaseSlot();
             }
-            return await got(url, options).json();
-        } catch(e) {
-            console.log(`${url} failed because ${e}\n
-                headers:${Object.entries(headers)}`);
-        } finally {
-            console.log('rawRequest: in finally block, about to release slot');
-            releaseSlot();
         }
-        return {};
+    }
+    
+    const mutex = {
+        locked: false,
+        queue: [],
+        lock: async function lock() {
+            if (this.locked) {
+            // eslint-disable-next-line no-promise-executor-return
+            await new Promise(resolve => this.queue.push(resolve));
+            }
+            this.locked = true;
+        },
+        unlock: function unlock() {
+            this.locked = false;
+            const next = this.queue.shift();
+            if (next) next();
+        }
+    }
+    
+    async function rawRequest(method, path, headers, timeout) {
+        await mutex.lock();
+        try {
+            return await protectedRequest(method, path, headers, timeout);
+        } finally {
+            mutex.unlock();
+        }
     }
 
     /**
@@ -132,13 +163,18 @@ console.log(`config.url(59):${config.url}, conCurrent:${conCurrent}`);
         // Add parameters to APIs that need them.
         // --------------------------------------
         if(!['symbols','network','feepromos','pricefeed']
-            .includes(method) && Object.values(params).length !== 1)
+            .includes(method) && Object.values(params).length < 1)
             throw new Error(`${method } requires a parameter.`);
 
         if(/^marketdata/.test(method))
             throw new Error(`MarketData Websockt not yet supported.`);
         
-        Object.values(params).forEach(v => {method += `/${v}`});
+        let qs =[];
+        Object.entries(params).forEach(([n,v]) => {
+            if(/limit_...s/.test(n)) qs.push(`${n}=${v}`);
+            else method += `/${v}`
+        });
+        if(qs.length > 0) method += `?${qs.join('&')}`;
 
         const path     = /^v\d\//.test(method) // In case we use the new version.
             ? `${method}`
@@ -237,7 +273,7 @@ console.log(`config.url(59):${config.url}, conCurrent:${conCurrent}`);
         }
         
         let response;
-        if(objCache.answer === false) {
+        if(objCache.answer === false || !process.USECACHE) {
             response = await rawRequest(reqType, path, headers, config.timeout);
             k2gtfc.store(objCache.id,response);
         } else response = objCache.cached;

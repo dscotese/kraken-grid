@@ -12,7 +12,7 @@ namespace NodeJS {
 declare global {
   namespace NodeJS {
     interface Process {
-      TESTING?: boolean;
+      TESTING?: string|boolean;
       USECACHE?: 'G' | 'K' | 'must' | string;
     }
   }
@@ -20,7 +20,7 @@ declare global {
 // Second approach (VSCode-friendly)
 declare global {
   var process: NodeJS.Process & {
-    TESTING?: boolean;
+    TESTING?: string|boolean;
     USECACHE?: 'G' | 'K' | 'must' | string;
   };
 }

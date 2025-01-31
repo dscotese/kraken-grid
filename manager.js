@@ -22,14 +22,14 @@ function Manager(config) {
         auto = 0;
     }
 
-    function setAlloc(alloc) {
+    async function setAlloc(alloc) {
         let answer;
         // eslint-disable-next-line no-cond-assign
         while( (answer = prompt(
             "Enter N or a ticker to adjust this allocation: ").toUpperCase())
             !== "N") {
             if(bot.getAlts()[answer]) answer = bot.getAlts()[answer];
-            const tik = alloc.get(answer);
+            const tik = await alloc.get(answer);
 //    console.log("Found",tik);
             if(typeof(tik) === 'undefined') {
                 console.log("Enter a ticker from the list above"
@@ -40,7 +40,7 @@ function Manager(config) {
                 // eslint-disable-next-line no-cond-assign
                 if((answer = prompt("Enter your new default asset,"
                     + " or OK to continue: ").toUpperCase()) !== "OK") {
-                    if(bot.Numeraires.includes(answer)) {
+                    if(bot.numerairesFromPairs().includes(answer)) {
                         alloc.setNumeraire(answer);
                     } else {
                         console.log(`${answer} is not supported as a default asset.`);
@@ -229,7 +229,7 @@ function Manager(config) {
                     amt = Number(args[2])/100;
                 if(a === false) a = p.Allocation.getAllocation(false);
                 if(amt<0 || args[2][0]==='+') { // Relative adjustment
-                    const rel = a.get(tkr).target;
+                    const rel = await a.get(tkr).target;
                     if(!isNaN(rel)) amt += rel;
                 }
                 a.addAsset(tkr,amt);
@@ -249,7 +249,7 @@ function Manager(config) {
             }
         } else if(args[0] === 'adjust') {
             const d = await p.Allocation.getAllocation(true);
-                const alloc = d.get(args[1]);
+                const alloc = await d.get(args[1]);
                 const a = Number(args[2]); 
                 const ppct = Number(args[3]); let t;
                 const usage = "Usage: adjust ticker apct ppct\n" +
@@ -453,7 +453,8 @@ function Manager(config) {
         portfolio = await bot.init(pw);
         web = Web(config);
         await bot.report(true);
-        if(!process.TESTING || process.argv.length > 2) listen();
+        if(!process.TESTING || process.TESTING === 'implied'
+            || process.argv.length > 2) listen();
         else {
             console.log("42:",portfolio);
             this.already = true;

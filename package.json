@@ -9,7 +9,9 @@
   "type": "module",
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --debug --verbose --detectOpenHandles --runInBand",
-    "watch": "tsc --watch"
+    "watch": "tsc --watch",
+    "start": "node .dist/init.js",
+    "build": "tsc"
   },
   "repository": {
     "type": "git",
@@ -68,5 +70,25 @@
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.9"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./types.ts",
+        "default": [
+          "./.dist/init.js",
+          "./init.js"
+        ]
+      }
+    },
+    "./*": {
+      "import": {
+        "types": "./*.d.ts",
+        "default": [
+          "./.dist/*.js",
+          "./*.js"
+        ]
+      }
+    }
   }
 }

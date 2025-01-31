@@ -12,7 +12,10 @@
 				"kind": "build",
 				"isDefault": true
 			},
-			"label": "tsc: watch - tsconfig.json"
+			"label": "tsc: watch - tsconfig.json",
+			"runOptions": {
+				"runOn": "folderOpen"
+			}
 		}
 	]
 }

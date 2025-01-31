@@ -1,10 +1,11 @@
-/* eslintx-disable import/extensions */
+/* eslint-disable import/extensions */
 /* eslint-disable no-console */
 import {expect, describe, test, jest, afterEach} from '@jest/globals';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import fnInit from "../ginit";
 import customExpect from './customExpect';
+import TFC from '../testFasterCache.js'
 
 // eslint-disable-next-line no-underscore-dangle
 const __filename = fileURLToPath(import.meta.url);
@@ -47,7 +48,7 @@ describe( 'Testing Gemini', () => {
 //        man.init("TestPW")
         // Not testing the command ine interface (yet?)
         man.ignore();
-        a = AllocCon({bot, Savings:null});
+        a = await AllocCon({bot, Savings:null});
         a.addAsset('XBT',0.4);
         a.addAsset('XMR',0.4);
         // console.log('bot is ', bot);
@@ -64,19 +65,26 @@ describe( 'Testing Gemini', () => {
         customExpect(gotErr).toBe(true);
     });
 
-    test('Base Currency Tracking', () => {
-        customExpect(Math.round(10*a.get(0).target)).toBe(2);
-    }, 10000);
-
-    test('Update Allocation', () => {
-        a.addAsset('XBT',0.5);
-        customExpect(Math.round(10*a.get(0).target)).toBe(1);
+    test('Base Currency Tracking', async () => {
+        const asset0 = await a.get(0);
+        const targ0 = asset0.target;
+        customExpect(Math.round(10*targ0)).toBe(2);
     });
 
-    test('setBase to EUR', () => {
-        customExpect(a.get(0).ticker).toBe("ZUSD");
-        a.setNumeraire('EUR');
-        customExpect(a.get(0).ticker).toBe("EUR");
+    test('Update Allocation', async () => {
+        a.addAsset('XBT',0.5);
+        customExpect(Math.round(10*(await a.get(0)).target)).toBe(1);
+    });
+
+    test('setBase to (Z)EUR', async () => {
+        let asset0 = await a.get(0);
+        customExpect(asset0.ticker).toBe("ZUSD");
+        a.setNumeraire('ZEUR');
+        asset0 = await a.get(0);
+        customExpect(asset0.ticker).toBe("ZEUR");
+        a.setNumeraire('ZUSD');
+        asset0 = await a.get(0);
+        customExpect(asset0.ticker).toBe("ZUSD");
     });
 
     test('Wait for the portfolio', async () => {
@@ -86,7 +94,7 @@ describe( 'Testing Gemini', () => {
         customExpect(Object.keys(bot.getPortfolio()).length > 6).toBeTruthy();
     },10000);
 
-    test('Symbols, toggles, showPair...', async (done) => {
+    test('Symbols, toggles, showPair...', async () => {
         // Try a bad symbol
         // ----------------
         await bot.report();
@@ -104,7 +112,7 @@ describe( 'Testing Gemini', () => {
 
         // Try a good symbol
         // -----------------
-        await man.doCommands(['buy XBT 1 25']);    // I wish!
+        await man.doCommands(['buy BTC 1 25']);    // I wish!
         // Install file with extra order:
         bot.tfc.useFile(path.join(__dirname,'8open.json'));
     //    captureLog("Reporting 8open...", all);
@@ -138,22 +146,25 @@ describe( 'Testing Gemini', () => {
         const pair = bot.pairInfo('XREPZUSD');
         customExpect(pair.quote === 'ZUSD').toBeTruthy();
         customExpect(pair.base === 'XREP').toBeTruthy();
-        done();
     },200000);
-/*
-    test('Dynamic Sell Amount Calculation', async () => {
-        bot.tfc.useFile(path.join(__dirname,'DACsCache.json'));  // Simulate no sells
-    //    captureLog("Add a sell",console);
+
+    test('AssetPairs - CLosedOrders', async () => {
+        bot.tfc.useFile(path.join(__dirname,'GemCache.json'));
         const consoleSpy = jest.spyOn(console, 'log');
         await bot.report();
         customExpect(consoleSpy).toHaveBeenCalledWith(
-            expect.stringMatching(/selling 0.023742124645772522 XBTUSD at 64674.5/));
-        consoleSpy.mockRestore();
-    //    captureLog("Sell tested.",console);
+            expect.stringMatching(/Reading Asset Pairs.../));
+        customExpect(consoleSpy).toHaveBeenCalledWith(
+            expect.stringMatching(/Reading Tickers.../));
+            consoleSpy.mockRestore();
+        customExpect(consoleSpy).toHaveBeenCalledWith(
+            expect.stringMatching(/ZEC.*20000/));
+            consoleSpy.mockRestore();
+        //    captureLog("Sell tested.",console);
     },10000);
 
     test('Dynamic Buy Amount Calculation', async () => {
-        bot.tfc.useFile(path.join(__dirname,'DACbCache.json'));  // Simulate no buys
+        bot.tfc.useFile(path.join(__dirname,'DACbCacheG.json'));  // Simulate no buys
     //    captureLog("Add a buy",console);
         const consoleSpy = jest.spyOn(console, 'log');
         await bot.report();
@@ -165,7 +176,7 @@ describe( 'Testing Gemini', () => {
     },10000);
 
     test('Closed Order lists', async () => {
-        bot.tfc.useFile(path.join(__dirname,'DACbCache.json'));  // Simulate no buys
+        bot.tfc.useFile(path.join(__dirname,'DACbCacheG.json'));  // Simulate no buys
         const consoleSpy = jest.spyOn(console, 'log');
         await man.doCommands(['list C 5']);
         // await bot.sleep(2000);
@@ -183,7 +194,7 @@ describe( 'Testing Gemini', () => {
 
     test('Web Page Data', (done) => {
         async function WPD() {
-            bot.tfc.useFile(path.join(__dirname,'DACbCache.json'));  // Simulate no buys
+            bot.tfc.useFile(path.join(__dirname,'DACbCacheG.json'));  // Simulate no buys
             // const consoleSpy = jest.spyOn(console, 'log');
             await man.doCommands(['web on 8155']);
             const options = {
@@ -227,7 +238,7 @@ describe( 'Testing Gemini', () => {
     }, 25000);
 
     test('Collect more old orders', async () => {
-        bot.tfc.useFile(path.join(__dirname, 'co474.json'));
+        bot.tfc.useFile(path.join(__dirname, 'co474G.json'));
         const consoleSpy = jest.spyOn(console, 'log');
         await man.doCommands(['list CR']);  // Clear and collect 300 results
     //    CR might not be doing enough.  
@@ -249,7 +260,7 @@ describe( 'Testing Gemini', () => {
         // Say it's a new account. (NACache.json has 5 orders.)
         bot.tfc.clearCache();
         consoleSpy.mockClear();
-        bot.tfc.useFile(path.join(__dirname, 'NACache.json'));
+        bot.tfc.useFile(path.join(__dirname, 'NACacheG.json'));
         await man.doCommands(['list CR']);
         customExpect(consoleSpy).toHaveBeenCalledWith(
             expect.stringMatching(/Restting closed orders record./));
@@ -302,5 +313,5 @@ describe( 'Testing Gemini', () => {
             expect.stringMatching(/OX57R3-REKZO-3GL7HY/)
         );
     });
-    */
+    
 });

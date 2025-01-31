@@ -1,33 +1,40 @@
 {
   "compilerOptions": {
     "allowJs": false,
-    "target": "es2020",
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    "baseUrl": ".",
     "esModuleInterop": true,
-    "rootDir": ".",
-    "outDir": ".",
-    "strict": false,
-    "noImplicitAny": false,
-    "skipLibCheck": true,
-    "downlevelIteration": true,
-    "typeRoots": ["./node_modules/@types", "./"],
-    "sourceMap": true,
+    "forceConsistentCasingInFileNames": true,
     "inlineSources": true,
-    "forceConsistentCasingInFileNames": true
+    "module": "ES2020",
+    "moduleResolution": "node",
+    "noEmitOnError": false,
+    "noImplicitAny": false,
+    "outDir": ".dist",
+    "paths": {
+      "*": ["*", ".dist/*"]
+    },
+    "downlevelIteration": true,
+    "rootDir": ".",
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "target": "es2020",
+    "typeRoots": ["./node_modules/@types", "./"]
   },
   
   // "include": ["*.ts", "global.d.ts", "test/*.ts"],
   // "exclude": ["node_modules", "dist", "**/*.test.ts"],
   "include": [
-    "bot.ts",
-    "global.d.ts"
+    "*.ts",
+    "*.d.ts",
+    "static/**/*.ts"
   ],
   "exclude": [
     "node_modules",
     "dist",
     "test",
-    "**/*.test.ts"
+    "**/*.test.ts",
+    "TFC*/"
   ],
   "files": ["global.d.ts"],
 }

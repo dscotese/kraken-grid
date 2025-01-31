@@ -4,33 +4,38 @@ import Gem from './gemini.js';
 // This translates kraken API calls into Gemini API calls
 // so that code written for Kraken will work against Gemini
 // --------------------------------
-export default function Gclient(key, secret, options) {
-    const gem = new Gem(key, secret);
-    const assets = {};
-    const gemPairs = {};
-    const quotes = new Set();
-    const {bot} = options;
-    let todayUTC;
-    let fees;
+export default class Gclient {
+  constructor(key, secret, options) {
+    this.gem = new Gem(key, secret);
+    this.assets = {};
+    this.gemPairs = {};
+    this.quotes = new Set();
+    this.bot = options.bot;
+    this.todayUTC;
+    this.fees;
+
+    // bot.pairs needs to know what all is on the exchange
+  }
 
   // Calculate the fee for a particular trade volume.
-  async function feeOn(notionalAmount) {
+  async feeOn(notionalAmount) {
     const today = new Date().toISOString().split('T')[0];
-    if(todayUTC !== today) {
-      fees = await gem.api("notionalvolume");
-      todayUTC = today;
+    if(this.todayUTC !== today) {
+      this.fees = await this.gem.api("notionalvolume");
+      this.todayUTC = today;
     }
-    return fees.api_maker_fee_bps * notionalAmount / 10000;
+    return this.fees.api_maker_fee_bps * notionalAmount / 10000;
   }
 
   // Return the symbol Gemini uses for the symbol passed "in Kraken"
-  function inKraken(sym, invert = false) {
+  static inKraken(sym, invert = false) {
     const k2g = {
       'ZUSD': 'USD',
       'XXBT': 'BTC',
       'XETH': 'ETH',
       'XLTC': 'LTC',
       'XMLN': 'MLN',
+      'XZEC': 'ZEC',
       'ZAUD': 'AUD',
       'ZCAD': 'CAD',
       'ZEUR': 'EUR',
@@ -57,15 +62,17 @@ export default function Gclient(key, secret, options) {
     return sym;
   }
 
-  function makeKAP(bd, qasset) {
+  makeKAP(bd, qasset) {
     const pairNameLC = (bd.base_currency+qasset.altname).toLowerCase();
+    const kBase = this.inKraken(bd.base_currency, true);
+    const kQuote = this.inKraken(bd.quote_currency, true);
     return {
-        "altname": pairNameLC,
+        "altname": kBase+kQuote,
         "wsname": bd.symbol,    // Suspect same as pairNameLC
         "aclass_base": "currency",
-        "base": inKraken(bd.base_currency, true),
+        "base": kBase,
         "aclass_quote": "currency",
-        "quote": inKraken(bd.quote_currency, true),
+        "quote": kQuote,
         "lot": "unit",
         "cost_decimals": bd.quote_increment,
         "pair_decimals": bd.tick_size,
@@ -169,59 +176,73 @@ export default function Gclient(key, secret, options) {
     }
   }
 
-  async function AssetPairs() {
-/* Call symbols to get list of pairs:
-["btcusd", "ethbtc", "ethusd", "bchusd", "bchbtc", "bcheth", "ltcusd", "ltcbtc", "ltceth", "ltcbch", "batusd", "daiusd", "linkusd", "oxtusd", "linkbtc", "linketh", "ampusd", "compusd", "paxgusd", "mkrusd", "zrxusd", "manausd", "storjusd", "snxusd", "crvusd", "uniusd", "renusd", "umausd", "yfiusd", "btcdai", "ethdai", "aaveusd", "filusd", "btceur", "btcgbp", "etheur", "ethgbp", "btcsgd", "ethsgd", "sklusd", "grtusd", "lrcusd", "sandusd", "cubeusd", "lptusd", "maticusd", "injusd", "sushiusd", "dogeusd", "ftmusd", "ankrusd", "btcgusd", "ethgusd", "ctxusd", "xtzusd", "axsusd", "lunausd", "efilfil", "gusdusd", "dogebtc", "dogeeth", "rareusd", "qntusd", "maskusd", "fetusd", "api3usd", "usdcusd", "shibusd", "rndrusd", "galausd", "ensusd", "elonusd", "tokeusd", "ldousd", "rlyusd", "solusd", "apeusd", "gusdsgd", "qrdousd", "zbcusd", "chzusd", "jamusd", "gmtusd", "aliusd", "gusdgbp", "dotusd", "ernusd", "galusd", "samousd", "imxusd", "iotxusd", "avaxusd", "atomusd", "usdtusd", "btcusdt","ethusdt","pepeusd","xrpusd", "hntusd", "btcgusdperp", "ethgusdperp", "pepegusdperp","xrpgusdperp", "solgusdperp", "maticgusdperp", "dogegusdperp", "linkgusdperp", "avaxgusdperp", "ltcgusdperp", "dotgusdperp", "bnbgusdperp", "injgusdperp", "wifgusdperp"]
-*/
-    const gSyms = await gem.api("symbols");
+  async balances() {
+    const GBalances = await this.gem.api('balances');
+    const result = {};
+    GBalances.forEach((balobj,i,gb) => {
+      result[this.inKraken(balobj.currency, true)] = balobj.amount;
+    });
+    return result;
+}
+
+async AssetPairs() {
+/* Call symbols to get the array of pairs */
+    const gSyms = await this.gem.api("symbols");
     console.log(gSyms);
-    // Call for details on each one to simulate Kraken's answer
+    // Call for details on those in our portfolio.
     const ret = {}; let bc; let qc;
-    await Promise.all(gSyms.map(async tp => {
-      const details = await gem.api("symbols/details",[tp]);
-      qc = inKraken(details.quote_currency, true);
-      bc = inKraken(details.base_currency, true);
-      if(!assets[qc]) {
-        assets[qc] = {
-          aclass:"currency",
-          altname:details.quote_currency,
-          decimals:2,
-          display_decimals:5,
-          status:"enabled"
-        };
-        quotes.add(qc);   // Keep track of our numeraires.
-      }
-      // assets[tp] = {};
-      if(!assets[bc]) {
-          const dd = -Math.log10(details.tick_size);
-          assets[bc] = {
-              aclass:"currency",
-              altname:details.base_currency,
-              decimals:dd,
-              display_decimals:dd,
-              status:details.status==='open'?'enabled':'disabled'
+    const portfolio = this.bot.getPortfolio();
+    const gBals = await this.balances(); // returns Kraken symbols.
+    const bKeys = Object.keys(gBals); //.map(x => x.currency);
+    const kNum = portfolio.Numeraire;
+    const gNum = this.inKraken(kNum);
+    bKeys.forEach(x => {
+      if(kNum !== x) portfolio.Pairs.add(x+kNum);
+    });
+    const gPairs = bKeys.map(x => (this.inKraken(x)+gNum).toLowerCase())
+      .filter(x => x !== (gNum+gNum).toLowerCase());
+
+//    const pSyms = gSyms.map(sym => (this.inKraken(sym,true))));
+    await Promise.all(gPairs.forEach(async tp => {
+      try {
+        const details = await this.gem.api("symbols/details",[tp]);
+        qc = this.inKraken(details.quote_currency, true);
+        bc = this.inKraken(details.base_currency, true);
+        if(!this.assets[qc]) {
+          this.assets[qc] = {
+            aclass:"currency",
+            altname:details.quote_currency,
+            decimals:2,
+            display_decimals:5,
+            status:"enabled"
           };
+          this.quotes.add(qc);   // Keep track of our numeraires.
+        }
+        // this.assets[tp] = {};
+        if(!this.assets[bc]) {
+            const dd = -Math.log10(details.tick_size);
+            this.assets[bc] = {
+                aclass:"currency",
+                altname:details.base_currency,
+                decimals:dd,
+                display_decimals:dd,
+                status:details.status==='open'?'enabled':'disabled'
+            };
+        }
+        ret[tp] = this.makeKAP(details, this.assets[qc]);
+        return details;   // which is a promise, as Promise.all wants.
       }
-      ret[tp] = makeKAP(details, assets[qc]);
-      return details;   // which is a promise, as Promise.all wants.
+      catch(e) {
+        console.log(`[tp,details,qc,bc]:${[tp,details,qc,bc]}`);
+      };
     }));
     return ret;
   }
 
-  async function fetchAssets() {
-      if(!assets)
-          await AssetPairs();
-      return assets;
-  }
-
-  async function balances() {
-      const GBalances = await gem.api('balances');
-      let qc; const result = {};
-      GBalances.forEach((balobj,i,gb) => {
-        qc = inKraken(balobj.currency, true);
-        if(assets[qc]) result[qc] = balobj.amount;
-      });
-      return result;
+  async fetchAssets() {
+      if(!this.assets)
+          await this.AssetPairs();
+      return this.assets;
   }
 
 /* From Kraken's Docs:
@@ -260,11 +281,11 @@ export default function Gclient(key, secret, options) {
         ]
       }, etc.
 */
-  async function fetchOrders() {
-      const orders = await gem.api('orders');  // Array of obj
+  async fetchOrders() {
+      const orders = await this.gem.api('orders');  // Array of obj
       const objOpen = {}; let toid; let ts;
       orders.forEach(async (o) => {
-          toid = `${o.id}K2G1GEMINIGEMINI`;
+          toid = BigInt(o.id).toString(36).toUpperCase()+'K2G1GEMINIGEMINI';
           toid = `${toid.slice(0,6)}-${toid.slice(6,11)}-${toid.slice(11,17)}`;
           if(!o.is_live) throw Error("Orders returned non-open order.");
           const cost = o.avg_execution_price*o.executed_amount;
@@ -303,42 +324,42 @@ export default function Gclient(key, secret, options) {
   }
 
   /* This simulation of Kraken can only work if we collect all orders.
-    We store them in the Extra object provided from bot.getExtra.
+    We store them in the Extra object provided from this.bot.getExtra.
     orders/history might be a better match, and it is coded below
     this function.
    */
-  async function fetchTrades(params) {
-    const {gemTrades} = {gemTrades:{length:0, lastTS:0}, ...bot.getExtra()};
+  async fetchTrades(params) {
+    this.gemTrades = {gemTrades:{length:0, lastTS:0}, ...this.bot.getExtra()};
     // "the list of trades will be sorted by timestamp descending - so the
     // first element in the list will have the highest timestamp value."
     // if we don't include a timestamp, we will get the latest trades and
     // may thereby miss some old ones, so we always include it.
-    const orders = await gem.api('mytrades', 
-      {timestamp: gemTrades.lastTS, limit_trades: 500});  // Array of obj
+    const orders = await this.gem.api('mytrades', 
+      {timestamp: this.gemTrades.lastTS, limit_trades: 500});  // Array of obj
     // Gemini returns an array, but at some point, the returned
     // array will include orders we already have.  We can rely on
     // Javascript to overwrite them if they are properties of an
     // object, but as array elements, they will be duplicated.
-    // Therefore, gemTrades is an object with a length property.
+    // Therefore, this.gemTrades is an object with a length property.
     if(orders.length) {
-      orders.forEach(closedOrder => { gemTrades[closedOrder.tid] = closedOrder; });
-      gemTrades.lastTS = orders[0].timestamp;
+      orders.forEach(closedOrder => { this.gemTrades[closedOrder.tid] = closedOrder; });
+      this.gemTrades.lastTS = orders[0].timestamp;
     }
     // Handle ofs and userref
     // tids in reverse chronological order:
     // eslint-disable-next-line no-restricted-globals
-    const tidsRCO = Object.keys(gemTrades).filter(k => !isNaN(k))
-      .map(k => gemTrades[k].tid)
-      .sort((a,b) => (gemTrades[b].timestampms - gemTrades[a].timestampms));
-    gemTrades.length = tidsRCO.length;
-    bot.save();
+    const tidsRCO = Object.keys(this.gemTrades).filter(k => !isNaN(k))
+      .map(k => this.gemTrades[k].tid)
+      .sort((a,b) => (this.gemTrades[b].timestampms - this.gemTrades[a].timestampms));
+    this.gemTrades.length = tidsRCO.length;
+    this.bot.save();
   
     const closed = {};
     let urCount = 0;
     let offset = params.ofs || 0;
     tidsRCO.forEach(tid => {
       if( offset < 1 ) {
-        const oo = gemTrades[tid];
+        const oo = this.gemTrades[tid];
         const klo = {       // Kraken-Like-Order
           descr: { pair: oo.symbol,
               type: oo.type.toLowerCase(),
@@ -372,11 +393,11 @@ export default function Gclient(key, secret, options) {
       }
       offset -= 1;
     });
-    return {closed, count: (params.userref ? urCount : gemTrades.length)};
+    return {closed, count: (params.userref ? urCount : this.gemTrades.length)};
   }
   
-  async function fetchClosed(params) {
-    const extra = bot.getExtra();
+  async fetchClosed(params) {
+    const extra = this.bot.getExtra();
     const gemClosed = {length:0, lastTS:0, ...(extra.gemClosed)};
     let oidsRCO;
   // "the list of trades will be sorted by timestamp descending - so the
@@ -386,7 +407,7 @@ export default function Gclient(key, secret, options) {
     let count = 500;
     while(count === 500) {
       // eslint-disable-next-line no-await-in-loop
-      let orders = await gem.api('orders/history', 
+      let orders = await this.gem.api('orders/history', 
         { timestamp: gemClosed.lastTS, 
           limit_orders: 500,
           include_trades: true
@@ -397,7 +418,7 @@ export default function Gclient(key, secret, options) {
       // array will include orders we already have.  We can rely on
       // Javascript to overwrite them if they are properties of an
       // object, but as array elements, they will be duplicated.
-      // Therefore, gemTrades is an object.
+      // Therefore, this.gemTrades is an object.
       count = orders.length;
       if(orders.length) {
         orders.forEach(closedOrder => {
@@ -421,9 +442,9 @@ export default function Gclient(key, secret, options) {
         .map(k => gemClosed[k].order_id)
         .sort((a,b) => (gemClosed[b].timestampms - gemClosed[a].timestampms));
       gemClosed.length = oidsRCO.length;
-      const oldSize = extra.gemClosed.length;
+      const oldSize = extra.gemClosed?.length || 0;
       extra.gemClosed = gemClosed;
-      if(oldSize !== gemClosed.length) bot.save();
+      if(oldSize !== gemClosed.length) this.bot.save();
     }
     let toid;
     const closed = {};
@@ -473,12 +494,14 @@ export default function Gclient(key, secret, options) {
     return {closed, count: (params.userref ? urCount : gemClosed.length)};
   }
   
-  async function readTicker(market, receiver) {
-    if( !gemPairs[market] ) {
-      console.log(`Convert ${market} to Gemini's symbol first.`);
-      return;
+  static strInt(x) { return (0.5+x).toFixed(0); }
+
+  async readTicker(market, receiver) {
+    if( !this.gemPairs[market] ) {
+      market = this.inKraken(market);
+      if(market === '') return;
     }
-    const ticker = await gem.api('v2/ticker', {symbol: market});
+    const ticker = await this.gem.api('v2/ticker', {symbol: market});
     if(ticker) {
       // eslint-disable-next-line no-param-reassign
       receiver[market] = {
@@ -488,16 +511,27 @@ export default function Gclient(key, secret, options) {
         v: '',
         p: '',
         t: 0,
-        l: ticker.low,
-        h: ticker.high,
+        l: [ticker.low,ticker.low],
+        h: [ticker.high,ticker.high],
         o: ticker.open
       };
     }
+    const bna = await this.gem.api('book', {
+      symbol: market,
+      limit_bids: 1,
+      limit_asks: 1
+    });
+    const a = strInt(bna.asks[0].amount);
+    const b = strInt(bna.bids[0].amount);
+    receiver[market].a[1] = a;
+    receiver[market].a[2] = Number(a).toFixed(3);
+    receiver[market].b[1] = b;
+    receiver[market].b[2] = Number(b).toFixed(3);
   }
 
-  async function addOrder(params) {
+  async addOrder(params) {
     const {pair, userref, type, price, volume, close} = params;
-    const ret = await gem.api('order/new', {
+    const ret = await this.gem.api('order/new', {
       client_order_id: `${userref}u${new Date().toISOString().slice(0,19)}`,
       symbol: pair,
       amount: String(volume),
@@ -510,55 +544,99 @@ export default function Gclient(key, secret, options) {
     if(close) console.log("Conditional Close not yet supported.");
     return ret;
   }
-        
-  async function api(method, params) {
+  
+  async simulatePH( gtik, interval ) {
+    let simulated = [];
+    const intG = interval > 1440 ? '1day' : '1hr';
+    let raw = await this.gem.api('v2/candles',{pair: gtik,
+      interval: intG});
+    await raw;
+    let records = raw.length;
+    const ts = new Date() * 1;
+    const mod = ts % interval;
+    const lastts = ts - mod;
+    const cycle = interval / (intG == '1hr' ? 60 : 1440);
+    let toAdd = [,,,,,,0];
+    while(simulated.length < 720 && records > 0) {
+      // The first item is the latest and may not be complete.
+      // When we hit an integer multiple of ms, we create a new
+      // entry.
+      let onDay = raw[--records];
+      toAdd[2] = Math.max(toAdd[2],onDay[2]) || onDay[2]; // High
+      toAdd[3] = Math.min(toAdd[3],onDay[3]) || onDay[3]; // Low
+      toAdd[4] = onDay[4];  // Close
+      toAdd[5] = 0; // vwav = unknown from Gemini.
+      toAdd[6] += onDay[5]; // Volume
+      toAdd[7] = 0; // TradeCount also unknown.
+      if(onDay[0] % (60000*interval) == 0) {
+        toAdd[0] = onDay[0];    // Timestamp
+        toAdd[1] = onDay[1];    // Open
+        simulated.push(toAdd);
+        toAdd = [,,,,,,0];
+      }
+    }
+    return simulated;
+  }
+
+  async api(method, params) {
     const cached = {}; // k2gtfc.isCached('k2gapi',[method,params]);
-    let ret = {};
-    const errors = [];
     if(process.USECACHE && cached.answer) return cached.cached;
     
     try {
-        if(method === 'AssetPairs') {
-            if(Object.keys(gemPairs).length > 0 
-              && !params.refresh) return gemPairs();
-            // eslint-disable-next-line no-param-reassign
-            if(params) delete params.refresh;
-            ret = await AssetPairs();
-            Object.assign(gemPairs, ret);
-        } else if(method === 'Assets') {
-            ret = await fetchAssets();
-        } else if(method === 'Balance') {
-            ret = await balances();
-        } else if(method === 'TradeBalance') {
-            ret = {c: 0, v: 0, n: 0};
-        } else if(method === 'OpenPositions') 
-            ret = {};
-        else if(method === 'OpenOrders') {
-            ret = await fetchOrders();
-            ret = {open: ret};
-        } else if(method === 'ClosedOrders') {
-            if( params.closetime && params.closetime !== 'close' )
-              throw new Error("Gemini provides only execution time.");
-            ret = await fetchClosed(params);
-        } else if(method === 'Ticker') {
-          if( /,/.test(params.pair) ) {
-              await Promise.all( params.pair.split(',')
-                .map(async p => (readTicker(p, ret)) ));
-          } else await readTicker( params.pair, ret );
-        } else if(method === 'AddOrder') {
-          ret = addOrder(params);
-        } else if(method === 'order/events') {
-          ret = await(gem.api(method));
-        } else console.log(method, params, "???");
+      const errors = [];
+      let ret = {};
+      if(method === 'AssetPairs') {
+          if(Object.keys(this.gemPairs).length > 0 
+            && !params.refresh) return this.gemPairs;
+          // eslint-disable-next-line no-param-reassign
+          if(params) delete params.refresh;
+          ret = await this.AssetPairs();
+          Object.assign(this.gemPairs, ret);
+      } else if(method === 'Assets') {
+          ret = await this.fetchAssets();
+      } else if(method === 'Balance') {
+          ret = await this.balances();
+      } else if(method === 'TradeBalance') {
+          ret = {c: 0, v: 0, n: 0};
+      } else if(method === 'OpenPositions') 
+          ret = {};
+      else if(method === 'OpenOrders') {
+          ret = await this.fetchOrders();
+          ret = {open: ret};
+      } else if(method === 'ClosedOrders') {
+          if( params.closetime && params.closetime !== 'close' )
+            throw new Error("Gemini provides only execution time.");
+          ret = await this.fetchClosed(params);
+      } else if(method === 'Ticker') {
+        if( /,/.test(params.pair) ) {
+            await Promise.all( params.pair.split(',')
+              .map(async p => (this.readTicker(p, ret)) ));
+        } else await this.readTicker( params.pair, ret );
+      } else if(method === 'AddOrder') {
+        ret = this.addOrder(params);
+      } else if(method === 'order/events') {
+        ret = await this.gem.api(method);
+      } else if(method === 'OHLC') {
+        const K2GTimeMap = {
+          1:'1m', 5:'5m', 15:'15m', 30:'30m', 
+          60:'1hr', 240:'6hr', 1440:'1day',
+          21600: '1day', 10080: '1day'
+        } 
+        const sim = ([240,21600,10080].includes(params.interval));
+        // If the interval is not available, then we should simulate it
+        let raw = await sim
+          ? simulatePH(this.inKraken(params.pair), params.interval)
+          : this.gem.api('v2/candles',{pair: this.inKraken(params.pair),
+            interval: K2GTimeMap[params.interval]});
+        raw = await raw;
+        ret = sim ? raw : (raw.reverse()).map(rec =>
+          [rec[0]/1000,rec[1],rec[2],rec[3],rec[4],rec[4],rec[5],0]);
+        ret = {[this.inKraken(params.pair,true)]:ret};
+      } else console.log(method, params, "???");
+      // if(!cached || !cached.answer) k2gtfc.store(cached.id,ret);
+      return {error:errors, result:ret};
     } catch(e) {
-        errors.push(e.message);
-        ret = {};
+      return {error:[e.message], result:{}};
     }
-    
-    ret = {error:errors, result:ret};
-    // if(!cached || !cached.answer) k2gtfc.store(cached.id,ret);
-    return ret;
   }
-
-  return {api, inKraken, assets, quotes};
 }

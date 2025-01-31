@@ -74,7 +74,7 @@ function Savings(j=false) { // Constructor for savings
             alloc.push({ticker:a.ticker, target:values[a.ticker]/total});
         });
         myTotal = total;
-        return AllocCon({bot, Savings},alloc);
+        return await AllocCon({bot, Savings},alloc);
     }  
 
     function recover() {

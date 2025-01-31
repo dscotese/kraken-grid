@@ -124,9 +124,6 @@ function howMuch(tkr, np) {
     a2s = t2s*(b + f*ma)/np;
     trade = (allCrypto ? a2 : a2s) - a;
 
-    let msg = "Inputs: [p,np,t,hp,lp,f,b,ma,tot1,ov,t2,t2s,a,a2]"
-        + [p,np,t,hp,lp,f,b,ma,tot1,ov,t2,t2s,a,a2].toString();
-    console.log(msg);
     return trade;
 }
 
@@ -377,7 +374,7 @@ function AllocTable(tol = genTol) {
      //   [b,r,tr] = [b,r,tr].map((x) => (sigdig(100*x)));
         ret += "<th>"+t+"</th>";
         current += "<td>"+(c=data.current[t])+"%</td>";
-        base += rh == 0 ? b : "<td title='Within the latest "
+        base += rh == 0 ? tag('td',b) : "<td title='Within the latest "
             + tr +"%-wide trading range, the allocation will rise from "
             + b +" at "+rh+" proportionately by "+r+"% up to "+(b+r)+"% at "+rl+".'>"
             + b + ' - ' + (b+r) + '</td>';
@@ -427,7 +424,7 @@ function armAlloc() {
     });
 }
 
-var ordSort = 'ID';
+var ordSort = 'ID';     // The field on which to sort the OrderTable.
 function OrderTable() {
     let neg = (ordSort[0]=='-'),
         oo, od, odo, parsed, ret = "<table id='oDiv'><tr><th>ID</th><th>Type</th>"
@@ -456,7 +453,7 @@ function OrderTable() {
                 + tag('th','less') + tag('th','more') + tag('th','kill') 
                 + tag('th',(oo.descr.leverage=='none'?'add':'de')+'lev') + '</tr>';
         });
-    } else ret = `\n<tr> ${tag('td','There are no open orders.',"span='7'")}</tr>`;
+    } else ret += `\n<tr> ${tag('td','There are no open orders.',"span='7'")}</tr>`;
     return ret + getClosed() + "</table>";
 }
 function tag(t,i,attrs){return '<'+t+(attrs ? ' '+attrs : '')+'>'+i+'</'+t+'>';}

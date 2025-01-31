@@ -1,5 +1,6 @@
 {
   "extends": [
+    "eslint:recommended",
     "airbnb/base",
     "plugin:react/recommended",
     "plugin:react-hooks/recommended",
@@ -21,12 +22,34 @@
     "promise/prefer-await-to-then": "error",
     "promise/prefer-await-to-callbacks": "error",
     "no-return-await": "error",
-    "no-await-in-loop": "warn"
+    "no-await-in-loop": "warn",
+    "no-void": ["error", { "allowAsStatement": true }],
+    "@typescript-eslint/no-floating-promises": "error"
     },
     "overrides": [{
       "files": ["test/**/*.js", "test/**/*.mjs"],
       "rules": {
         "no-debugger": "off"
+      }
+    },{
+      "files": ["static/**/*.js"],
+      "globals": {
+        "jQuery": "readonly",
+        "galloc": "readonly",
+        "imgByKtick": "readonly",
+        "sigdig": "readonly"
+      },
+      "rules": {
+        "no-undef": "warn",
+        "no-unused-vars": "warn",
+        "no-var": "off",
+        "prefer-const": "off",
+        "no-use-before-define": "off",
+        "no-redeclare": "off",
+        "no-plusplus": "off",
+        "vars-on-top": "off",
+        "block-scoped-var": "off",
+        "no-loop-func": "off"
       }
     }],
     "settings": {
@@ -38,7 +61,8 @@
     "node": true,
     "browser": true,
     "es2021": true,
-    "jest": true
+    "jest": true,
+    "jquery": true
   },
   "parserOptions": {
     "ecmaVersion": "latest",

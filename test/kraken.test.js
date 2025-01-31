@@ -51,7 +51,7 @@ describe('Test Kraken', () => {
         // man initializes bot using a password passed to it.
         // Not testing the command ine interface (yet?)
         man.ignore();
-        a = AllocCon({bot, Savings:null});
+        a = await AllocCon({bot, Savings:null});
         a.addAsset('XBT',0.4);
         a.addAsset('XMR',0.4);
         // console.log('bot is ', bot);
@@ -67,19 +67,26 @@ describe('Test Kraken', () => {
         customExpect(gotErr).toBe(true);
     });
 
-    test('Base Currency Tracking', () => {
-        customExpect(Math.round(10*a.get(0).target)).toBe(2);
+    test('Base Currency Tracking', async () => {
+        const asset0 = await a.get(0);
+        const targ0 = asset0.target;
+        customExpect(Math.round(10*targ0)).toBe(2);
     });
 
-    test('Update Allocation', () => {
+    test('Update Allocation', async () => {
         a.addAsset('XBT',0.5);
-        customExpect(Math.round(10*a.get(0).target)).toBe(1);
+        customExpect(Math.round(10*(await a.get(0)).target)).toBe(1);
     });
 
-    test('setBase to EUR', () => {
-        customExpect(a.get(0).ticker).toBe("ZUSD");
-        a.setNumeraire('EUR');
-        customExpect(a.get(0).ticker).toBe("EUR");
+    test('setBase to (Z)EUR', async () => {
+        let asset0 = await a.get(0);
+        customExpect(asset0.ticker).toBe("ZUSD");
+        a.setNumeraire('ZEUR');
+        asset0 = await a.get(0);
+        customExpect(asset0.ticker).toBe("ZEUR");
+        a.setNumeraire('ZUSD');
+        asset0 = await a.get(0);
+        customExpect(asset0.ticker).toBe("ZUSD");
     });
 
     test('Wait for the portfolio', async () => {

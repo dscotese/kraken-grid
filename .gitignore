@@ -1,7 +1,10 @@
 # Compiled JavaScript files
 *.js
-*.js.map
 *.d.ts
+.dist/
+
+# Map files
+*.map
 
 # Except for configuration files
 !jest.config.js
@@ -16,7 +19,7 @@ node_modules/
 
 # Environment files
 .env
-.env.local
+.env.*
 
 # IDE files
 .vscode/*
@@ -24,8 +27,18 @@ node_modules/
 !.vscode/launch.json
 !.vscode/extensions.json
 
+# Debug logs
+npm-debug.log*
+
+# Other IDEs
+.idea/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
 # Miscellaneous stuff
-TFC*
+TFC*/
 *.swp
 coverage/
 JestTesting/

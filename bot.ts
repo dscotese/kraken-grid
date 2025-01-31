@@ -5,9 +5,9 @@
 //import type { Process } from 'node';
 import PSCon from 'prompt-sync';
  // ({sigint: true});
-import ssModule from './safestore.js';    // encrypted sorage
-import ReportCon from './reports.js';
-import TFC from'./testFasterCache.js';
+import ssModule from '../safestore.js';    // encrypted sorage
+import ReportCon from '../reports.js';
+import TFC from'../testFasterCache.js';
 import {GridPoint, BothSidesRef, BothSidesPair, OrderEntry, 
     Order, TickerResponse, ClosedOrderResponse,
     Portfolio} from './types.js';
@@ -72,15 +72,15 @@ export default function Bot(config: any) {
     // TODO: make this function easier to use, like:
     //  findPair('XXBTZUSD', altname) -> 'XBTUSD'.
     function findPair(base, quote = portfolio.Numeraire, idx = 0) {
-        const gMarket = exchange.inKraken(base+quote).toLowerCase();
-        const kBase = exchange.inKraken(base, true)
+    //    const gMarket = exchange.inKraken(base+quote).toLowerCase();
+    //    const kBase = exchange.inKraken(base, true)
         const p = Object.entries(pairs).find(a => a[1].altname===base 
             || a[0] === base || alts[base] === a[0]
             || (a[1].quote===quote && ([base,alts[base]].includes(a[1].base)))
-            || a[0] === kBase 
+/*            || a[0] === kBase 
             || base === exchange.inKraken(a[0])
             || a[0] === gMarket
-            || base+quote === exchange.inKraken(a[0], true));
+            || base+quote === exchange.inKraken(a[0], true) */);
         if(!p) {
             console.trace(`No pair with base ${base} and quote ${quote
                 }, in pairs that has ${Object.keys(pairs).length} keys.`);
@@ -236,30 +236,32 @@ export default function Bot(config: any) {
         config.bot.tfc = tfc;   // `this` here is not the object, config.bot is.
         if(!exchange) {
             safestore = ssModule(pwd);
+            if(/^TestPW/.test(safestore.getPW()) && !process.TESTING) 
+                process.TESTING = 'implied';
             // eslint-disable-next-line no-param-reassign
             config.stored = safestore;
             const p = await safestore.read();
             Extra = p.Extra || Extra;
-            exchange = new ClientCon(p.key, p.secret, config);
+            exchange = await new ClientCon(p.key, p.secret, config);
             // eslint-disable-next-line no-param-reassign
             config.exchange = exchange;
-            exchange.inKraken = exchange.inKraken
-                || function inKraken(x) {return x;};
+            exchange.inKraken = ClientCon.inKraken
+                || ((x) => {return x;});
+            config.bot.portfolio = portfolio;
+            portfolio.Pairs = new Set(Array.isArray(p.Pairs) ? p.Pairs : []);
+            portfolio.Numeraire = p.Numeraire || 'ZUSD';
             pairs = await cachePairs();
             tickers = await cacheTickers();
             Savings.init(this);
             // eslint-disable-next-line no-param-reassign
-            config.bot.portfolio = portfolio;
             portfolio.key = p.key;
             portfolio.secret = p.secret;
             portfolio.Savings = p.savings ? p.savings : []; 
 	        portfolio.Closed = p.Closed || {orders: {}, offset: 0};      // Must be something for new accounts.
-            portfolio.Pairs = new Set(Array.isArray(p.Pairs) ? p.Pairs : []);
             portfolio.Tickers = new Set();
-            portfolio.Numeraire = p.Numeraire || exchange.inKraken('ZUSD');
             portfolio.limits = p.limits ? p.limits : [0,-1];
             portfolio.lastUpdate = p.lastUpdate ? p.lastUpdate : null;
-            portfolio.Allocation = AllocCon(config, 
+            portfolio.Allocation = await AllocCon(config, 
                 p.Alloc ? p.Alloc.assets : undefined);
             Reports = ReportCon(this);
         }
@@ -1006,7 +1008,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             if(ts) {
                 if(alts[ts]) ts = alts[ts];
                 if(ts in tik.result) [price,] = tik.result[ts].c;
-            } else {
+            } else if(portfolio.Numeraire === p) {
                 if(FLAGS.verbose) console.log("Using 1 as value of",p);
                 price = 1;
             }

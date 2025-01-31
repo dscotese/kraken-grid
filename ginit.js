@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* eslint-disable import/extensions */
 import Manager from './manager.js';
-import { Bot } from './bot.ts';
+import Bot from 'bot';
 import { AllocCon } from './allocation.js';
 import Savings from './savings.js';
 import Balancer from './balancer.js';
@@ -27,7 +27,7 @@ export default async function init(initMan = true) {
     Manager(allConfig);
     if( process.TESTING ) global.kgPassword = "TestPWG";
     if(initMan) await allConfig.man.init(global.kgPassword);
-    // allConfig.gemWS = GemSock(allConfig);
+    allConfig.gemWS = GemSock(allConfig);
     return allConfig;
 }
 

@@ -63,8 +63,8 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
             // Periods are in minutes and we can get up to 720 of them.
             // How fine a resolution can we use?
             // ---------------------------------
-            const minutes = periods[peidx]*(prices.length-pidx);
-                const minmin = minutes/720;
+            const minutes = periods[peidx]*(prices.length-pidx); // Total minutes covered
+            const minmin = minutes/720;     
             while(periods[peidx + 1] > minmin)
                 peidx += 1;
    // console.log({minutes,minmin,peidx});
@@ -150,11 +150,6 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
         // retrieved using that function.
         ranges[ticker] = await findRange(ticker, ppct);
     }
-
-    assets.forEach(a => {
-        if(a.adjust) adjust(a.ticker,a.adjust[0],a.adjust[1]);
-        else atargs[a.ticker] = a.target;
-    });
 /*    function recover() {
         if(Array.isArray(j)) assets = j;
         else if(typeof j === 'string' || j instanceof String) {
@@ -184,8 +179,15 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
     // MUST be cumulative, so it must be reset before running
     // through the assets to apply adjustments.  See get().
     // ----------------------------------------------------------
-    function update(asset) {
-        if(ranges[asset.ticker]) {
+    async function update(asset) {
+        if(!ranges[asset.ticker]) {
+            if( asset.adjust )
+                await findRange(asset.ticker, asset.adjust[1]);
+            else {
+                console.log(`${asset.ticker} has no adjustment.`);
+                return;
+            }
+        } else {
             const t = asset.ticker;
             const ap = asset.adjust[0];   // How much of the allocation are we using?
             const p = portfolio[t][1]; let // Current price
@@ -209,10 +211,10 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
 
             // console.log(t,"at",p,"is",pct(heur),"% between",SL,"and",HB,
               //  "so adding",toAdd,"to",asset.target);
-        } else throw Error(`No range for ${asset.ticker}`);
+        }
     }
 
-    function get(i) { 
+    async function get(i) { 
 //        console.log("Allocation.get ",i);
         const ret = (Number.isInteger(i) 
             ? assets[i]
@@ -221,9 +223,9 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
         // adjust everything to determine numeraire allocation
         // ---------------------------------------------------
         atargs[assets[0].ticker] = assets[0].target;
-        assets.forEach(a => {
+        await Promise.all ( assets.map(async a => {
             if(a.adjust) update(a);
-        });
+        }));
         return ret;
     }
 
@@ -237,7 +239,7 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
                 ? realPrice / (1-move)  // move is negative!
                 : realPrice * (1+move);
             const rangeOrig = ranges[ticker] ? [ranges[ticker][0],ranges[ticker][1]] : false;
-            get(ticker); // This updates ranges, which must be undone.
+            await get(ticker); // This updates ranges, which must be undone.
             const ret = atargs[ticker];
             // Undo range update that may have happened.
             // -----------------------------------------
@@ -248,7 +250,7 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
             return ret;
         }
 // console.log({move,ticker,realPrice,ret:atargs[ticker]});
-        get(ticker);
+        await get(ticker);
         return atargs[ticker];
     }
 
@@ -274,9 +276,9 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
         if(assets[0].ticker !== pnum) throw new Error("First asset must be Numeraire!");
         if(size() < 3) tkr = assets[1].ticker;
         if(tkr > '') {
-            c = current.get(tkr);
+            c = await current.get(tkr);
             if(c) {
-                get(tkr);   // Update adjustment if necessary
+                await get(tkr);   // Update adjustment if necessary
                 del = atargs[tkr] - c.target;   // target - actual, pos. means not enough.
                 if(del < 0) { // we need to sell some.
                     tooMuch = {t:tkr,d:del};
@@ -290,10 +292,10 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
                 throw Error(`${tkr} is not in the portfolio.`);
             }
         } else { 
-            assets.forEach(a => {
+            await Promise.all( assets.map(async a => {
                 if(a.ticker === pnum) return;
-                c = current.get(a.ticker);  // Note: this calls actual allocation "target"
-                get(a.ticker); // This updates the adjustment if there is one
+                c = await current.get(a.ticker);  // Note: this calls actual allocation "target"
+                await get(a.ticker); // This updates the adjustment if there is one
                 if(typeof(c) !== 'undefined') {
                     del = atargs[a.ticker] - c.target;  // target - actual, pos. means not Enough
                     priorities.push({t:a.ticker,d:del});
@@ -302,7 +304,7 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
                         ranges[a.ticker]?ranges[a.ticker]:'');
                     if(!bot.getTickers().includes(a.ticker)) priorities[0].d += del;
                 }
-            });
+            }));
             priorities.sort((a,b) => a.d - b.d); // +d goes after -d
  // console.log(priorities);
             tooMuch = priorities.shift();
@@ -422,19 +424,19 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
 
     function getTotal() { return myTotal; }
 
-    function list(compare=false) {
+    async function list(compare=false) {
         const total = getTotal();
             let str = `\nticker\ttarget\t(adjusted)\t(Range)\t(apct,ppct)\t${ compare
                 ? `${compare.name  }\tdiff\t`
                 : '\t\t' }Total: ${total}`;
-        assets.forEach((a) => {
+        await Promise.all(assets.map(async (a) => {
  // console.log("Getting",a);
-            get(a.ticker);  // Forces an update
+            await get(a.ticker);  // Forces an update
             const t = Math.round(1000*a.target)/10;
                 const at = atargs[a.ticker];
                 const atd = Math.round(1000*at)/10;
             if(compare) {
-                const cagt = compare.alloc.get(a.ticker);
+                const cagt = await compare.alloc.get(a.ticker);
                     const ctarg = (cagt && compare) ? cagt.target : 0;
                     const diff = compare ? pct(ctarg - at) : 0;
                     const trade = (diff < 0 ? 'Buy ' : 'Sell ') + 
@@ -444,7 +446,7 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
                     a.adjust ? `(${  a.adjust.join(',')  })` : '\t'  }\t${
                     pct(ctarg)  }%\t${  trade}`;
             } else str = `${str  }\n${  a.ticker  }\t${  t  }%\t${  atd  }%`;
-        });
+        }));
         return str;
     }
 
@@ -457,6 +459,7 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
             // eslint-disable-next-line no-param-reassign
             [assets[0],assets[old]] = [assets[old],assets[0]];
         } else assets.unshift({ticker,target:0});
+        portfolio.Numeraire = ticker;
     }
 
     // Return the trading range for an adjusted asset
@@ -483,12 +486,12 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
         }
         // If user added something to desired allocation and hasn't got
         // any, we want to list it as 0 in "current" allocation.
-        portfolio.Allocation.assets.forEach(async a => { 
+        await Promise.all(portfolio.Allocation.assets.map(async a => { 
             if(!portfolio[a.ticker] && a.target > 0) {
                 const p = await bot.getPrice(a.ticker);
                 portfolio[a.ticker] = [0,p,0,0]; 
             }
-        });
+        }));
         const total = Savings({AllocCon});
         // Add Savings to total.
         // ---------------------
@@ -518,9 +521,9 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
     // each one being an object itself with l and h arrays
     // indicating the low and high for today (0) and for
     // the last 24 hours (1), as per Kraken.
-    function setRanges(tickersLH) {
+    async function setRanges(tickersLH) {
         let pair; let tk; let mr; let rt; let tl; let th; let f; let p; let moved=false;
-        Object.entries(tickersLH).forEach((t) => {
+        await Promise.all(Object.entries(tickersLH).map(async (t) => {
             [pair,mr] = t;
             tk = bot.findPair(pair,undefined,1).base;
             if(undefined === tk) return;
@@ -529,7 +532,7 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
             if(rt) {
                 f = rt[0]/rt[1];    // get % of Price range to use.
                 if(th/tl > f) {     // The prices today exceeded our range, so...
-                    findRange(tk,f-1,true);
+                    await findRange(tk,f-1,true);
                     moved = true;
                 } else if( rt[0] < th ) {
                     rt[0] = th;     // High is from today.
@@ -545,7 +548,7 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
                     console.log("No range was changed:[t,tk,mr,rt0,rt1,tl,th,p,moved]:"
                         +`${[pair,tk,mr,rt[0],rt[1],tl,th,p,moved]}.`);
             }   // If !ranges[tk] then we don't have a range to set!
-        });
+        }));
     }
 
     async function Allocations() {
@@ -577,7 +580,11 @@ export const AllocCon = (config, assets = [{ticker:'ZUSD',target:1}]) => {
         return [current,desired,outAdjust,outRanges];
     }
 
-    return { setNumeraire, list, addAsset, bestTrade, save,
-        adjust, atarg, get, size, assets, toString, sigdig, getRange,
-        Allocations, setRanges, getAllocation, getTotal, getbot };
+    return Promise.all(assets.map(async a => {
+        if(a.adjust) await adjust(a.ticker,a.adjust[0],a.adjust[1]);
+        else atargs[a.ticker] = a.target;
+    })).then(() => (
+        { setNumeraire, list, addAsset, bestTrade, save,
+            adjust, atarg, get, size, assets, toString, sigdig, getRange,
+            Allocations, setRanges, getAllocation, getTotal, getbot }));
 } 
