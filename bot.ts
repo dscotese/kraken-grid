@@ -2,27 +2,70 @@
 /* eslint-disable no-restricted-globals */
 /* eslint-disable import/extensions */
 /* eslint-disable no-console */
-//import type { Process } from 'node';
-import PSCon from 'prompt-sync';
- // ({sigint: true});
-import ssModule from '../safestore.js';    // encrypted sorage
-import ReportCon from '../reports.js';
-import TFC from'../testFasterCache.js';
 import {GridPoint, BothSidesRef, BothSidesPair, OrderEntry, 
     Order, TickerResponse, ClosedOrderResponse,
-    Portfolio} from './types.js';
+    Portfolio, GotError, APIResponse} from './types';
+import {Savings} from 'savings.d';
+declare interface BotInstance {
+    order(buysell: string, market: string, price: number, amt: number, 
+        lev?: string, inUref?: number, closeO?: number): Promise<any>;
+    set(ur: any, type: any, price: any): Promise<void>;
+    listOpens(isFresh?: boolean): Promise<void>;
+    deleverage(opensA: any[], oid: number, undo?: boolean): Promise<void>;
+    ExchangeSavings(): Savings;
+    refnum(opensA: any[], oid: number, newRef: any): Promise<void>;
+    list(args: any[]): Promise<void>;
+    kapi(...args: [string | [string, Record<string, any>], number?]): Promise<APIResponse>;
+    lessmore(less: boolean, oid: number, amt: number, all?: boolean | null): Promise<void>;
+    kill(o: any, oa: any[]): Promise<APIResponse>;
+    report(showBalance?: boolean): Promise<void>;
+    howMuch(tkr: string, np: number): Promise<number>;
+    sleep(ms: number): Promise<void>;
+    marginReport(show?: boolean): Promise<any>;
+    getLev(portfolio: Portfolio, buysell: string, price: number, amt: number, 
+        market: string, posP: any): string;
+    showState(prefix?: string): string;
+    getExtra(): any;
+    pairInfo(p: string): any;
+    showPair(p: string): void;
+    FLAGS: {
+        safe: boolean;
+        verbose: boolean | string | undefined;
+        risky: boolean;
+    };
+    save(): void;
+    basesFromPairs(): string[];
+    findPair(base: string, quote?: string, idx?: number): any;
+    numerairesFromPairs(): string[];
+    init(pwd?: string): Promise<Portfolio>;
+    keys(): Promise<void>;
+    getPrice(tkr: string): Promise<number>;
+    tfc: any;
+    getPairs(): any;
+    getTickers(): string[];
+    getAlts(): Record<string, string>;
+    getPortfolio(): Portfolio;
+    getConfig(): any;
+}
+declare interface BotConstructor {
+    (config: any): BotInstance;
+}
+import PSCon from 'prompt-sync';
+import ssModule from './safestore.js';    // encrypted storage
+import ReportCon from './reports.js';
+import TFC from './testFasterCache.js';
 
 const prompt = PSCon({sigint: true});
 const myConfig : any = {exch: 'K'};
-export{}
-export default function Bot(config: any) {
+
+export default function Bot(config: any): BotInstance {
     if(config.bot) return config.bot; // Singleton!
     Object.assign(myConfig, config);
     const {Savings, AllocCon, ClientCon} = myConfig;
     let safestore;
     let Reports;
     let pairs: Object = {};
-    let tickers : String[] = [];
+    let tickers : string[] = [];
     let Bases;
     let Numeraires;
     let Extra = {};
@@ -30,7 +73,11 @@ export default function Bot(config: any) {
     let exchange;
     let tfc;        // So we don't have to use config.bot.tfc
 
-    let portfolio: Portfolio = {};   // A record of what's on the exchange
+    let portfolio: Portfolio = {
+        Numeraire: "ZUSD",
+        secret: "",
+        key: ""
+    };   // A record of what's on the exchange
     let lCOts = 0;          // Timestamp for use in collecting executed trades.
     const FLAGS = {safe:true,verbose:process.TESTING,risky:false};
 
@@ -115,7 +162,7 @@ export default function Bot(config: any) {
         return pairs[p];
     }
 
-    function sleep(ms) {
+    function sleep(ms: number): Promise<void> {
     // When debugging, step INTO this function and wait at the breakpoint below.
     // If you step OVER the await that calls sleep(), JavaScript will continue 
     // executing other code (like the next test file) while waiting for the timeout.
@@ -132,8 +179,8 @@ export default function Bot(config: any) {
         const cached = tfc.isCached('kapi',arg);
         if( cached.answer && process.USECACHE ) {
             ret = cached.cached;
-        } else if( process.USECACHE==='must' ) { return { result: { 
-            descr: `No Cache for ${cached.id}` } }; 
+        } else if( process.USECACHE==='must' ) { return { result: {}, 
+            error: [`No Cache for ${cached.id}`] }; 
         } else try {
             if(Array.isArray(arg)) {
                 ret = await exchange.api(...arg);
@@ -141,7 +188,8 @@ export default function Bot(config: any) {
                 ret = await exchange.api(arg);
             }
             await sleep(1000);
-        } catch(err) {
+        } catch(gerr: unknown) {
+            const err = gerr as GotError;
             // For error conditions that are usually transient.
             if((!/AddOrder/.test(arg[0])&&/ETIMEDOUT|EAI_AGAIN/.test(err.code))
                 || /nonce/.test(err.message)
@@ -183,7 +231,7 @@ export default function Bot(config: any) {
 
     const mutex = {
         locked: false,
-        queue: [],
+        queue: [] as Function[],
         lock: async function lock() {
             if (this.locked) {
             // eslint-disable-next-line no-promise-executor-return
@@ -193,7 +241,7 @@ export default function Bot(config: any) {
         },
         unlock: function unlock() {
             this.locked = false;
-            const next = this.queue.shift();
+            const next: Function | undefined = this.queue.shift();
             if (next) next();
         }
     }
@@ -252,7 +300,7 @@ export default function Bot(config: any) {
             portfolio.Numeraire = p.Numeraire || 'ZUSD';
             pairs = await cachePairs();
             tickers = await cacheTickers();
-            Savings.init(this);
+            Savings.init(config.bot);
             // eslint-disable-next-line no-param-reassign
             portfolio.key = p.key;
             portfolio.secret = p.secret;
@@ -263,7 +311,8 @@ export default function Bot(config: any) {
             portfolio.lastUpdate = p.lastUpdate ? p.lastUpdate : null;
             portfolio.Allocation = await AllocCon(config, 
                 p.Alloc ? p.Alloc.assets : undefined);
-            Reports = ReportCon(this);
+            Reports = ReportCon(config.bot);
+            config.report = Reports;
         }
         return portfolio;
     };
@@ -381,39 +430,29 @@ export default function Bot(config: any) {
     }
 
     // Pass a negative numbr for count to collect all orders.
-    async function moreOrders(count = 5) {
+    async function moreOrders(count: number = 5) {
         const pc = portfolio.Closed;
-        const preCount = Object.keys(pc.orders).length;
         do {
             // eslint-disable-next-line no-await-in-loop
             const closed = await Reports.getExecuted(count < 0 ? 20 
                 : count, portfolio.Closed);
-            const closedIDs = Object.keys(closed.orders);
-            // Store closed orders in portfolio
-            console.log(`Had ${preCount} @ ${pc.offset}, now ${closedIDs.length} orders.`);
-            portfolio.Closed = closed;
-            if(preCount < closedIDs.length || !closed.hasFirst) {
-                console.log(`(Re-?)Saving ${closedIDs.length
-                    } closed orders @ ${closed.offset}.`);
-                save();
-            }
         // If count < 0, keep going until we have the first one.
-        } while( (count < 0 && !portfolio.Closed.hasFirst) );
+        } while( (count < 0 && !portfolio.Closed?.hasFirst) );
         return portfolio.Closed;
     }
     // Initialize the grid by reading closed orders if necessary
     async function initGrid() {
         let gPrices: GridPoint[] = portfolio?.G || [];
-        if(gPrices.length === 0) {   // When we have no grid prices, collect 100 orders.
+        if(gPrices.length === 0) {   // When we have no grid prices, collect orders.
             console.log("Reading grid from 20 closed orders...");
             const closed = await moreOrders(20);
-            const closedIDs = closed.keysFwd();
-            if(closedIDs.length > 0) {
+            const closedIDs = closed?.keysFwd() || [];
+            if(closed && closedIDs.length > 0) {
                 let counter = closedIDs.length-1;
-                lCOts = closed.orders[closedIDs[counter]].closetm;
+                lCOts = closed?.orders[closedIDs[counter]].closetm || 0;
                 console.log("Last five executed orders:");
                 closedIDs.forEach((o) => {  // fill in the grid prices from existing orders.
-                    const oo = closed.orders[o];
+                    const oo = closed?.orders[o];
                     const od = oo.descr;
                     const op = od.price;
                     const ur = oo.userref;
@@ -465,7 +504,7 @@ export default function Bot(config: any) {
         const bSidesP: BothSidesPair[] = [];
         const comps: any[]   = [];
         const opensA: OrderEntry[]  = [];
-        const pnum    = portfolio.Numeraire;
+        const pnum: string   = portfolio.Numeraire || "";
         const gPrices = portfolio.G;
 
         Object.entries(opens).forEach(([o,oo]:any) => {
@@ -602,7 +641,7 @@ export default function Bot(config: any) {
     //  ALL of them (pass 0), or a line number from the list
     //  of orders, or all orders with a particular User
     //  Reference Number.
-    async function kill(o,oa) {
+    async function kill(o,oa):Promise<APIResponse> {
         let killed;
         if(o === 0) {
             const killAll = prompt("Cancel ALL orders? [y/N]");
@@ -638,6 +677,7 @@ export default function Bot(config: any) {
             killed = await kapi(['CancelOrder', {txid: o}]);
             console.log(329,killed);
         }
+        return killed;
     //    console.log(331,"Waiting a second.");
     //    await sleep(1000);
     }
@@ -704,7 +744,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
     // ---------------------------------------------------
     function getLev(portfolio2,buysell,price,amt,market,posP) {
         let lev = 'none';
-            const pnum = portfolio.Numeraire;
+            const pnum: string   = portfolio.Numeraire || "";
             const psym = findPair(market,pnum,1).base;
         if(buysell === 'buy') {
             if(1*price > 1*portfolio[psym][1] && posP)
@@ -791,7 +831,9 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             if(!isNaN(c.open)) {
                 if(!c.hasClose) { // If any doesn't have a close, combine them and add one.
                     console.log(421,Object.values(c.ids));
-                    await kill(c.ids.length>1?c.ids:c.ids[0], portfolio.O);
+                    const cleared = await kill(c.ids.length>1?c.ids:c.ids[0], portfolio.O);
+                    if( cleared.result.descr === 'Ignored') 
+                        throw new Error('No such order(s).');
                     await order(c.type,sym,price, toDec(c.total,4),
                        c.lev,c.userref,c.open);
                     if(FLAGS.verbose) console.log(425,
@@ -1085,11 +1127,14 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         const sortedA:OrderEntry[] = []; 
         let orders:OrderEntry[] = portfolio.O;
         if( ['C','CR'].includes(args[1]) ) {
-            if(args[1] === 'CR') {
-                console.log("Restting closed orders record.");
-                portfolio.Closed = {orders: {}, offset: 0};
+            if(args[1] === 'CR' && portfolio.Closed) {
+                console.log("Resetting closed orders record.");
+                portfolio.Closed.orders = {};
+                portfolio.Closed.offset = 0;
+                portfolio.Closed.hasFirst = false;
                 if(portfolio.Extra) delete portfolio.Extra.gemClosed;
                 save();
+                Reports.reset();
                 return;
             }
             let count = 50; 
@@ -1101,22 +1146,24 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             }
             orders = [];
             const closed = await moreOrders(early ? -1 : count);
-            (early ? closed.keysFwd() : closed.keysBkwd())
-                .forEach((o) => {
-                    const oo = closed.orders[o];
-                    if(orders.length < count && (!ur || oo.userref===ur)) 
-                        orders.push([o,oo]);
-                }
-            );
-            console.log("Orders.length:",orders.length,"Era:",
-                early ? "Earliest" : "Latest");
-            // Either way, we display the latest at the bottom by:
-            if(!closed.forward) orders.reverse();
-            args.pop();
-            const isMore = !portfolio.Closed.hasFirst;
-            console.log(`We have collected ${ isMore
-                ? portfolio.Closed.keysFwd().length : "all"
-                } orders. ${ isMore ? "Try again for more." : "" }`);
+            if(closed) {
+                (early ? closed.keysFwd() : closed.keysBkwd())
+                    .forEach((o) => {
+                        const oo = closed.orders[o];
+                        if(orders.length < count && (!ur || oo.userref===ur)) 
+                            orders.push([o,oo]);
+                    }
+                );
+                console.log("Orders.length:",orders.length,"Era:",
+                    early ? "Earliest" : "Latest");
+                // Either way, we display the latest at the bottom by:
+                if(!closed.forward) orders.reverse();
+                args.pop();
+                const isMore = !portfolio.Closed?.hasFirst;
+                console.log(`We have collected ${ isMore
+                    ? portfolio.Closed?.keysFwd().length : "all"
+                    } orders. ${ isMore ? "Try again for more." : "" }`);
+            }
         }
         orders.forEach((x,i) => {
             const ld = x[1].descr;
@@ -1237,7 +1284,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         // If p.Closed.hasFirst, then we have
         //  collected all completed orders and we can search them
         //  for this Userref.
-        if(p.Closed.hasFirst) {
+        if(p.Closed?.hasFirst) {
             haveAll = true;
             once = false;   // We have everything, so we can update all grid points.
             if(!once) console.log("All orders have been retrieved.");
@@ -1246,7 +1293,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         await Promise.all(p.G.map(async (x) => {
             let f; 
             let data: any; 
-            let drc: { [orderId: string]: Order; }; 
+            let drc: { [orderId: string]: Order; } = {}; 
             let datad; 
             since = new Date().getTime()/1000;
             f = toDec(((x.sell-x.buy)*Math.min(x.bought,x.sold)),2);
@@ -1268,7 +1315,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                         // Check for a close and build alternate userRef
                         const {close} = Object.values(drc)[0].descr;
                         if(close) {
-                            closePrice = Number(close.match(/[0-9.]+/)[0]);
+                            closePrice = Number((close.match(/[0-9.]+/) || [-1])[0]);
                             aur = RegExp(`1?[0-9]{3}${String(closePrice).replace('.','')}`);
                             aur = p.G.find((x2) => aur.test(x2.userref) && x!==x2);
                             if(aur && aur.buy === x.buy) {
@@ -1283,14 +1330,14 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                         }
                     }
                     console.log("Retrieved",count,"closed orders for",`${x.userref  }.`);
-                } else {    // p.Closed has ALL orders.
+                } else if(p.Closed) {    // p.Closed has ALL orders.
                     // Include orders if they are sells with a close at the buy
                     //  price or buys with a close at the sell price.
                     drc = Object.fromEntries(Object.entries(p.Closed.orders).filter((o) =>
                         (!o[0].includes('-') ? false :
-                        ((Number(x.buy) === Number(o[1].descr.close.match(/[0-9.]+/)[0])
+                        ((Number(x.buy) === Number(o[1].descr.close?.match(/[0-9.]+/)?.[0])
                                 && o[1].descr.type === 'sell')
-                            || (Number(x.sell) === Number(o[1].descr.close.match(/[0-9.]+/)[0])
+                            || (Number(x.sell) === Number(o[1].descr.close?.match(/[0-9.]+/)?.[0])
                                 && o[1].descr.type === 'buy')))));
                     if(FLAGS.verbose)
                         console.log(drc.length,"found from",x.buy,"to",x.sell,"for",x.userref, drc);
@@ -1347,12 +1394,13 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
     }
 
     // eslint-disable-next-line no-param-reassign
-    config.bot = {order, set, listOpens, deleverage, w, ExchangeSavings,
+    const bot: BotInstance = {order, set, listOpens, deleverage, ExchangeSavings,
     refnum, list, kapi, lessmore, kill, report, howMuch,
     sleep, marginReport, getLev, showState, getExtra,
     pairInfo, showPair, FLAGS, save, basesFromPairs, findPair,
     numerairesFromPairs, init, keys, getPrice, tfc,
     getPairs, getTickers, getAlts, getPortfolio, getConfig};
 
+    config.bot = bot;
     return config.bot;
 }

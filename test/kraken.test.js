@@ -4,14 +4,37 @@ import {expect, describe, test, jest} from '@jest/globals';
 import http from 'http';
 import { fileURLToPath } from 'url';
 import path, { dirname } from 'path';
-import fnInit from "../init";
+import fnInit from "../.dist/init";
 import customExpect from './customExpect';
-import TFC from '../testFasterCache.js'
+import TFC from '../.dist/testFasterCache.js'
 
 // eslint-disable-next-line no-underscore-dangle
 const __filename = fileURLToPath(import.meta.url);
 // eslint-disable-next-line no-underscore-dangle
 const __dirname = dirname(__filename);
+
+const mutex = {
+    locked: false,
+    queue: [],
+    lock: async function() {
+//      console.log('Attempting to acquire mutex, currently:', this.locked);
+      if (this.locked) {
+//        console.log('Mutex locked, waiting...');
+        await new Promise(resolve => this.queue.push(resolve));
+      }
+      this.locked = true;
+//      console.log('Mutex acquired');
+    },
+    unlock: function() {
+//      console.log('Releasing mutex, queue length:', this.queue.length);
+      this.locked = false;
+      const next = this.queue.shift();
+      if (next) {
+//        console.log('Running next queued operation');
+        next();
+      }
+    }
+  };
 
 describe('Test Kraken', () => {
     process.TESTING = 'cacheOnly';  // Do not use Kraken during testing.
@@ -22,13 +45,15 @@ describe('Test Kraken', () => {
     let AllocCon;
     let argvOrig;
 
-    function setArgv() {
+    async function setArgv() {
+        await mutex.lock();
         argvOrig = process.argv;
         process.argv = ["node", "./init.js"];
     }
 
     function resetArgv() {
         process.argv = argvOrig;
+        mutex.unlock();
     }
 
     beforeEach( setArgv );
@@ -36,7 +61,6 @@ describe('Test Kraken', () => {
     afterEach( resetArgv );
 
     beforeAll(async () => {
-        setArgv();
         jest.setTimeout(30000); // Increase timeout to 30 seconds
         const tfc = TFC(true,'test');        // Create or use the TFCtest folder.
         // Load the singleton Cache with test data:
@@ -55,6 +79,8 @@ describe('Test Kraken', () => {
         a.addAsset('XBT',0.4);
         a.addAsset('XMR',0.4);
         // console.log('bot is ', bot);
+        mutex.locked = false; // Ensure mutex starts unlocked
+        mutex.queue = [];     // Ensure queue starts empty
     });
 
     test('Overallocation prevention', () => {
@@ -175,6 +201,7 @@ describe('Test Kraken', () => {
 
     test('Closed Order lists', async () => {
         bot.tfc.useFile(path.join(__dirname,'DACbCache.json'));  // Simulate no buys
+        await man.doCommands(['list CR']);  // Clear and collect 300 results
         const consoleSpy = jest.spyOn(console, 'log');
         await man.doCommands(['list C 5']);
         // await bot.sleep(2000);
@@ -241,8 +268,8 @@ describe('Test Kraken', () => {
     //    CR might not be doing enough.  
     //    The offset goes to 200 too fast for this test to work.
         customExpect(consoleSpy).toHaveBeenCalledWith(
-            expect.stringMatching(/Restting closed orders record./));
-        await man.doCommands(['list C']);
+            expect.stringMatching(/Resetting closed orders record./));
+        await man.doCommands(['list C 50']);
         customExpect(consoleSpy).toHaveBeenCalledWith(
             expect.stringMatching(/OUBWSG-GNKS3-PJ24H5/));
         customExpect(consoleSpy).toHaveBeenCalledWith(
@@ -260,7 +287,7 @@ describe('Test Kraken', () => {
         bot.tfc.useFile(path.join(__dirname, 'NACache.json'));
         await man.doCommands(['list CR']);
         customExpect(consoleSpy).toHaveBeenCalledWith(
-            expect.stringMatching(/Restting closed orders record./));
+            expect.stringMatching(/Resetting closed orders record./));
         await man.doCommands(['list C']);  // Clear and collect all four results
             customExpect(consoleSpy).toHaveBeenCalledWith(
             expect.stringMatching(/OYKGBX-A5JA2-VATI6N/));
@@ -269,7 +296,7 @@ describe('Test Kraken', () => {
         customExpect(consoleSpy).toHaveBeenCalledWith(
             expect.stringMatching(/collected all orders/));
 
-        // Edge case: Exactly 51 results on first attempt, so the oldest
+        // Edge case: The 51st result is the oldest closed order, so it
         // isn't collected. Later, there are 51 more, so the oldest still
         // isn't collected. The one in the middle and the oldest are still
         // uncollected. One request for two more orders should get them
@@ -280,20 +307,20 @@ describe('Test Kraken', () => {
         bot.tfc.useFile(path.join(__dirname, '51A.json'));
         await man.doCommands(['list CR']);
         customExpect(consoleSpy).toHaveBeenCalledWith(
-            expect.stringMatching(/Restting closed orders record./));
-        await man.doCommands(['list C']);  // Clear and collect 1st 50 results
+            expect.stringMatching(/Resetting closed orders record./));
+        await man.doCommands(['list C 25']);  // Clear and collect 1st 50 results
         customExpect(consoleSpy).toHaveBeenCalledWith(
             expect.stringMatching(/OBTWTY-46LXB-7UCHKW/)
         );
         customExpect(consoleSpy).not.toHaveBeenCalledWith(
-            expect.stringMatching(/OX57R3-REKZO-3GL7HY/)
+            expect.stringMatching(/OLASTZ-AVM2U-Q26X51/) // /OX57R3-REKZO-3GL7HY/)
         );
 
         bot.tfc.useFile(path.join(__dirname, '51B.json'));
         await man.doCommands(['list CR']);
         customExpect(consoleSpy).toHaveBeenCalledWith(
-            expect.stringMatching(/Restting closed orders record./));
-        await man.doCommands(['list C']);  // Clear and collect 1st 50 results
+            expect.stringMatching(/Resetting closed orders record./));
+        await man.doCommands(['list C 21']);  // Clear and collect 1st 50 results
         customExpect(consoleSpy).toHaveBeenCalledWith(
             expect.stringMatching(/O44O3G-4S7MM-7LH6KN/)
         );
@@ -301,7 +328,7 @@ describe('Test Kraken', () => {
         bot.tfc.useFile(path.join(__dirname, '51C.json'));
         await man.doCommands(['list CR']);
         customExpect(consoleSpy).toHaveBeenCalledWith(
-            expect.stringMatching(/Restting closed orders record./));
+            expect.stringMatching(/Resetting closed orders record./));
         await man.doCommands(['list C 100']);  // Collect all orders
         customExpect(consoleSpy).toHaveBeenCalledWith(
             expect.stringMatching(/OXZQ7D-FAKED-WYS5PS/)
@@ -310,4 +337,6 @@ describe('Test Kraken', () => {
             expect.stringMatching(/OX57R3-REKZO-3GL7HY/)
         );
     });
+
+    // test("If kill fails", )
 });

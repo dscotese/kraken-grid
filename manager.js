@@ -11,6 +11,7 @@ function Manager(config) {
     let auto = 0;
     let delay = 60;
     let portfolio = false;
+    let report = false;
     let autoOnHold = false;
     const {bot, Savings, Web, Balancer} = config;
     // eslint-disable-next-line no-param-reassign
@@ -282,11 +283,20 @@ function Manager(config) {
                 p.limits = [Number(args[1]),Number(args[2])];
                 bot.save();
             }
-        } else if(args[0] === 'test') {
-            // Put some test code here if you want
-            // -----------------------------------
-            const d = await p.Allocation.getAllocation(true);
-            await d.adjust('XXMR', 0.05, 0.2);
+        } else if(args[0] === 'capGains') {
+            if(args.length < 3) {
+                console.log(`Usage: capGains Price Symbol [ISOStart] [BuyFile] [outFile]\n` +
+                    `Price is the purchase price of what you held when\n` +
+                    `the year started or at ISOStart, a timestamp of the\n` +
+                    `form YYYY-MM-DD. Symbol is self-explanatory.\n` +
+                    `If BuyFile is present, it will be read as a .json\n` +
+                    `file that lists purchases that were deposited to\n` +
+                    `the exchange:
+[{'date': '2024-01-01', 'cost': 1000.00,'amount': 0.05},
+ {'date': '2024-06-01', 'cost': 1000.00,'amount': 0.02}]`);
+            } else {
+                await report.capGains(args[1], args[2], args[3], args[4], args[5]);
+            }
         } else if(args[0] === "quit") { process.exit();
         } else if(/^(y|Y)/.test(prompt(`Try ${args[0]} raw?`))) {
             const raw = await bot.kapi(args);
@@ -451,6 +461,7 @@ function Manager(config) {
             });
         }
         portfolio = await bot.init(pw);
+        report = config.report;
         web = Web(config);
         await bot.report(true);
         if(!process.TESTING || process.TESTING === 'implied'

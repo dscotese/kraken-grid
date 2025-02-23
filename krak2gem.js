@@ -578,6 +578,29 @@ async AssetPairs() {
     return simulated;
   }
 
+  /**
+ * Gemini Order Lifecycle mapping:
+ * Gemini          | Kraken         | Bot Action
+ * ----------------|----------------|------------
+ * accepted        | pending        | None
+ * live            | open           | None
+ * fill (partial)  | open          | Create close
+ * fill (complete) | closed         | Create close
+ * cancelled       | canceled       | None
+ * rejected        | expired        | None
+ */
+
+  /* We could derive Kraken-like status:
+  function deriveOrderStatus(order: GeminiOrderInfo): KrakenOrderStatus {
+      if (order.is_cancelled) return 'canceled';
+      if (order.executed_amount === order.original_amount) return 'closed';
+      if (order.is_live) {
+          return order.executed_amount === '0' ? 'open' : 'partially_filled';
+      }
+      // Need to confirm what other states are possible
+      return 'expired';
+  } */ 
+
   async api(method, params) {
     const cached = {}; // k2gtfc.isCached('k2gapi',[method,params]);
     if(process.USECACHE && cached.answer) return cached.cached;

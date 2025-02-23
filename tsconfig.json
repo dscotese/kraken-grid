@@ -1,17 +1,18 @@
 {
   "compilerOptions": {
-    "allowJs": false,
+    "allowJs": true,
     "baseUrl": ".",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "inlineSources": true,
+    "incremental": true,
     "module": "ES2020",
     "moduleResolution": "node",
     "noEmitOnError": false,
     "noImplicitAny": false,
     "outDir": ".dist",
     "paths": {
-      "*": ["*", ".dist/*"]
+      "*": ["*"]
     },
     "downlevelIteration": true,
     "rootDir": ".",
@@ -19,22 +20,23 @@
     "sourceMap": true,
     "strict": true,
     "target": "es2020",
-    "typeRoots": ["./node_modules/@types", "./"]
+    "typeRoots": ["./node_modules/@types", "./types"]
   },
-  
-  // "include": ["*.ts", "global.d.ts", "test/*.ts"],
-  // "exclude": ["node_modules", "dist", "**/*.test.ts"],
-  "include": [
+    "include": [
     "*.ts",
     "*.d.ts",
-    "static/**/*.ts"
+    "static/**/*.ts", 
+    "unconverted.d.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist",
+    ".dist",
     "test",
     "**/*.test.ts",
-    "TFC*/"
+    "TFC*",
+    "TFCGem",
+    "TFCGem/**/*",
+    "JestTesting"
   ],
-  "files": ["global.d.ts"],
+  "files": ["global.d.ts", "unconverted.d.ts"]
 }

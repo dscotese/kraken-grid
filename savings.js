@@ -218,7 +218,8 @@ Savings.init = function init(initbot) {
     files.forEach( async ( file ) => {
         // eslint-disable-next-line import/no-dynamic-require, global-require
 //        const toImport = path.join(process.cwd(),'pricers',file).replace('\\','/');
-        const toImport = path.join(__dirname,'pricers',file).replace('\\','/');
+        const toImport = "file://" 
+            + path.join(__dirname,'pricers',file).replace('\\','/');
         console.log(toImport);
         if(file.endsWith('.js')) {
             // Unless we import the static string under test conditions,

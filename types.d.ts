@@ -42,6 +42,15 @@ export interface Order {
 
 export type OrderEntry = [string, Order];  // [orderID, order]
 
+export interface APIResponse {
+    error: string[],
+    result: {
+        descr?: string,
+        code?: string,
+        [prop: string]: any;
+    }
+};
+
 export interface TickerResponse {
     result: {
         [key: string]: {
@@ -59,17 +68,64 @@ export interface ClosedOrderResponse {
     };
 };
 
+export interface ClosedOrders {
+    orders: { [orderId: string]: Order; };
+    offset: number;
+    hasFirst: boolean;
+    forward: boolean;
+    keysFwd: Function;
+    keysBkwd: Function;
+}
+
 export interface Portfolio {
-    Closed?: { 
-        orders: { [orderId: string]: Order; };
-        offset: number;
-        hasFirst?: boolean;
-        forward?: boolean;
-        keysFwd?: Function;
-        keysBkwd?: Function;
-    };
-    Numeraire?: string;
-    secret?: string;
-    key?: string;
+    Closed?: ClosedOrders;
+    Numeraire: string;
+    secret: string;
+    key: string;
     [prop: string]: any;
+}
+
+export interface GotError extends Error {
+    code: string;          // For ETIMEDOUT, EAI_AGAIN etc
+    message: string;        // For 'nonce', 'Internal error', etc
+    response?: {
+        statusCode?: number;  // For 520, 50x responses
+        body?: any;
+    };
+}
+
+export type KrakenOrderStatus = 
+  | 'pending'   // Initial state
+  | 'open'      // Active in orderbook
+  | 'partially_filled' // Some amount executed
+  | 'closed'    // Fully executed
+  | 'canceled'  // Manually canceled
+  | 'expired';  // Time limit reached
+
+// Document the lifecycle
+/**
+ * Kraken Order Lifecycle:
+ * 1. Order created -> status: 'pending' -> 'open'
+ * 2. For each partial fill:
+ *    - Order status remains 'open'
+ *    - vol_exec increases
+ *    - Corresponding conditional close order created
+ * 3. On complete fill:
+ *    - Status changes to 'closed'
+ *    - Final conditional close order created
+ * 
+ * Bot's Current Behavior:
+ * - On detecting any order without conditional close:
+ *   1. Cancels existing close orders
+ *   2. Creates new order for executed amount
+ *   3. Adds conditional close at grid price
+ */
+
+interface GeminiOrderInfo {
+    is_live: boolean;
+    is_cancelled: boolean;
+    executed_amount: string;
+    remaining_amount: string;
+    original_amount: string;
+    // ... other properties
 }
