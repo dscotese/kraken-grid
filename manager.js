@@ -205,7 +205,7 @@ function Manager(config) {
                 }
             } else c = await p.Allocation.getAllocation(false, false);            
             const alisting = d
-                ? d.list({name:'Now',alloc:c})
+                ? await d.list({name:'Now',alloc:c})
                 : (`${c.list()  }Use allocate to set targets.`);
             if(!args[1] || args[1].toLowerCase() !== 'quiet') console.log(alisting);
             // eslint-disable-next-line consistent-return
@@ -220,7 +220,7 @@ function Manager(config) {
                 if(a) old = prompt("Erase current allocation (y/n)?")
                     .toLowerCase() === 'y';
                 if(!a || old) a = await p.Allocation.getAllocation(false);
-                console.log(a.list());
+                console.log(await a.list());
                 await setAlloc(a);
             } else if(isNaN(args[2]) || !bot.getTickers().includes(args[1])) {
                 console.log(args[2],"isn't a number or",args[1],
@@ -366,7 +366,7 @@ function Manager(config) {
                 bot.FLAGS.safe = !bot.FLAGS.safe;
                 console.log(`Safe Mode is ${bot.FLAGS.safe
                     ? 'on - Orders will be displayed but not placed' : 'off'}`);
-                if(process.TESTING && !bot.FLAGS.safe) {
+                if(process.TESTING=='cacheOnly' && !bot.FLAGS.safe) {
                     // eslint-disable-next-line no-param-reassign, no-loop-func
                     setTimeout(() => {bot.FLAGS.safe=true;},1500);
                     console.log("...only for 1500ms.");
@@ -393,7 +393,9 @@ function Manager(config) {
                 }
             } else {
                 // eslint-disable-next-line no-await-in-loop
-                return await handleArgs(args, 0);
+                const ret = await handleArgs(args, 0);
+                autoOnHold = false;
+                return ret;
             }
             // }
             // Wait a sec for the nonce
