@@ -5,7 +5,7 @@ const Balancer = (config) => { // pass in an Allocation object.
         ? bot.portfolio.Allocation
         : false;  // Get desired allocation.
     const already = [];   // Pairs that are already gridded
-    const {sigdig} = target.sigdig; // Import this useful function
+    const {sigdig} = target; // Import this useful function
     
     // The first arg can be an order to place and that
     // indicates that we want to add the opposite
@@ -40,7 +40,7 @@ const Balancer = (config) => { // pass in an Allocation object.
         const curVal = high*(await target.atarg(po.base))   // Value before the move.
             +(p.amt ? p.amt*p.price*(p.type==='buy' ? -1 : 1)*qf: 0);
         const atargD = await target.atarg(po.base, -move);  // target after move down.
-        const calcs = target.assets.forEach(async a => {
+        const calcs = target.assets.map(async a => {
             if(port[a.ticker] && a.ticker !== bot.portfolio.Numeraire)
                 cryptp += await target.atarg(a.ticker);
             // eslint-disable-next-line no-restricted-globals
@@ -116,7 +116,7 @@ const Balancer = (config) => { // pass in an Allocation object.
 
     async function setTrades(move,tkr='') { // out-of-balance tolerance
         const c   = await target.getAllocation(false); // Current alloc, and updates prices
-        const total = bot.Allocation.getTotal();
+        const total = target.getTotal();
         const p   = await target.bestTrade(c,tkr,total);
         if(p.of) console.log("Still",p.of-p.amt,p.pair,"to go...");
         else if(p.pair && p.isNumer) await buyAndSell(p, move);
