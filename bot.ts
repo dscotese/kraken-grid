@@ -513,7 +513,7 @@ export default function Bot(config: any): BotInstance {
             const rv = oo.vol-oo.vol_exec;
             const ur = oo.userref;
 
-            if(ur > 0) {
+            if((ur > 0) && (od.close > '')) {
                 // bothSides record for userref
                 // ----------------------------
                 let bs: BothSidesRef | BothSidesPair | undefined 
