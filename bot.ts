@@ -3,10 +3,10 @@
 /* eslint-disable import/extensions */
 /* eslint-disable no-console */
 import {GridPoint, BothSidesRef, BothSidesPair, OrderEntry, 
-    Order, TickerResponse, ClosedOrderResponse,
+    KOrder, TickerResponse, ClosedOrderResponse,
     Portfolio, GotError, APIResponse} from './types';
 import {Savings} from 'savings.d';
-declare interface BotInstance {
+export interface BotInstance {
     order(buysell: string, market: string, price: number, amt: number, 
         lev?: string, inUref?: number, closeO?: number): Promise<any>;
     set(ur: any, type: any, price: any): Promise<void>;
@@ -73,7 +73,7 @@ export default function Bot(config: any): BotInstance {
     let exchange;
     let tfc;        // So we don't have to use config.bot.tfc
 
-    let portfolio: Portfolio = {
+    let portfolio: Partial<Portfolio> = {
         Numeraire: "ZUSD",
         secret: "",
         key: ""
@@ -81,7 +81,7 @@ export default function Bot(config: any): BotInstance {
     let lCOts = 0;          // Timestamp for use in collecting executed trades.
     const FLAGS = {safe:true,verbose:process.TESTING,risky:false};
 
-    function getPortfolio() { return portfolio; }
+    function getPortfolio() { return portfolio as Portfolio; }
     function getConfig() { return myConfig; }
     function getAlts() { return alts; }
     function getTickers() { return tickers; }
@@ -144,7 +144,7 @@ export default function Bot(config: any): BotInstance {
             savings: portfolio.Savings,
             Alloc: portfolio.Allocation,
             Numeraire: portfolio.Numeraire || 'ZUSD',
-            Pairs: Array.from(portfolio.Pairs),
+            Pairs: Array.from((portfolio as Portfolio).Pairs),
 	        Closed: portfolio.Closed,
             Extra,
             limits: portfolio.limits,
@@ -179,8 +179,8 @@ export default function Bot(config: any): BotInstance {
         const cached = tfc.isCached('kapi',arg);
         if( cached.answer && process.USECACHE ) {
             ret = cached.cached;
-        } else if( process.USECACHE==='must' ) { return { result: {}, 
-            error: [`No Cache for ${cached.id}`] }; 
+        } else if( process.USECACHE && ['must','K'].includes(process.USECACHE) ) { 
+            return { result: {}, error: [`No Cache for ${cached.id}`] }; 
         } else try {
             if(Array.isArray(arg)) {
                 ret = await exchange.api(...arg);
@@ -314,7 +314,7 @@ export default function Bot(config: any): BotInstance {
             Reports = ReportCon(config.bot);
             config.report = Reports;
         }
-        return portfolio;
+        return portfolio as Portfolio;
     };
 
     // return array of unique values for a property of Pair
@@ -376,7 +376,7 @@ export default function Bot(config: any): BotInstance {
         const ticker = pairO.base;
         const {quote} = pairO;
         const nuFactor = portfolio[quote][1]; // Multiply to get value in Numeraire
-        const maxInNum = portfolio.limits[1]; // This is 
+        const maxInNum = (portfolio as Portfolio).limits[1]; // This is 
         let d; const notTrade = (maxInNum !== -1 && (qCost*nuFactor>maxInNum) 
             || (qCost*nuFactor>25 && FLAGS.safe));
 
@@ -454,7 +454,7 @@ export default function Bot(config: any): BotInstance {
                 closedIDs.forEach((o) => {  // fill in the grid prices from existing orders.
                     const oo = closed?.orders[o];
                     const od = oo.descr;
-                    const op = od.price;
+                    const op = Number(od.price);
                     const ur = oo.userref;
                     const cd = new Date(oo.closetm * 1000);
                     let gp:GridPoint | undefined = gPrices.find((x:any) => x.userref===ur); // If we already saw this grid point.
@@ -467,7 +467,7 @@ export default function Bot(config: any): BotInstance {
                         const pair2Add = findPair(od.pair);
                         portfolio.Pairs.add(pair2Add);   // Which pairs are in open orders?
                     } 
-                    if(ur>0) {
+                    if(ur && ur>0) {
                         if(!gp) {
                             gp = {userref:ur,buy:'?',sell:'?', bought: 0, sold: 0};
                             gp[od.type] = op;
@@ -505,7 +505,7 @@ export default function Bot(config: any): BotInstance {
         const comps: any[]   = [];
         const opensA: OrderEntry[]  = [];
         const pnum: string   = portfolio.Numeraire || "";
-        const gPrices = portfolio.G;
+        const gPrices = (portfolio as Portfolio).G;
 
         Object.entries(opens).forEach(([o,oo]:any) => {
             const od = oo.descr;
@@ -552,7 +552,7 @@ export default function Bot(config: any): BotInstance {
             // ------------------
             opensA.push([o,oo]);
             const ct = od.type==='buy'?'sell':'buy'; // Order's close is of opposite type.
-            let cp:Number = 0;     // Close Price
+            let cp:number | '?' = 0;     // Close Price
             // Record the opening price for use in the closing
             // order of the closing order into which we combine.
             // -------------------------------------------------
@@ -720,7 +720,7 @@ export default function Bot(config: any): BotInstance {
             [hp,lp] = [hp,lp].map(x => x*(np/(np<lp?lp:hp)));
             f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp));
         }
-        Array.from<string>(portfolio.Tickers)
+        Array.from<string>((portfolio as Portfolio).Tickers)
             .forEach((pt)=>{tt[pt]=portfolio[pt];
         });
         portfolio.Savings.forEach((s) => { s.assets.forEach((aa) => {
@@ -784,7 +784,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         // holding userref, and two booleans, buy and sell.
 
         await initGrid(); // Also sets portfolio['G'] (the grid).
-        const gPrices = portfolio.G;
+        const gPrices = (portfolio as Portfolio).G;
         if(Object.keys(opens).length === 0) {
             console.log("There are no open orders.");
             return;
@@ -825,6 +825,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             gp[c.type]  = c.price;
             [,pair,price] = /([A-Z]+)([0-9.]+)/.exec(comp) || ['','',''];
             sym = pairs[pair].base;
+            const decimals = pairs[pair].pair_decimals;
             if(FLAGS.verbose) console.log(`Checking: ${  c.type  } ${
                  sym  } ${  price  } ${  toDec(c.total,4)
                  }${c.open ? ` to ${c.ctype}-close @${c.open}` : '' } (${  c.userref  }):`);
@@ -853,21 +854,21 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                     // console.log("Still between buy and sell.");
                     nexes += 1;
                 } else if(bs && bs.price===c.price) { // The lowest sell or highest buy
-                    if(gp.sell - gp.buy <= 0) {
+                    if('?' in [gp.sell,gp.buy] || (Number(gp.sell) - Number(gp.buy) <= 0)) {
                         console.log("Somethig is wrong with this grid:\n",
                             JSON.stringify(gPrices));
                         return;
                     }
                     // Calculate price for missing side
                     // --------------------------------
-                    const dp = gp.buy.indexOf('.');
-                    const decimals=10**(dp > 0
-                        ? gp.buy.length - dp - 1
-                        : 0);
+                    const dp = 1+Math.floor(Math.log10(gp.buy as number));
                     let ngp; let sp; let bp;
                     if(bs.buy) { // Missing the sell
                         do {
-                            sp = Math.round(decimals*gp.sell*gp.sell/gp.buy)/decimals;
+                            gp = gp as GridPoint;
+                            let gpsell = Number(gp.sell);
+                            let gpbuy = Number(gp.buy);
+                            sp = Math.round(10**decimals*gpsell*gpsell/gpbuy)/10**decimals;
                             // eslint-disable-next-line no-param-reassign
                             c.userref = makeUserRef('sell', c.sym, sp);
                             // We may already have this grid price but the order
@@ -875,8 +876,8 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                             ngp = gPrices.find(n => n.userref===c.userref);
                             if(!ngp) {
                                 ngp = {userref:c.userref,
-                                    buy:gp.sell,
-                                    sell:String(sp),
+                                    buy:gpsell,
+                                    sell:sp,
                                     bought: 0, sold: 0};
                                 gPrices.push(ngp);
                                 console.log(ngp.userref,'(sell)',
@@ -894,12 +895,15 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                             // eslint-disable-next-line no-await-in-loop
                             await order('sell',c.sym,sp,newVol,
                                 getLev(portfolio,'sell',sp,newVol,c.sym,false),c.userref,
-                                gp.sell);
+                                gpsell);
                             gp = ngp;
                        } while(sp <= 1*portfolio[findPair(c.sym,pnum,1).base][1]);
                     } else {
                         do {
-                            bp = Math.round(decimals*gp.buy*gp.buy/gp.sell)/decimals;
+                            gp = gp as GridPoint;
+                            let gpsell = Number(gp.sell);
+                            let gpbuy = Number(gp.buy);
+                            bp = Math.round(decimals*gpbuy*gpbuy/gpsell)/decimals;
                             // eslint-disable-next-line no-param-reassign
                             c.userref = makeUserRef('buy', c.sym, bp);
                             // We may already have this grid price but the order
@@ -907,8 +911,8 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                             ngp = gPrices.find(n => n.userref===c.userref);
                             if(!ngp) {
                                 ngp = {userref:c.userref,
-                                    buy:String(bp),
-                                    sell:gp.buy,
+                                    buy:bp,
+                                    sell:gpbuy,
                                     bought: 0, sold: 0};
                                 gPrices.push(ngp);
                                 console.log(ngp.userref,'( buy)',
@@ -927,7 +931,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                             // eslint-disable-next-line no-await-in-loop
                             await order('buy',c.sym,bp,newVol,
                                 getLev(portfolio,'buy',bp,newVol,c.sym,false),c.userref,
-                                gp.buy);
+                                gpbuy);
                             gp = ngp;
                         } while(bp >= 1*portfolio[findPair(c.sym,pnum,1).base][1])
                     }
@@ -941,7 +945,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
 
     // How to adjust the size of one or more trades.
     async function lessmore(less, oid, amt, all = null) {
-        const opensA:OrderEntry[] = portfolio.O;
+        const opensA:OrderEntry[] = portfolio.O as OrderEntry[];
         let matches:OrderEntry[] = [];
         let newAmt; let partial; let sym; let cp; let lev;
         if(!opensA[oid]) {
@@ -954,7 +958,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             matches = opensA.filter(oae => {
                 const [,io] = oae;
                 return io.descr.pair===o.descr.pair
-                    && Math.round(o.vol*1000)===Math.round(io.vol*1000);
+                    && Math.round(Number(o.vol)*1000)===Math.round(Number(io.vol)*1000);
             });
         } else {
             matches.push(opensA[oid]);
@@ -964,7 +968,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             // If some has been executed, then we won't replace the old one.
             // The old one's original volume might be needed to extend the grid.
             // -----------------------------------------------------------------
-            partial = o.vol_exec > 0;
+            partial = o.vol_exec !== "0.00000000";
             if(!/USD$/.test(o.descr.pair)) {  // #USD Refactor
                 console.log("Size update to non-USD orders is not yet supported.");
                 return;
@@ -1026,10 +1030,10 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         portfolio.lastUpdate = new Date;
         Object.keys(bal.result).forEach(p => {
             if(p !== portfolio.Numeraire)
-                portfolio.Pairs.add(findPair(p,portfolio.Numeraire)||'XXBTZUSD');
+                (portfolio as Portfolio).Pairs.add(findPair(p,portfolio.Numeraire)||'XXBTZUSD');
         });
-        const tik = await kapi(['Ticker',{ pair : portfolio.Pairs.size > 0
-            ? (Array.from(portfolio.Pairs)).sort().join().replace(/,,+|^,|,$/g,',') 
+        const tik = await kapi(['Ticker',{ pair : (portfolio as Portfolio).Pairs.size > 0
+            ? (Array.from((portfolio as Portfolio).Pairs)).sort().join().replace(/,,+|^,|,$/g,',') 
             : 'XXBTZUSD'}]);
         portfolio.Allocation.setRanges(tik.result);
         let price; let ts; 
@@ -1056,7 +1060,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             }
             price = toDec(price,(sym==='EOS'?4:2));
             portfolio[sym]=[amt,price,amt,amt];
-            portfolio.Tickers.add(sym);
+            (portfolio as Portfolio).Tickers.add(sym);
             // holdings w/reserves, price, holdings w/o reserves
             // [3] will include reserves and margin:
             if(mar[sym]) {
@@ -1073,7 +1077,8 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         // The code relies on the existing balance to create the property in
         // the portfolio, so we do it manually if it isn't there yet.
         // ----------------------------------------------------------------------
-        if(!portfolio[portfolio.Numeraire]) portfolio[portfolio.Numeraire] = [0,1,0,0];
+        if(!portfolio[(portfolio as Portfolio).Numeraire]) 
+            portfolio[(portfolio as Portfolio).Numeraire] = [0,1,0,0];
         Object.entries(mCosts).forEach(([sym,cost]) => { 
             if( isNaN(mCosts[sym]) )
                 throw new Error(`Problem with ${sym}, ${mCosts[sym]} in mCosts (895): `);
@@ -1081,7 +1086,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         });
         // The price of the numeraire is always 1
         // --------------------------------------
-        portfolio[portfolio.Numeraire][1] = 1;
+        portfolio[(portfolio as Portfolio).Numeraire][1] = 1;
 
         // If assets has only one element, this is our chance to 
         // correct it to reflect all assets on the exchange.
@@ -1125,7 +1130,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         }
         if(!portfolio.O) await report(false);
         const sortedA:OrderEntry[] = []; 
-        let orders:OrderEntry[] = portfolio.O;
+        let orders:OrderEntry[] = portfolio.O as OrderEntry[];
         if( ['C','CR'].includes(args[1]) ) {
             if(args[1] === 'CR' && portfolio.Closed) {
                 console.log("Resetting closed orders record.");
@@ -1265,16 +1270,17 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
 
     // How to set the price of a grid point
     async function set(ur,type,price) {
-        const p = portfolio;
+        const p = (portfolio as Portfolio);
         if(ur && price) {
             let gp = p.G.find(g => g.userref===ur);
             if(!gp) {
-                gp = {userref:Number(ur),buy:'?',sell:'?'};
+                gp = {userref:Number(ur),buy:'?',sell:'?', bought:0, sold:0};
                 p.G.push(gp);
             }
             console.log(405,gp);
             gp[type] = price;
         }
+        /*
         p.G.sort((a,b) => a.userref-b.userref);
         let count = 0; let once = false;
         let since = lCOts; let haveAll = false;
@@ -1292,18 +1298,19 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         let profits = 0; 
         await Promise.all(p.G.map(async (x) => {
             let f; 
-            let data: any; 
-            let drc: { [orderId: string]: Order; } = {}; 
+            let cor: ClosedOrderResponse;
+            let data: KOrder; 
+            let drc: { [orderId: string]: KOrder; } = {}; 
             let datad; 
             since = new Date().getTime()/1000;
-            f = toDec(((x.sell-x.buy)*Math.min(x.bought,x.sold)),2);
+            f = toDec((((x.sell as number)-(x.buy as number))*Math.min(x.bought,x.sold)),2);
             if(!isNaN(f) && (once || x.since)) profits += f;
             else if(!once && !x.open && x.userref !== 0) { // We do this once for each call to set
                            // and remember which grid points are in play so need to stay.
                 if(!haveAll) {
                     once = true;
-                    data = await kapi(['ClosedOrders',{userref:x.userref}]);
-                    drc = data.result?.closed || {};
+                    cor = await kapi(['ClosedOrders',{userref:x.userref}]);
+                    drc = cor.result?.closed || {};
                     // For trades with a close price, we can search for and include
                     // any 'other' grid point that is only different because it
                     // started on the other side.
@@ -1311,7 +1318,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                     // eslint-disable-next-line no-param-reassign
                     x.bought = 0; x.sold = 0;
                     if(drc && Object.values(drc).length > 0) {
-                        count = data.result.count;
+                        count = cor.result.count;
                         // Check for a close and build alternate userRef
                         const {close} = Object.values(drc)[0].descr;
                         if(close) {
@@ -1354,7 +1361,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                         x[datad.type==='buy'?'bought':'sold'] += Number(data.vol_exec);
                         if(datad.close)
                         {
-                            if(isNaN(x.buy) || isNaN(x.sell)) {
+                            if(isNaN(Number(x.buy)) || isNaN(Number(x.sell))) {
                                 // eslint-disable-next-line no-param-reassign
                                 x[datad.type] = data.price;
                                 // eslint-disable-next-line no-param-reassign
@@ -1364,7 +1371,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                         }
                     }
                 });
-                f = toDec(((x.sell-x.buy)*Math.min(x.bought,x.sold)),2);
+                f = toDec((((x.sell as number)-(x.buy as number))*Math.min(x.bought,x.sold)),2);
                 data = p.O.find(o => o.userref===x.userref);
                 // eslint-disable-next-line no-param-reassign
                 x.open = (data !== undefined);
@@ -1379,12 +1386,8 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                     : ''}`);
         }));
         console.log(`That's ${toDec(profits,2)} altogether.`);
+        */
     }
-
-    // The bot's job is to make roundtrips.  This function reports them.
-    // This does not address capital gains because it doesn't take into
-    // account the cost basis.
-    function roundTrips() {}
 
     function showState(prefix = '') {
         const ret = `${prefix + (FLAGS.risky?'R':'.') 

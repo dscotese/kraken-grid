@@ -2,9 +2,10 @@
   "name": "kraken-grid",
   "version": "1.3.2",
   "description": "Bot repeatedly buys & sells on kraken from a conditional close order.",
-  "main": "init.js",
+  "main": "./.dist/init.js",
   "bin": {
-    "kraken-grid": "init.js"
+    "kraken-grid": "./.dist/init.js",
+    "gemini-grid": "./.dist/ginit.js"
   },
   "type": "module",
   "scripts": {
@@ -51,6 +52,8 @@
     "@types/http-cache-semantics": "^4.0.4",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.7",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
     "ava": "^4.3.3",
     "eslint": "^8.57.1",
     "eslint-config-airbnb": "^19.0.4",

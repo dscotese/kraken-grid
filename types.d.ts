@@ -1,11 +1,16 @@
-export interface GridPoint {
+  // Grid point structure
+  export interface GridPoint {
     userref: number;
-    buy: string | '?';
-    sell: string | '?';
+    buy: number | '?';
+    sell: number | '?';
     bought: number;
     sold: number;
-    [key: string]: any;  // For any additional properties you might set
+    since?: number;
+    open?: boolean;
+    aur?: number;
+    [key: string]: any;
   }
+  
 
 export interface BothSidesRef {
     userref: number;
@@ -22,36 +27,52 @@ export interface BothSidesPair {
     sell: boolean;
 }
 
+// Basic properties needed for capital gains calculations
 export interface Order {
     descr: {
-        order: string;
-        pair: string;
         type: 'buy' | 'sell';
         price: string;
-        leverage: string;
-        close?: string;
     };
-    userref: number;
-    vol: number;
-    vol_exec: number;
-    status: string;
+    vol_exec: string;
     closetm: number;
     price: string;
-    // ... other order properties
+    remaining: number;  // Your custom property for tracking unclaimed volume
+    cost: number;
+    fee: number;
+    ebi?: number;
 }
 
-export type OrderEntry = [string, Order];  // [orderID, order]
+// Full Kraken order with all its properties, plus your enhancement
+export interface KOrder extends Order {
+    // Extend descr with the additional Kraken properties
+    descr: Order['descr'] & {
+        order: string;
+        pair: string;
+        leverage: string;
+        close?: string;
+        ordertype: "market"|"limit"|"iceberg"|"stop-loss"|
+            "take-profit"|"trailing-stop"|"stop-loss-limit"|
+            "take-profit-limit"|"trailing-stop-limit"|"settle-position";
+    };
+    userref: number;
+    vol: string;
+    status: string;
+    // Any other Kraken-specific properties
+}
 
-export interface APIResponse {
+export type OrderEntry = [string, KOrder];  // [orderID, order]
+
+export interface APIResult {
+    descr?: string,
+    code?: string,
+    [prop: string]: any;
+}
+export interface APIResponse<T = APIResult> {
     error: string[],
-    result: {
-        descr?: string,
-        code?: string,
-        [prop: string]: any;
-    }
+    result: T
 };
 
-export interface TickerResponse {
+export interface TickerResponse extends APIResponse {
     result: {
         [key: string]: {
             c: Number[];  // or number[] depending on what .c contains
@@ -59,17 +80,16 @@ export interface TickerResponse {
     }
 };
 
-export interface ClosedOrderResponse {
-    result: {
+export interface ClosedOrderResponse extends APIResponse<{
         closed: {
-            [orderId: string]: Order;  // Using your existing Order interface
+            [orderId: string]: KOrder;  // Using your existing Order interface
         };
         count: number;    // This gets used in your code
-    };
-};
+    }> {};
+
 
 export interface ClosedOrders {
-    orders: { [orderId: string]: Order; };
+    orders: { [orderId: string]: KOrder; };
     offset: number;
     hasFirst: boolean;
     forward: boolean;
@@ -80,6 +100,12 @@ export interface ClosedOrders {
 export interface Portfolio {
     Closed?: ClosedOrders;
     Numeraire: string;
+    Allocation: AllocationInstance;
+    Pairs: Set<string>;
+    Tickers: Set<string>;
+    G: GridPoint[];
+    O: any[];
+    limits: [number, number];
     secret: string;
     key: string;
     [prop: string]: any;
