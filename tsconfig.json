@@ -6,11 +6,12 @@
     "forceConsistentCasingInFileNames": true,
     "inlineSources": true,
     "incremental": true,
+    "lib": ["ES2023", "DOM"],
     "module": "ES2020",
     "moduleResolution": "node",
     "noEmitOnError": false,
     "noImplicitAny": false,
-    "outDir": ".dist",
+    "outDir": "./.dist",
     "paths": {
       "*": ["*"]
     },

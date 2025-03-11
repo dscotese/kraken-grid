@@ -22,7 +22,7 @@ function Web(config) {
         // a.length = a.length - 2; // callee and Symbol
         if (logged.length > 1000) {
             logOriginal("Web!", logged);
-            logged = '';
+            logged = 'Log > 1000 sent to console.';
         }
     }
     // Initialize
@@ -56,8 +56,6 @@ function Web(config) {
             if (e)
                 console.log("HTTP Server failed:", e);
         });
-        // Trap the console.log function
-        console.log = log;
         logOriginal(`Server is running on http://${host}:${pport}`);
     }
     function address() { return server ? server.address : false; }
@@ -202,6 +200,7 @@ function Web(config) {
     });
     app.post('/', async (req, res, next) => {
         const cmd = [req.body.data];
+        // Trap the console.log function
         console.log = log;
         logged = "<!-- Reset at 119 -->";
         await man.doCommands(cmd);
@@ -215,11 +214,4 @@ function Web(config) {
     return config.web;
 }
 export default Web;
-//# sourceMappingURL=web.js.map
-//# sourceMappingURL=web.js.map
-//# sourceMappingURL=web.js.map
-//# sourceMappingURL=web.js.map
-//# sourceMappingURL=web.js.map
-//# sourceMappingURL=web.js.map
-//# sourceMappingURL=web.js.map
 //# sourceMappingURL=web.js.map

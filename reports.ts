@@ -1,5 +1,33 @@
 /* eslint-disable no-console */
 import fs from 'fs';
+import { Portfolio, Order, ClosedOrderResponse } from './types';
+
+interface ReportInstance {
+  getExecuted(count: number, known: ClosedOrders): Promise<any>;
+  capGains(price?: number, sym?: string, 
+    ISOStart?: string, buyFile?: string, outFile?: string): Promise<void>;
+  reset?(): void; // Adding this based on usage in your code
+}
+
+interface ReportConstructor {
+  (bot: any): ReportInstance;
+}
+
+interface ClosedOrders {
+  orders: { [orderId: string]: Order };
+  offset: number;
+  hasFirst?: boolean;
+  forward?: boolean;
+  keysFwd?(): string[];
+  keysBkwd?(): string[];
+}
+
+interface ExternalBuy {
+  date: string;
+  cost: number;
+  amount: number;
+}
+
 function ReportCon(bot) {
     const TxIDPattern = /[0-9A-Z]{6}-[0-9A-Z]{5}-[0-9A-Z]{6}/;
     const KRAKEN_GCO_MAX = 50;
@@ -32,10 +60,10 @@ function ReportCon(bot) {
     let transientOffset = 0;
     // This function will collect count executed orders in reverse chronological order,
     // first the most recent (ofs=0) and then earlier history (ofs from known).
-    async function getExecuted(count, known = {}) {
+    async function getExecuted(count: number, known: ClosedOrders): Promise<any> {
         let offset = 0; // Since the last call, one or more orders may have executed.
         let midway = false;
-        let closed = { offset: 0, forward: false, orders: {} };
+        let closed: ClosedOrders = { offset: 0, forward: false, orders: {} };
         let earliestInBatch = false;
         const preCount = Object.keys(known.orders).length;
         closed.hasFirst = known.hasFirst || known.offset === -1;
@@ -49,7 +77,7 @@ function ReportCon(bot) {
         while (count > 0) {
             console.log("Known:", Object.keys(known.orders).length, "Closed:", Object.keys(closed.orders).length, [known.offset, closed.offset]);
             // eslint-disable-next-line no-await-in-loop
-            const mixed = await bot.kapi(['ClosedOrders', { ofs: offset, closetime: 'close' }]);
+            const mixed: ClosedOrderResponse = await bot.kapi(['ClosedOrders', { ofs: offset, closetime: 'close' }]);
             const total = mixed.result.count;
             if (mixed.error.length > 0) {
                 console.log("Errors:\n", mixed.error.join("\n"));
@@ -130,7 +158,7 @@ function ReportCon(bot) {
     }
     // This ensures all orders have been retrieved
     //  and provides whatever information it can about the process.
-    async function capGains(price = 100, sym = "BTC", ISOStart = yearStart(), buyFile = '', outFile = 'capGains.csv') {
+    async function capGains(price = '100', sym = "BTC", ISOStart = yearStart(), buyFile = '', outFile = 'capGains.csv') {
         const started = Date.now();
         const notBefore = new Date(ISOStart).getTime();
         const closed = bot.getPortfolio().Closed;
@@ -148,8 +176,8 @@ function ReportCon(bot) {
         let total = 0;
         // keyList will include keys of the form "EBx" where x is an
         // external buy saved in exb.
-        const exb = [];
-        const keyList = Array.from(closed.keysFwd());
+        const exb: Order[] = [];
+        const keyList: string[] = Array.from(closed.keysFwd());
         if (buyFile > '' && fs.existsSync(buyFile)) {
             // Put the file contents into a string
             const externalBuys = fs.readFileSync(buyFile).toString();
@@ -157,9 +185,9 @@ function ReportCon(bot) {
             let ebi = 0;
             eb.forEach(b => {
                 const price = (b.cost / b.amount).toFixed(2);
-                const extBuy = {
+                const extBuy: Order = {
                     closetm: new Date(b.date).getTime() / 1000,
-                    remaining: String(b.amount),
+                    remaining: b.amount,
                     descr: { price, type: 'buy' },
                     price,
                     cost: b.cost,
@@ -199,7 +227,7 @@ function ReportCon(bot) {
         function getValidMatch(maxTS) {
             return bbp.find(x => (x.remaining > Number.EPSILON && x.closetm < maxTS));
         }
-        let sbt = [], bbp = []; // SellsByTime, BuysByPrice
+        let sbt: Order[] = [], bbp: Order[] = []; // SellsByTime, BuysByPrice
         keyList.forEach((oid, ti) => {
             const t = /^eb[0-9]+$/.test(oid)
                 ? exb[Number(oid.slice(2))]
@@ -214,24 +242,26 @@ function ReportCon(bot) {
         // Already sorted! sbt.sort((a,b) => (a.closetm - b.closetm));
         if (borrowed < 0) {
             console.log(`Using ${price} as price of ${-borrowed} ${sym}.`);
-            const cost = (price * -borrowed).toFixed(2);
-            const bootStrapM = {
+            const cost = Number((Number(price) * -borrowed).toFixed(2));
+            const bootStrapM: Order = {
                 closetm: 0,
                 remaining: -borrowed.toFixed(8),
-                descr: { price, type: 'buy' },
-                ti: bbp.length,
+                descr: { price: String(price), type: 'buy' },
+               // ti: bbp.length,
                 cost,
                 price,
                 fee: 0,
-                vol_exec: -borrowed.toFixed(8)
+                vol_exec: (-borrowed).toFixed(8)
             };
             bbp.push(bootStrapM);
         }
-        bbp.sort((a, b) => (b.descr.price - a.descr.price));
-        fs.writeFileSync(outFile, `Property,Acquired,Sold,Proceeds,Cost,Gain/Loss\n`, err => {
-            if (err)
-                console.error(err);
-        });
+        bbp.sort((a, b) => (Number(b.descr.price) - Number(a.descr.price)));
+        try {
+            fs.writeFileSync(outFile, `Property,Acquired,Sold,Proceeds,Cost,Gain/Loss\n`);
+        } catch(err) {
+            console.error(err);
+        }
+
         let accProceeds = 0;
         let accCost = 0;
         let accGL = 0;
@@ -244,26 +274,32 @@ function ReportCon(bot) {
                 let liquidated = 0;
                 let m = getValidMatch(s.closetm);
                 let proportion = 1;
-                if (m.remaining >= volume) {
+                if( m === undefined ) {
+                    console.log(`Capital Gains cannot be computed because more assets`
+                        +` were purchased than sold. Try specifying a file that lists`
+                        +` your purchases.`);
+                    return;
+                } else if (m.remaining >= volume) {
                     m.remaining -= volume;
-                    liquidated += volume * m.descr.price;
-                    proportion = volume / s.vol_exec;
+                    liquidated += volume * Number(m.descr.price);
+                    proportion = volume / Number(s.vol_exec);
                     volume = 0;
-                }
-                else {
-                    liquidated += m.remaining * m.descr.price;
-                    proportion = m.remaining / s.vol_exec;
+                } else {
+                    liquidated += m.remaining * Number(m.descr.price);
+                    proportion = m.remaining / Number(s.vol_exec);
                     volume -= m.remaining;
                     m.remaining = 0;
                 }
                 const adjCost = (liquidated + Number(m.fee * proportion)).toFixed(2);
-                const gl = ((netProceeds * proportion) - adjCost);
+                const gl = ((netProceeds * proportion) - Number(adjCost));
                 const gain = (gl < 0) ? `(${-gl.toFixed(2)})` : gl.toFixed(2);
-                if (netProceeds * proportion > 0.005) {
-                    fs.appendFileSync(outFile, `${sym},${new Date(m.closetm * 1000).toISOString().slice(0, 10)},${new Date(s.closetm * 1000).toISOString().slice(0, 10)},${(netProceeds * proportion).toFixed(2)},${adjCost},${gain}\n`, err => {
-                        if (err)
-                            console.error(err);
-                    });
+                if (netProceeds * proportion > 0.005) try {
+                    fs.appendFileSync(outFile, `${sym},${new Date(m.closetm * 1000)
+                        .toISOString().slice(0, 10)},${new Date(s.closetm * 1000)
+                        .toISOString().slice(0, 10)},${(netProceeds * proportion)
+                        .toFixed(2)},${adjCost},${gain}\n`);
+                    } catch (err) {
+                        console.error(err);
                 }
                 accProceeds += Number(netProceeds * proportion);
                 accCost += Number(adjCost);

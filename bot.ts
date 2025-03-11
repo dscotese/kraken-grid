@@ -17,7 +17,7 @@ export interface BotInstance {
     list(args: any[]): Promise<void>;
     kapi(...args: [string | [string, Record<string, any>], number?]): Promise<APIResponse>;
     lessmore(less: boolean, oid: number, amt: number, all?: boolean | null): Promise<void>;
-    kill(o: any, oa: any[]): Promise<APIResponse>;
+    kill(o: any, oa?: any[]): Promise<APIResponse>;
     report(showBalance?: boolean): Promise<void>;
     howMuch(tkr: string, np: number): Promise<number>;
     sleep(ms: number): Promise<void>;
@@ -46,6 +46,7 @@ export interface BotInstance {
     getAlts(): Record<string, string>;
     getPortfolio(): Portfolio;
     getConfig(): any;
+    portfolio?: Portfolio;
 }
 declare interface BotConstructor {
     (config: any): BotInstance;
@@ -641,7 +642,7 @@ export default function Bot(config: any): BotInstance {
     //  ALL of them (pass 0), or a line number from the list
     //  of orders, or all orders with a particular User
     //  Reference Number.
-    async function kill(o,oa):Promise<APIResponse> {
+    async function kill(o,oa:KOrder[]=[]):Promise<APIResponse> {
         let killed;
         if(o === 0) {
             const killAll = prompt("Cancel ALL orders? [y/N]");
@@ -1024,7 +1025,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
     async function report(showBalance=true) {
         const balP = await kapi('Balance'); 
         const tikP = await kapi(['TradeBalance',{ctr:30}]); 
-        const marP = marginReport(false);
+        const marP = await marginReport(false);
         const [bal,trb,mar] = await Promise.all([balP,tikP,marP]); 
         portfolio.M = mar;
         portfolio.lastUpdate = new Date;
@@ -1035,7 +1036,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         const tik = await kapi(['Ticker',{ pair : (portfolio as Portfolio).Pairs.size > 0
             ? (Array.from((portfolio as Portfolio).Pairs)).sort().join().replace(/,,+|^,|,$/g,',') 
             : 'XXBTZUSD'}]);
-        portfolio.Allocation.setRanges(tik.result);
+        await portfolio.Allocation.setRanges(tik.result);
         let price; let ts; 
         const zeroes: string[] = []; 
         const mCosts:number[] = [];
@@ -1092,7 +1093,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         // correct it to reflect all assets on the exchange.
         // -----------------------------------------------------
         if(portfolio.Allocation.assets.length < 2) 
-            portfolio.Allocation.getAllocation(false, false);
+            await portfolio.Allocation.getAllocation(false, false);
 
         if(showBalance) {
             console.log(`Cost\t${trb.result.c}`);

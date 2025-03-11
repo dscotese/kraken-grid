@@ -336,7 +336,28 @@ describe('Test Kraken', () => {
         customExpect(consoleSpy).toHaveBeenCalledWith(
             expect.stringMatching(/OX57R3-REKZO-3GL7HY/)
         );
-    });
+    }); 
 
+    test('Balance One crypto.', async () => {
+        const consoleSpy = jest.spyOn(console, 'log');
+        consoleSpy.mockClear();
+        bot.tfc.useFile(path.join(__dirname,'balCache.json'));
+        customExpect(consoleSpy).toHaveBeenCalledWith(
+            expect.stringMatching(/Trying Cache:/), 
+            expect.stringMatching(/.*balCache\.json/));
+        consoleSpy.mockClear();
+        await man.doCommands(["balance 0.025 XXBT"]);
+        customExpect(consoleSpy).toHaveBeenCalledWith(
+            expect.stringMatching(/.* 0.026249 XXBTZUSD at 63025.*/));
+    }, 10000);
+/*
+    test('Play for 5 minutes.', async (done) => {
+        console.log("I will error out in five minutes.");
+        console.log("Use the CLI as you wish.");
+        console.log("Use CTRL-C when you're done.");
+        bot.tfc.useFile(path.join(__dirname,'balCache.json'));
+        man.listen();
+    }, 300000);
     // test("If kill fails", )
+ */
 });

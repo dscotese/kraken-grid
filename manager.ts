@@ -26,6 +26,7 @@ interface ManagerInstance {
     init(pwd?: string): Promise<Portfolio>;
     ignore(): void;
     getAuto(): number;
+    listen(): void;
 }
 
 interface ManagerConstructor {
@@ -47,7 +48,6 @@ function Manager(config: ManagerConfig):ManagerInstance {
     let already;
 
     const {bot, Savings, Web, Balancer} = config;
-    // eslint-disable-next-line no-param-reassign
  
     function catcher(line,err) {
         // if(/ETIMEDOUT/.test(err.code)) return; // We can ignore timeout errors.
@@ -58,7 +58,6 @@ function Manager(config: ManagerConfig):ManagerInstance {
 
     async function setAlloc(alloc) {
         let answer;
-        // eslint-disable-next-line no-cond-assign
         while( (answer = prompt(
             "Enter N or a ticker to adjust this allocation: ").toUpperCase())
             !== "N") {
@@ -145,7 +144,6 @@ function Manager(config: ManagerConfig):ManagerInstance {
         } else if(args[0] === 'set') {
             await bot.set(args[1], args[2], args[3]);
         } else if(args[0] === 'reset') {
-            // eslint-disable-next-line no-param-reassign
             p.G = [];
             await bot.listOpens();
         } else if(args[0] === 'delev') {
@@ -272,7 +270,7 @@ function Manager(config: ManagerConfig):ManagerInstance {
         } else if(args[0] === 'balance') {
             if(args[1]) {
                 const b = Balancer(config);
-                b.setTrades(args[1],args[2]?args[2].toUpperCase():''); // Tolerance, Ticker
+                await b.setTrades(args[1],args[2]?args[2].toUpperCase():''); // Tolerance, Ticker
             } else {
                 console.log("Usage: balance tolerance [ticker]\n"
                     + "tolerance is 0.0000 - 1, indicating how far away\n"
@@ -421,7 +419,7 @@ function Manager(config: ManagerConfig):ManagerInstance {
                         args[2]?web.start(args[2]):web.start();
                     else if(args[1].toUpperCase() === 'OFF') web.stop();
                 } else {
-                    console.log("Usage: web [on|off]\n"
+                    console.log("Usage: web [on|off] port\n"
                         + "This starts the web interface or stops it.");
                 }
             } else {
@@ -483,12 +481,12 @@ function Manager(config: ManagerConfig):ManagerInstance {
     function ignore() { process.stdin.off('readable',listener); }
 
     function listen() {
+        process.stdin.setEncoding('utf8'); // Moved from init, but is it necessary?
         process.stdin.on('readable', listener);
     }
 
     async function init(pw = ""): Promise<any> {
         if(already) return;
-        process.stdin.setEncoding('utf8');
 
         if(!process.TESTING) {
             process.on('uncaughtException', (err) => {
@@ -510,7 +508,7 @@ function Manager(config: ManagerConfig):ManagerInstance {
 
     function getAuto() { return auto ? delay : -1; }
 
-    const man: ManagerInstance = { catcher, doCommands, init, ignore, getAuto };
+    const man: ManagerInstance = { catcher, doCommands, init, ignore, getAuto, listen };
     // eslint-disable-next-line no-param-reassign
     config.man = man;
     return config.man;
