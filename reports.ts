@@ -292,7 +292,7 @@ function ReportCon(bot) {
                 }
                 const adjCost = (liquidated + Number(m.fee * proportion)).toFixed(2);
                 const gl = ((netProceeds * proportion) - Number(adjCost));
-                const gain = (gl < 0) ? `(${-gl.toFixed(2)})` : gl.toFixed(2);
+                const gain = gl.toFixed(2);
                 if (netProceeds * proportion > 0.005) try {
                     fs.appendFileSync(outFile, `${sym},${new Date(m.closetm * 1000)
                         .toISOString().slice(0, 10)},${new Date(s.closetm * 1000)

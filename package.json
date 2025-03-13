@@ -9,7 +9,8 @@
   },
   "type": "module",
   "scripts": {
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --debug --verbose --detectOpenHandles --runInBand",
+    "testK": "node --experimental-vm-modules node_modules/jest/bin/jest.js kraken.test.js --debug --verbose --detectOpenHandles --runInBand",
+    "testG": "node --experimental-vm-modules node_modules/jest/bin/jest.js gem.test.js --debug --verbose --detectOpenHandles --runInBand",
     "watch": "tsc --watch",
     "start": "node .dist/init.js",
     "build": "tsc"
