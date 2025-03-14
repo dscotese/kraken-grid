@@ -4,6 +4,13 @@
  */
 
 /** @type {import('jest').Config} */
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+
+// Get the current directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const rootDir = __dirname;
 const config = {
   // All imported modules in your tests should be mocked automatically
   // automock: false,
@@ -13,7 +20,6 @@ const config = {
 
   // The directory where Jest should store its cached dependency information
   // cacheDirectory: "/tmp/jest_rs",
-
   // Automatically clear mock calls, instances, contexts and results before every test
   clearMocks: true,
 
@@ -33,6 +39,7 @@ const config = {
 
   // Indicates which provider should be used to instrument code for coverage
   coverageProvider: "v8", // or Babel
+/* 
 
   // A list of reporter names that Jest uses when writing coverage reports
   // coverageReporters: [
@@ -154,11 +161,12 @@ const config = {
   // testLocationInResults: false,
 
   // The glob patterns Jest uses to detect test files
-  // testMatch: [
+*/
+  // testMatch: [ 
   //   "**/__tests__/**/*.[jt]s?(x)",
   //   "**/?(*.)+(spec|test).[tj]s?(x)"
   // ],
-
+/*
   // An array of regexp pattern strings that are matched against all test paths, matched tests are skipped
   // testPathIgnorePatterns: [
   //   "/node_modules/"
@@ -205,10 +213,36 @@ const config = {
   // reporters: [ 'default', './test/customReporter.mjs' ]
 
   preset: 'ts-jest',
-  extensionsToTreatAsEsm: ['.ts'],
+  extensionsToTreatAsEsm: ['ts', 'js', 'json', 'node'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
-  }
+  },
+*/
+  // From claude.ai:
+  testEnvironment: 'node',
+  transform: {
+    '^.+\\.(ts|tsx)$': 'ts-jest',
+    '^(?!.*\\.dist\\/).*\\.js$': 'babel-jest',
+  },
+  testMatch: [
+    '**/test/**/*.test.ts',
+    '**/?(*.)+(spec|test).ts'
+  ],
+  moduleFileExtensions: ['ts', 'js', 'json', 'node'],
+  // This ensures compiled files are used when running tests
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
+  extensionsToTreatAsEsm: ['.ts'],
+  globals: {
+    'ts-jest': {
+      useESM: true,
+    },
+  },
+  rootDir: rootDir,
+  transformIgnorePatterns: [
+    '\\.dist/'
+  ],  
 };
 
 export default config;

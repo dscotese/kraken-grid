@@ -282,10 +282,10 @@ Savings.init = function init(initbot: any): void {
     Savings.pricers = [];
     const bex = bot.getExtra();             // What is it now?
     const ExAsStr = JSON.stringify(bex);    // To see if it changes.
-    const files = fs.readdirSync(path.join(__dirname, '..', 'pricers'));
+    const files = fs.readdirSync(path.join(__dirname, 'pricers'));
     
     files.forEach(async (file) => {
-        const toImport = path.join(__dirname, '..', 'pricers', file).replace('\\', '/');
+        const toImport = path.join(__dirname, 'pricers', file).replace('\\', '/');
         console.log(toImport);
         
         if(file.endsWith('.js')) {

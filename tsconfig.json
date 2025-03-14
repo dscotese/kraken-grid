@@ -11,7 +11,7 @@
     "moduleResolution": "node",
     "noEmitOnError": false,
     "noImplicitAny": false,
-    "outDir": "./.dist",
+    "outDir": ".dist",
     "paths": {
       "*": ["*"]
     },
@@ -25,15 +25,14 @@
   },
     "include": [
     "*.ts",
-    "*.d.ts",
-    "static/**/*.ts", 
-    "unconverted.d.ts"
+    "test/**/*.ts",
   ],
   "exclude": [
     "node_modules",
     ".dist",
-    "test",
-    "**/*.test.ts",
+    ".dist/**/*",
+    "**/*.js",
+    "**/*.js.map",
     "TFC*",
     "TFCGem",
     "TFCGem/**/*",

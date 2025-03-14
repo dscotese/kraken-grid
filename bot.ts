@@ -1034,7 +1034,8 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                 (portfolio as Portfolio).Pairs.add(findPair(p,portfolio.Numeraire)||'XXBTZUSD');
         });
         const tik = await kapi(['Ticker',{ pair : (portfolio as Portfolio).Pairs.size > 0
-            ? (Array.from((portfolio as Portfolio).Pairs)).sort().join().replace(/,,+|^,|,$/g,',') 
+            ? (Array.from((portfolio as Portfolio).Pairs)).sort().join()
+                .replace(/,,+/g,',').replace(/^,|,$/g,'') 
             : 'XXBTZUSD'}]);
         await portfolio.Allocation.setRanges(tik.result);
         let price; let ts; 
