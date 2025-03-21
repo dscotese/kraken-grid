@@ -111,10 +111,10 @@ const Balancer = (config: BalancerConfig): BalancerInstance => {
             0, p.type === 'buy' ? sP : bP); // uref, close
             
         if (Ordered.uref) { // Order placed, and there is the uref for the other side.
-            bot.order('buy', p.pair, bP, bAmt,
+            await bot.order('buy', p.pair, bP, bAmt,
                 bot.getLev(bot.portfolio, 'buy', bP, bAmt, po.base, false),
                 p.type === 'buy' ? 0 : Ordered.uref, p.price);
-            bot.order('sell', p.pair, sP, sAmt,
+            await bot.order('sell', p.pair, sP, sAmt,
                 bot.getLev(bot.portfolio, 'sell', sP, sAmt, po.base, false),
                 p.type === 'buy' ? Ordered.uref : 0, p.price);
         }

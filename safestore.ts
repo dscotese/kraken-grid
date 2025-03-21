@@ -122,7 +122,7 @@ function Safestore(pwp: string = 'abc123'): SafestoreInstance {
                     try { 
                         return JSON.parse(r); 
                     } catch(e) {
-                        return ssUpdate(enc64);
+                        return await ssUpdate(enc64);
                     }
                 }, async () => (ssUpdate(enc64)));
         } else ret = JSON.parse(ret); 

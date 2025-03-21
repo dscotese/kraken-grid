@@ -110,7 +110,7 @@ export default function Bot(config: any): BotInstance {
 
     // Store the API keys if they change.
     async function keys() { 
-    	safestore.ssUpdate(`${portfolio.key} ${portfolio.secret}`, false);
+    	await safestore.ssUpdate(`${portfolio.key} ${portfolio.secret}`, false);
     }
 
     // pairs is the result of calling AssetPairs, so a series of properties
@@ -150,9 +150,11 @@ export default function Bot(config: any): BotInstance {
             Extra,
             limits: portfolio.limits,
             lastUpdate: portfolio.lastUpdate};
-        safestore.replace(toSave);
-        console.log("Updated, saved to disk.",FLAGS.verbose ? toSave : '');
+        safestore.replace(toSave).then(() => {
+            console.log("Updated, saved to disk.",FLAGS.verbose ? toSave : '');
+        });
     }
+
 
     function showPair(p) {
         console.log("The pair",p,"is: ",pairs[p],
@@ -500,7 +502,7 @@ export default function Bot(config: any): BotInstance {
     //  open orders).
     // It returns [bSidesR, bSidesP, comps]
     // -----------------------------------------------------------------------------
-    function processOpens(opens, oldRefs, isFresh) {
+    async function processOpens(opens, oldRefs, isFresh) {
         const bSidesR: BothSidesRef[] = [];
         const bSidesP: BothSidesPair[] = [];
         const comps: any[]   = [];
@@ -632,7 +634,7 @@ export default function Bot(config: any): BotInstance {
         if(oldRefs.length > 0) {
             console.log(`Gone: ${oldRefs}`);
             // If trades are gone, check for freshly executed orders.
-            moreOrders(100);
+            await moreOrders(100);
         }
 
         return [bSidesR, bSidesP, comps];
@@ -805,7 +807,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
         //  so that we can combine them into a new order with its own conditional close.
         // * Update how much of each asset remains available (not reserved for these
         //  open orders).
-        [bSidesR, bSidesP, comps] = processOpens(opens, oldRefs, isFresh);
+        [bSidesR, bSidesP, comps] = await processOpens(opens, oldRefs, isFresh);
 
         let nexes = 0; // Orders not requiring extension
 
@@ -965,7 +967,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
             matches.push(opensA[oid]);
         }
         const diff = (less ? -1 : 1);
-        await Promise.all(matches.map(([oRef,o]) => {
+        await Promise.all(matches.map(async ([oRef,o]) => {
             // If some has been executed, then we won't replace the old one.
             // The old one's original volume might be needed to extend the grid.
             // -----------------------------------------------------------------
@@ -986,8 +988,8 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                     console.log("Skipping",o.descr.order,"because amount would go negative.",o.descr);
                 } else {
                     console.log("To: ",o.descr.type,sym,o.descr.price,newAmt,cp);
-                    kill(oRef, portfolio.O);
-                    order(o.descr.type,sym,o.descr.price,newAmt,lev,o.userref,cp);
+                    await kill(oRef, portfolio.O);
+                    await order(o.descr.type,sym,o.descr.price,newAmt,lev,o.userref,cp);
                 }
             }
         }));

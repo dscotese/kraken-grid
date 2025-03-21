@@ -88,7 +88,7 @@ function Manager(config: ManagerConfig):ManagerInstance {
                 }
                 if(!isNaN(answer)) alloc.addAsset(tik.ticker, answer/100);
             }
-            console.log(alloc.list());
+            console.log(await alloc.list());
             portfolio.Allocation = alloc;
             bot.save();
         }
@@ -214,7 +214,7 @@ function Manager(config: ManagerConfig):ManagerInstance {
                 if(!(args[1]) || sav.label === args[1])
                     console.log(h, sav.list());
                 else if(args[1]) {
-                    const a = sav.get(args[1]);
+                    const a = sav.get(args[1]); // Not an async get.
                     if( a > '' ) console.log(sav.label,a);
                 }
             }
@@ -237,7 +237,7 @@ function Manager(config: ManagerConfig):ManagerInstance {
             } else c = await p.Allocation.getAllocation(false, false);            
             const alisting = d
                 ? await d.list({name:'Now',alloc:c})
-                : (`${c.list()  }Use allocate to set targets.`);
+                : (`${await c.list()  }Use allocate to set targets.`);
             if(!args[1] || args[1].toLowerCase() !== 'quiet') console.log(alisting);
             // eslint-disable-next-line consistent-return
             return {desired:d,current:c};
@@ -259,7 +259,7 @@ function Manager(config: ManagerConfig):ManagerInstance {
             } else {
                 const tkr = args[1];
                     amt = Number(args[2])/100;
-                if(a === false) a = p.Allocation.getAllocation(false);
+                if(a === false) a = await p.Allocation.getAllocation(false);
                 if(amt<0 || args[2][0]==='+') { // Relative adjustment
                     const rel = await a.get(tkr).target;
                     if(!isNaN(rel)) amt += rel;
