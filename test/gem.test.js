@@ -3,7 +3,7 @@
 import {expect, describe, test, jest, afterEach} from '@jest/globals';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
-import fnInit from "../ginit";
+import fnInit from "../.dist/ginit";
 import customExpect from './customExpect';
 import TFC from '../testFasterCache.js'
 
@@ -13,8 +13,31 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 jest.setTimeout(30000); // Increase timeout to 30 seconds
+const mutex = {
+    locked: false,
+    queue: [],
+    lock: async function() {
+//      console.log('Attempting to acquire mutex, currently:', this.locked);
+      if (this.locked) {
+//        console.log('Mutex locked, waiting...');
+        await new Promise(resolve => this.queue.push(resolve));
+      }
+      this.locked = true;
+//      console.log('Mutex acquired');
+    },
+    unlock: function() {
+//      console.log('Releasing mutex, queue length:', this.queue.length);
+      this.locked = false;
+      const next = this.queue.shift();
+      if (next) {
+//        console.log('Running next queued operation');
+        next();
+      }
+    }
+};
+
 describe( 'Testing Gemini', () => {
-    process.TESTING = 'cacheOnly';  // Do not use Kraken during testing.
+    process.TESTING = 'cacheOnly';  // Do not use the exchange during testing.
     process.USECACHE = 'G';
     let a; 
     let bot; 
@@ -53,6 +76,8 @@ describe( 'Testing Gemini', () => {
         a.addAsset('XMR',0.4);
         // console.log('bot is ', bot);
         resetArgv();
+        mutex.locked = false; // Ensure mutex starts unlocked
+        mutex.queue = [];     // Ensure queue starts empty
     });
 
     test('Overallocation prevention', () => {
@@ -152,11 +177,7 @@ describe( 'Testing Gemini', () => {
         bot.tfc.useFile(path.join(__dirname,'GemCache.json'));
         const consoleSpy = jest.spyOn(console, 'log');
         await bot.report();
-        customExpect(consoleSpy).toHaveBeenCalledWith(
-            expect.stringMatching(/Reading Asset Pairs.../));
-        customExpect(consoleSpy).toHaveBeenCalledWith(
-            expect.stringMatching(/Reading Tickers.../));
-            consoleSpy.mockRestore();
+        customExpect(bot.pairInfo('XXBTZUSD').altname).toBe('XBTUSD');
         customExpect(consoleSpy).toHaveBeenCalledWith(
             expect.stringMatching(/ZEC.*20000/));
             consoleSpy.mockRestore();

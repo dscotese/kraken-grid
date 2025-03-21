@@ -1,6 +1,8 @@
 import { expect as jestExpect } from '@jest/globals';
 
-const wrapMatcher = (matcher) => (...args) => {
+type MatcherFunction = (...args: any[]) => any;
+
+const wrapMatcher = (matcher: MatcherFunction): MatcherFunction => (...args: any[]) => {
     try {
         return matcher(...args);
     } catch (error) {
@@ -10,12 +12,12 @@ const wrapMatcher = (matcher) => (...args) => {
 };
 
 // Create wrapped versions of all matchers
-const wrappedExpect = (actual) => {
+const wrappedExpect = (actual: any) => {
     const expectation = jestExpect(actual);
     // Wrap all matcher methods
     return new Proxy(expectation, {
-        get(target, prop) {
-            const original = target[prop];
+        get(target: any, prop: string | symbol): any {
+            const original = target[prop as any];
             if (typeof original === 'function') {
                 return wrapMatcher(original.bind(target));
             }

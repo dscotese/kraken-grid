@@ -27,7 +27,7 @@ export default async function init(initMan = true) {
     Manager(allConfig);
     if( process.TESTING ) global.kgPassword = "TestPWG";
     if(initMan) await allConfig.man.init(global.kgPassword);
-    allConfig.gemWS = GemSock(allConfig);
+    // allConfig.gemWS = await GemSock(allConfig);
     return allConfig;
 }
 
