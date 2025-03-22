@@ -46,7 +46,8 @@ interface TFCConstructor {
     s?: TFCInstance;
 }
 
-const TFC: TFCConstructor = function(verbose: boolean | string = false, id: string = ''): TFCInstance {
+const TFC: TFCConstructor = function(verbose: boolean | string = false, 
+    id: string = ''): TFCInstance {
     if (TFC.s) return TFC.s;     // Singleton!!
     
     const base = `TFC${id}`;
@@ -159,9 +160,11 @@ const TFC: TFCConstructor = function(verbose: boolean | string = false, id: stri
     function saveCallCache(): void {
         const asBuffer = Buffer.from(JSON.stringify(callCache, null, 1));
         // eslint-disable-next-line promise/prefer-await-to-callbacks
-        fs.writeFileSync(callCacheFile, asBuffer, (err) => {
+        try {
+            fs.writeFileSync(callCacheFile, asBuffer);
+        } catch (err) {
             if (err) throw err;
-        });
+        };
         if (verbose) console.log("Wrote callCache to", callCacheFile,
             "with", Object.keys(callCache).length, "cached calls.");
     }
@@ -219,7 +222,8 @@ const TFC: TFCConstructor = function(verbose: boolean | string = false, id: stri
         // ------------------------------------------------------
         if (lastFile > '') {
             // eslint-disable-next-line promise/prefer-await-to-callbacks
-            fs.writeFileSync(lastFile, lf, (err) => {if (err) throw(err);});
+            try { fs.writeFileSync(lastFile, lf); }
+            catch (err) { if (err) throw(err); }
             lastFile = '';  // Protect it from being overwritten.
         }
     }

@@ -111,7 +111,8 @@ function howMuch(tkr, np) {
     }
     data.savings.forEach((s) => { s.assets.forEach((a) => {
             tot1 += a.ticker==tkr?a.amount:0;
-            ov += [tkr,'ZUSD'].includes(a.ticker)?0:a.amount;
+            ov += [tkr,'ZUSD'].includes(a.ticker)?0
+                : a.amount * data.tickers[a][1];
         });});
     Object.keys(data.tickers).forEach((s) => {
         ov += [tkr,'ZUSD'].includes(s)

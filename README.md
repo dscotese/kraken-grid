@@ -27,6 +27,7 @@
       - [more](#more)
     - [Information Gathering](#information-gathering)
       - [assets](#assets)
+      - [capGains](#capgains)
       - [list [Search]](#list-search)
       - [margin](#margin)
       - [report](#report)
@@ -41,6 +42,7 @@
       - [auto](#auto)
       - [manual](#manual)
       - [balance](#balance)
+      - [notest](#notest)
       - [quit](#quit)
       - [risky](#risky)
       - [refnum](#refnum)
@@ -156,7 +158,7 @@ The semantics are the same as for [buy](#buy)
 
 #### kill
 `kill X`
-X can be an Order ID from Kraken (recognized by the presence of dashes), a [userref](#userref) (which often identifies more than one order, and, importantly, _both_ the initial buy or sell, _and_ the series of sells and buys resulting from partial executions), or a `Counter` as shown from [list](#list).  This cancels the order or orders.  `list` will still show such orders, prefixed with `Killed`, until [report](#report) runs again to update the internal record of open orders.
+X can be an Order ID from Kraken (recognized by the presence of dashes), a [userref](#userref) (which often identifies more than one order, and, importantly, _both_ the initial buy or sell, _and_ the series of sells and buys resulting from partial executions), or a `Counter` as shown from [list](#list).  This cancels the order or orders.  `list` will still show such orders, prefixed with `Killed`, until [report](#report) runs again to update the internal record of open orders. `kill 0` can be used to cancel all orders, but it prompts for confirmation and so should be used onlyin the console where the bot was started.
 
 #### limits
 `limits AtLeast AtMost`
@@ -175,6 +177,12 @@ Increase the amount of crypto to be traded. Otherwise, this command is the same 
 #### assets
 `assets [Filter]`
 This provides you with a list of assets in each account (see [asset](#asset) under bot management), and if Filter is anything, only accounts and assets with the label or ticker Filter.
+
+#### capGains 
+capGains Price Symbol [ISOStart] [BuyFile] [outFile]
+Price is the purchase price of what you held when the year started or at ISOStart, a timestamp of the form YYYY-MM-DD. Symbol is self-explanatory. If BuyFile is present, it will be read as a .json file that lists purchases that were deposited to the exchange:
+<pre>[{'date': '2024-01-01', 'cost': 1000.00,'amount': 0.05},
+ {'date': '2024-06-01', 'cost': 1000.00,'amount': 0.02}]</pre>
 
 #### list [Search]
 This simply prints out a list of all the open orders the code last retrieved (it does NOT retrieve them again, so...) It may have orders in it that have already been executed or which you canceled.  Each order is presented as:

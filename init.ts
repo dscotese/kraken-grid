@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /* eslint-disable import/extensions */
 import ClientCon from 'kraka-djs';
-import Manager from '../manager.js';
+import Manager from './manager.js';
 import Bot from './bot.js';
-import { AllocCon } from '../allocation.js';
-import Savings from '../savings.js';
-import Balancer from '../balancer.js';
-import Web from '../web.js';
+import { AllocCon } from './allocation.js';
+import Savings from './savings.js';
+import Balancer from './balancer.js';
+import Web from './web.js';
 
 export {}
 export default async function init(initMan = true) {

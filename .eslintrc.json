@@ -1,12 +1,15 @@
 {
+  "parser": "@typescript-eslint/parser",
   "extends": [
     "eslint:recommended",
     "airbnb/base",
     "plugin:react/recommended",
     "plugin:react-hooks/recommended",
+    "@typescript-eslint/recommended",
+    "plugin:promise/recommended",
     "prettier"
   ],
-  "plugins": ["promise"],
+  "plugins": ["promise","@typescript-eslint"],
   "rules": {
     "no-unused-vars": "error",
     "no-console": "off",
@@ -24,7 +27,22 @@
     "no-return-await": "error",
     "no-await-in-loop": "warn",
     "no-void": ["error", { "allowAsStatement": true }],
-    "@typescript-eslint/no-floating-promises": "error"
+    "@typescript-eslint/no-floating-promises": "error",
+    "@typescript-eslint/ban-types": ["error", {
+      "types": {
+        "Number": {
+          "message": "Use 'number' instead of 'Number'. The wrapper object should not be used as a type.",
+          "fixWith": "number"
+        },
+        "String": {
+          "message": "Use 'string' instead of 'String'.",
+          "fixWith": "string"
+        },
+        "Boolean": {
+          "message": "Use 'boolean' instead of 'Boolean'.",
+          "fixWith": "boolean"
+        }
+      }}]
     },
     "overrides": [{
       "files": ["test/**/*.js", "test/**/*.mjs"],
@@ -66,6 +84,7 @@
   },
   "parserOptions": {
     "ecmaVersion": "latest",
-    "sourceType": "module"
+    "sourceType": "module",
+    "project": "./tsconfig.json"
   }
 }

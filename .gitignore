@@ -39,6 +39,7 @@ Thumbs.db
 
 # Miscellaneous stuff
 TFC*/
+!TFCtest
 *.swp
 coverage/
 JestTesting/
