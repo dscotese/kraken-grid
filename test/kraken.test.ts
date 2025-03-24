@@ -4,8 +4,8 @@ import {expect, describe, test, jest} from '@jest/globals';
 import http from 'http';
 import { fileURLToPath } from 'url';
 import path, { dirname } from 'path';
-import fnInit from "../init";
-import customExpect from './customExpect';
+import fnInit from "../init.js";
+import customExpect from './customExpect.js';
 import TFC from '../testFasterCache.js';
 
 // eslint-disable-next-line no-underscore-dangle

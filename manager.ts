@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 /* eslint-disable no-restricted-globals */
 import PSCon from 'prompt-sync';
-import { Portfolio } from './types';
-import Balancer from './balancer';
-import Savings from './savings';
-import Web from './web';
+import type { Portfolio } from './types.d.ts';
 
 interface ManagerConfig {
     bot?: any;

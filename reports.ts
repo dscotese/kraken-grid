@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import fs from 'fs';
-import { Portfolio, Order, ClosedOrderResponse } from './types';
+import type { Portfolio, Order, KOrder, ClosedOrderResponse } from './types.d.ts';
 
 interface ReportInstance {
   getExecuted(count: number, known: ClosedOrders): Promise<any>;
@@ -75,7 +75,9 @@ function ReportCon(bot) {
         if (Object.keys(known.orders).length > Object.keys(closed.orders).length)
             Object.assign(closed, known);
         while (count > 0) {
-            console.log("Known:", Object.keys(known.orders).length, "Closed:", Object.keys(closed.orders).length, [known.offset, closed.offset]);
+            console.log(`Known: ${Object.keys(known.orders).length
+                }, Closed: ${Object.keys(closed.orders).length
+                }, ${[known.offset, closed.offset]}`);
             // eslint-disable-next-line no-await-in-loop
             const mixed: ClosedOrderResponse = await bot.kapi(['ClosedOrders', { ofs: offset, closetime: 'close' }]);
             const total = mixed.result.count;
@@ -94,7 +96,8 @@ function ReportCon(bot) {
             // ClosedOrders might return pending, open, canceled, and expired
             //  orders too.  Remove them.
             // ------------------------------------------------------
-            const executed = Object.entries(mixed.result.closed).filter((e) => (e[1].vol_exec !== "0.00000000"));
+            const executed = Object.entries(mixed.result.closed).filter(
+                (e: [string, KOrder]) => (e[1].vol_exec !== "0.00000000"));
             const rCount = Object.keys(mixed.result.closed).length;
             const elen = executed.length;
             const missing = executed.find(e => (known.orders[e[0]] == undefined));
@@ -132,7 +135,7 @@ function ReportCon(bot) {
             else {
                 // If you wait long enough between running the bot, you
                 // might get here without having collected all orders.
-                closed.offset = known.offset;
+                closed.offset = Math.max(known.offset, offset);
                 if (missing == undefined)
                     break; // All new orders collected.
             }
@@ -145,7 +148,7 @@ function ReportCon(bot) {
         // Store closed orders in portfolio
         console.log(`Had ${preCount} @ ${closed.offset}, now ${closedIDs.length} orders.`);
         bot.getPortfolio().Closed = closed;
-        if (preCount < closedIDs.length || !closed.hasFirst) {
+        if (preCount < closedIDs.length || !closed.hasFirst || closed.offset > known.offset) {
             console.log(`(Re-?)Saving ${closedIDs.length} closed orders @ ${closed.offset}.`);
             bot.save();
         }
