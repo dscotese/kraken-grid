@@ -1,0 +1,90 @@
+{
+  "parser": "@typescript-eslint/parser",
+  "extends": [
+    "eslint:recommended",
+    "airbnb/base",
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended",
+    "@typescript-eslint/recommended",
+    "plugin:promise/recommended",
+    "prettier"
+  ],
+  "plugins": ["promise","@typescript-eslint"],
+  "rules": {
+    "no-unused-vars": "error",
+    "no-console": "off",
+    "no-nested-ternary": "error",
+    "arrow-body-style": ["error", "as-needed"],
+    "react/prop-types": "error",
+    "react/react-in-jsx-scope": "off",
+    "import/prefer-default-export": "off",
+    "promise/catch-or-return": "error",
+    "promise/always-return": "error",
+    "require-await": "error",
+    "no-async-promise-executor": "error",
+    "promise/prefer-await-to-then": "error",
+    "promise/prefer-await-to-callbacks": "error",
+    "no-return-await": "error",
+    "no-await-in-loop": "warn",
+    "no-void": ["error", { "allowAsStatement": true }],
+    "@typescript-eslint/no-floating-promises": "error",
+    "@typescript-eslint/ban-types": ["error", {
+      "types": {
+        "Number": {
+          "message": "Use 'number' instead of 'Number'. The wrapper object should not be used as a type.",
+          "fixWith": "number"
+        },
+        "String": {
+          "message": "Use 'string' instead of 'String'.",
+          "fixWith": "string"
+        },
+        "Boolean": {
+          "message": "Use 'boolean' instead of 'Boolean'.",
+          "fixWith": "boolean"
+        }
+      }}]
+    },
+    "overrides": [{
+      "files": ["test/**/*.js", "test/**/*.mjs"],
+      "rules": {
+        "no-debugger": "off"
+      }
+    },{
+      "files": ["static/**/*.js"],
+      "globals": {
+        "jQuery": "readonly",
+        "galloc": "readonly",
+        "imgByKtick": "readonly",
+        "sigdig": "readonly"
+      },
+      "rules": {
+        "no-undef": "warn",
+        "no-unused-vars": "warn",
+        "no-var": "off",
+        "prefer-const": "off",
+        "no-use-before-define": "off",
+        "no-redeclare": "off",
+        "no-plusplus": "off",
+        "vars-on-top": "off",
+        "block-scoped-var": "off",
+        "no-loop-func": "off"
+      }
+    }],
+    "settings": {
+    "react": {
+      "version": "detect"
+    }
+  },
+  "env": {
+    "node": true,
+    "browser": true,
+    "es2021": true,
+    "jest": true,
+    "jquery": true
+  },
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module",
+    "project": "./tsconfig.json"
+  }
+}

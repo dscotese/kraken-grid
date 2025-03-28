@@ -38,6 +38,8 @@ function setSize(id) {
     if(!['LDiv'].includes(id)) jqdd.height(Number(doch) + sh);
 }
 
+function prnd(x,p) { return Math.round(x*10**(p))/10**p; }
+
 $(function() {
     ['Doc','GDiv','LDiv'].forEach(setSize);
     genTol = Number(getCookie('genTol',"0.025"));
@@ -77,7 +79,54 @@ $(function() {
             cmd = 'manual';
         botExecA(cmd);
     });
+    $(document).on('click', '#tkrs th', function() {
+        if(!data.tickers[$(this).text()]) return;
+        let tkr = $(this).text(),
+            p = data.tickers[tkr][1],
+            np = prompt("See trade for when "+tkr+" price is?", p),
+            trade = howMuch(tkr,np);
+        msg = (trade < 0 ? "sell " : "buy ")+tkr+' '+np+' '
+            + Math.abs(prnd(trade,4))+" ClosePrice?\n";
+        alert(msg);
+        console.log(msg);
+    });
 });
+
+function howMuch(tkr, np) {
+    let p = data.tickers[tkr][1],
+        dp = (np - p)/p,     // % change in price
+        t = data.total,
+        [hp,lp] = data.ranges[tkr] || [0,0],
+        f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp)) || 1,
+        [b,ma] = data.adjust[tkr].split('+').map(Number),
+        tot1 = 0,    // How much is off the Exchange?
+        ov = 0,        // What is the value of other cryptos?
+        allCrypto = false,
+        a, a2, a2s, t2, t2s, trade;
+
+    // If new price beyond range, adjust range, recalculate factor.
+    if(np > hp || np < lp) {
+        [hp,lp] = [hp,lp].map(x => x*(np/(np<lp?lp:hp))); 
+        f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp));
+    }
+    data.savings.forEach((s) => { s.assets.forEach((a) => {
+            tot1 += a.ticker==tkr?a.amount:0;
+            ov += [tkr,'ZUSD'].includes(a.ticker)?0
+                : a.amount * data.tickers[a][1];
+        });});
+    Object.keys(data.tickers).forEach((s) => {
+        ov += [tkr,'ZUSD'].includes(s)
+            ? 0
+            : data.tickers[s][3] * data.tickers[s][1]; });
+    a = tot1 + data.tickers[tkr][3];
+    t2 = t + (dp*(p*a + ov));
+    t2s = t + (dp*p*a);
+    a2 = t2*(b + f*ma)/np;
+    a2s = t2s*(b + f*ma)/np;
+    trade = (allCrypto ? a2 : a2s) - a;
+
+    return trade;
+}
 
 function stopRefresh() { window.clearTimeout(auto); auto = -1; }
 
@@ -85,6 +134,7 @@ function getData() {
     $('#notice').html("Refreshing...");
     $.ajax({
         url: '/data', 
+        cache: false,
         dataType: 'json',
         success: (dataR) => { useData(dataR); },
         error: (jqXHR, textStatus, error) => {
@@ -262,6 +312,7 @@ function AssetsTable() {
             zeroes += ' ' + weblink(t);
             header.val = "<th></th>";
         }
+        if(/: $/.test(zeroes)) zeroes += "None.";
     }
     for(r in rows) {
         rows[r].sort((a,b)=> { return a.key<b.key ? -1 : 1; });
@@ -309,27 +360,38 @@ function AllocTable(tol = genTol) {
         + "'>Allocation Last Update: " + (new Date()).toLocaleTimeString()
         + "</th></tr>\n<tr id='tkrs'><th id='tol' title='Balance Tolerance'>"+tol+"</th>",
         current="<tr id='current'><th>Current</th>",
-        desired="<tr id='desired'><th>Desired</th>",
+        base="<tr id='base'><th>Adjust</th>",
+        desired="<tr id='desired'><th>Adjusted</th>",
         diff = "<tr id='Diff'><th>Difference</th>",
-        diffs = [],
         gHeight = Number(('0'+$('#GDiv')[0].style.height).match(/[0-9]+/)[0]),
         gWidth = Number(('0'+$('#GDiv')[0].style.width).match(/[0-9]+/)[0]),
         prices = "<tr id='Prices'><th>Prices</th>",
-        c,d,del,tt,price,imbalance = 0, slices=[];
+        b,r,tr,rh,rl,c,d,del,dela,tt,price,imbalance = 0, slices=[];
     for(t in tkrs) {
+        [b,r,tr] = data.adjust[t]
+            ? data.adjust[t].split('+').map((x) => (sigdig(100*x)))
+            : [data.desired[t],0,0];
+        [rh,rl] = (data.ranges[t] || [0,0]).map((x) => (sigdig(x)));
+     //   [b,r,tr] = [b,r,tr].map((x) => (sigdig(100*x)));
         ret += "<th>"+t+"</th>";
         current += "<td>"+(c=data.current[t])+"%</td>";
+        base += rh == 0 ? tag('td',b) : "<td title='Within the latest "
+            + tr +"%-wide trading range, the allocation will rise from "
+            + b +" at "+rh+" proportionately by "+r+"% up to "+(b+r)+"% at "+rl+".'>"
+            + b + ' - ' + (b+r) + '</td>';
         desired += "<td"+(t==data.numer ? '' 
-            : " title='allocate "+t+" "+data.desired[t]+"'") +">"
+            : " title='allocate "+t+" "+(b)+"'") +">"
             + (d=data.desired[t])+"%</td>";
         price = data.tickers[t][1];
         prices += "<td"+(t == data.numer ? ''
             : " title='balance "+tol+' '+t+"'")+">"+price+"</td>";
+        dela = t==data.numer ? 0 : howMuch(t, price);
         del = d-c;
         if(!isNaN(del)) slices[t] = [del,colors[t]];
         if(del>0) imbalance += del;
         tt = (del > 0 ? 'buy ' : 'sell ')+t+' '+price+' '
-            +(sigdig((Math.abs(del/100)*data.total/price),6,8));
+            // +(sigdig((Math.abs(del/100)*data.total/price),6,8));
+            + sigdig(Math.abs(dela),6,8);
         diff += "<td"+(t==data.numer ? ''
             : " title='"+tt+"'")+">"+sigdig(del,5,2)+"</td>";
     };
@@ -339,8 +401,8 @@ function AllocTable(tol = genTol) {
     G.bns.markup("Buys and Sells for Balance",0,underPie)
         .markup("Total: "+sigdig(imbalance,6,2)+' '+data.numer ,0,underPie+20);
 
-    ret += "</tr>\n"+current+"</tr>\n"+desired+"</tr>\n"+diff+"</tr>\n"
-        + prices + "</tr></table>";
+    ret += "</tr>\n"+current+"</tr>\n"+base+"</tr>\n"+desired
+        + "</tr>\n"+diff+"</tr>\n" + prices + "</tr></table>";
     return ret;
 }
 
@@ -356,43 +418,56 @@ function armAlloc() {
                 setCookie('genTol',newTol);
                 // Update the commands
                 $("#Prices td").attr('title',(i,ov) => {
-                    return ov.replace(/[0-9.]+/,newTol);
+                    return ov ? ov.replace(/[0-9.]+/,newTol) : '';
                 });
             }
         }
     });
 }
 
-var ordSort = 'ID';
+var ordSort = 'ID';     // The field on which to sort the OrderTable.
 function OrderTable() {
     let neg = (ordSort[0]=='-'),
         oo, od, odo, parsed, ret = "<table id='oDiv'><tr><th>ID</th><th>Type</th>"
             + "<th>Units</th>"
             + "<th>Pair</th><th>Price</th><th>UserRef</th><th>Close</th></tr>";
-    data.orders.forEach((o,i) => {
-        oo = o[1];
-        oo['ID'] = oo['ID'] || i+1;
-    });
-    data.orders.sort((a,b) => {
-        let aval = orderCompare(ordSort, a),
-            bval = orderCompare(ordSort, b);
-        return (neg ? -1 : 1) * (aval < bval ? -1 :
-            (aval == bval ? 0 : 1));
-    });
-    data.orders.forEach((o,i) => {
-        oo = o[1];
-        od = oo.descr;
-        odo = od.order;
-        parsed = odo.split(' ');
-        ret += "\n<tr>" + tag('td',oo['ID'],"title='"+o+"'") + tag('td',parsed[0]) 
-            + tag('td',parsed[1])+tag('td',parsed[2]) + tag('td',parsed[5])
-            + tag('td',oo.userref) + tag('td',od.close.match(/[0-9.]+$/))
-            + tag('th','less') + tag('th','more') + tag('th','kill') 
-            + tag('th',(oo.descr.leverage=='none'?'add':'de')+'lev') + '</tr>';
-    });
-    return ret + "</table>";
+    
+    if(data.orders && data.orders.length > 0) {
+        data.orders.forEach((o,i) => {
+            oo = o[1];
+            oo['ID'] = oo['ID'] || i+1;
+        });
+        data.orders.sort((a,b) => {
+            let aval = orderCompare(ordSort, a),
+                bval = orderCompare(ordSort, b);
+            return (neg ? -1 : 1) * (aval < bval ? -1 :
+                (aval == bval ? 0 : 1));
+        });
+        data.orders.forEach((o,i) => {
+            oo = o[1];
+            od = oo.descr;
+            odo = od.order;
+            parsed = odo.split(' ');
+            ret += "\n<tr>" + tag('td',oo['ID'],"title='"+o+"'") + tag('td',parsed[0]) 
+                + tag('td',parsed[1])+tag('td',parsed[2]) + tag('td',parsed[5])
+                + tag('td',oo.userref) + tag('td',od.close.match(/[0-9.]+$/))
+                + tag('th','less') + tag('th','more') + tag('th','kill') 
+                + tag('th',(oo.descr.leverage=='none'?'add':'de')+'lev') + '</tr>';
+        });
+    } else ret += `\n<tr> ${tag('td','There are no open orders.',"span='7'")}</tr>`;
+    return ret + getClosed() + "</table>";
 }
 function tag(t,i,attrs){return '<'+t+(attrs ? ' '+attrs : '')+'>'+i+'</'+t+'>';}
+
+function getClosed() {
+    let ret = '<tr><th colspan="7">Closed Orders</th></tr>';
+    for( let [txid,oo] of data.closed.sort((a,b) => (a[1].closetm - b[1].closetm)) ) {
+        ret += "\n<tr>" + tag('td',
+                (new Date(1000*oo.closetm).toLocaleString()),"colspan='3'")
+            + tag('td',oo.descr.order,"colspan='6'") + "</tr>";
+    }
+    return ret;
+}
 
 function armOrderTable() {
     $('#oDiv th').on('click',(e) => {
@@ -420,7 +495,7 @@ function rowCommand(e) {
 }
 
 function orderCompare(th, order) {
-    // ID	Type	Units	Pair	Price	UserRef	Close
+    // ID       Type    Units   Pair    Price   UserRef Close
     let od = order[1].descr;
     switch(th[0]=='-' ? th.substr(1) : th) {
         case 'ID' : return order[1].opentm;

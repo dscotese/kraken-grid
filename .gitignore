@@ -1,5 +1,45 @@
-node-modules/
-node_modules
-TFC*
-package-lock.json
+# Compiled JavaScript files
+*.js
+*.d.ts
+.dist/
+
+# Map files
+*.map
+
+# Except for configuration files
+!jest.config.js
+!.eslintrc.js
+!**/webpack.config.js
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.*
+
+# IDE files
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Debug logs
+npm-debug.log*
+
+# Other IDEs
+.idea/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Miscellaneous stuff
+TFC*/
+!TFCtest
 *.swp
+coverage/
+JestTesting/
