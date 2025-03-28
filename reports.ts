@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import fs from 'fs';
-import { Portfolio, Order, ClosedOrderResponse } from './types';
+import type { Portfolio, Order, ClosedOrderResponse } from './types.d.ts';
 
 interface ReportInstance {
   getExecuted(count: number, known: ClosedOrders): Promise<any>;

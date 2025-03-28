@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { Portfolio, GridPoint } from './types';
-import { BotInstance } from './bot';
+import type { Portfolio, GridPoint } from './types.d.ts';
+import type { BotInstance } from './bot.ts';
 // Asset in allocation
 export interface AllocationAsset {
     ticker: string;

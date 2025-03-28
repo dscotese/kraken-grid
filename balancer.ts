@@ -1,5 +1,5 @@
-import { AllocationInstance } from './allocation';
-import { BotInstance } from './bot';
+import type { AllocationInstance } from './allocation.ts';
+import type { BotInstance } from './bot.ts';
 
 // Configuration object passed to Balancer
 export interface BalancerConfig {

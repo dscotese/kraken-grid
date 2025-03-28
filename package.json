@@ -1,11 +1,11 @@
 {
   "name": "kraken-grid",
-  "version": "1.4.0",
+  "version": "1.4.2",
   "description": "Bot repeatedly buys & sells on kraken from a conditional close order.",
-  "main": "./.dist/init.js",
+  "main": ".dist/init.js",
   "bin": {
-    "kraken-grid": "./.dist/init.js",
-    "gemini-grid": "./.dist/ginit.js"
+    "kraken-grid": ".dist/init.js",
+    "gemini-grid": ".dist/ginit.js"
   },
   "type": "module",
   "scripts": {

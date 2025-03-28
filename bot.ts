@@ -2,17 +2,17 @@
 /* eslint-disable no-restricted-globals */
 /* eslint-disable import/extensions */
 /* eslint-disable no-console */
-import {GridPoint, BothSidesRef, BothSidesPair, OrderEntry, 
+import type {GridPoint, BothSidesRef, BothSidesPair, OrderEntry, 
     KOrder, TickerResponse, ClosedOrderResponse,
-    Portfolio, GotError, APIResponse} from './types';
-import {Savings} from 'savings.d';
+    Portfolio, GotError, APIResponse} from './types.d.ts';
+import type Savings from 'savings.ts';
 export interface BotInstance {
     order(buysell: string, market: string, price: number, amt: number, 
         lev?: string, inUref?: number, closeO?: number): Promise<any>;
     set(ur: any, type: any, price: any): Promise<void>;
     listOpens(isFresh?: boolean): Promise<void>;
     deleverage(opensA: any[], oid: number, undo?: boolean): Promise<void>;
-    ExchangeSavings(): Savings;
+    ExchangeSavings(): SavingsInstance;
     refnum(opensA: any[], oid: number, newRef: any): Promise<void>;
     list(args: any[]): Promise<void>;
     kapi(...args: [string | [string, Record<string, any>], number?]): Promise<APIResponse>;
@@ -55,6 +55,7 @@ import PSCon from 'prompt-sync';
 import ssModule from './safestore.js';    // encrypted storage
 import ReportCon from './reports.js';
 import TFC from './testFasterCache.js';
+import { SavingsInstance } from './savings.js';
 
 const prompt = PSCon({sigint: true});
 const myConfig : any = {exch: 'K'};

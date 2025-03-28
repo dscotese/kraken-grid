@@ -5,8 +5,8 @@ import path from "path";
 import session from 'express-session';
 import bodyParser from 'body-parser';
 import fs from 'fs';
-import { Portfolio } from './types';
-import { BotInstance } from './bot';
+import type { Portfolio } from './types.d.ts';
+import { BotInstance } from './bot.js';
 
 const app = express();
 
