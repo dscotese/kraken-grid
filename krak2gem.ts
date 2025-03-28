@@ -1,5 +1,5 @@
 /* eslint-disable import/extensions */
-import Gem from './gemini';
+import Gem from './gemini.js';
 
 // Define interfaces
 interface GemClientOptions {

@@ -2,10 +2,10 @@
 /* eslint-disable promise/prefer-await-to-callbacks */
 /* eslint-disable import/extensions */
 /* eslint-disable no-param-reassign */
-import got from 'got';
+import got, { OptionsInit, Response as GotResponse } from 'got';
 import crypto from 'crypto';
 import WebSocket from 'ws';
-import TFC from './testFasterCache';
+import TFC from './testFasterCache.js';
 
 // Define interfaces for parameters and responses
 interface GeminiOptions {
@@ -146,11 +146,13 @@ export default function GeminiClient(key: string, secret: string, options: Gemin
             } 
         };
 
-        Object.assign(options, defopts);
+        // Create a local copy that won't confuse TypeScript with the parameter
+        const requestOpts: OptionsInit = { ...options } as OptionsInit;
+        Object.assign(requestOpts, defopts);
+        Object.assign(requestOpts, { method });
 
-        Object.assign(options, { method });
-        if (method === 'POST') options.body = '';
-        else delete options.body;
+        if (method === 'POST') requestOpts.body = '';
+        else delete requestOpts.body;
 
         const url = (isWS ? config.url.replace('https', 'wss') : config.url) + path;
         console.log(`path:${url}, conCurrent:${conCurrent}`);
@@ -164,9 +166,9 @@ export default function GeminiClient(key: string, secret: string, options: Gemin
                     return new WebSocket(url, headers);
                 }
                 // eslint-disable-next-line no-await-in-loop
-                const response = await got(url, options);
+                const response = await got(url, requestOpts) as GotResponse;
                 // eslint-disable-next-line no-await-in-loop
-                const ret = await JSON.parse(response.body);
+                const ret = await JSON.parse(response.rawBody.toString());
                 return ret;
             } catch(e) {
                 console.log(`${url} failed because ${e
