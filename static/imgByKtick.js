@@ -272,7 +272,7 @@ const imgByKtick = {
 		"YGG":thumbase+"17358/thumb/le1nzlO6_400x400.jpg?1632465691",
 		"ZAUD":"/img/aud.png",
 		"ZCAD":"/img/cad.png",
-		"ZEUR":"/imh/eur.png",
+		"ZEUR":"/img/eur.png",
 		"ZGBP":"/img/gbp.png",
 		"ZJPY":"/img/yen.png",
 		"ZRX":thumbase+"863/thumb/0x.png?1547034672",

@@ -11,7 +11,7 @@
     "module": "NodeNext",
     "noEmitOnError": false,
     "noImplicitAny": false,
-    "outDir": ".dist",
+    "outDir": "dist",
     "paths": {
       "*": ["*"]
     },
@@ -29,8 +29,8 @@
   ],
   "exclude": [
     "node_modules",
-    ".dist",
-    ".dist/**/*",
+    "dist",
+    "dist/**/*",
     "**/*.js",
     "**/*.js.map",
     "TFC*",

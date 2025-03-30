@@ -7,6 +7,10 @@ import bodyParser from 'body-parser';
 import fs from 'fs';
 import type { Portfolio } from './types.d.ts';
 import { BotInstance } from './bot.js';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -98,7 +102,8 @@ function Web(config: Config): WebConfig {
   }
 
   function Documentation(): string {
-    const rf = fs.readFileSync("./README.md",{encoding:'utf8'}); // ,
+    const rf = fs.readFileSync(path.join(__dirname, "../README.md"),
+      { encoding: 'utf8' });
     return `<div id='Doc'><md-block>${rf}</md-block></div>`;
   }
 

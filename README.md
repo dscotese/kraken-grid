@@ -2,6 +2,7 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
+- [Release Notes for version 1.4](#release-notes-for-version-14)
 - [kraken-grid BETA](#kraken-grid-beta)
   - [Upgrading](#upgrading)
   - [Installation](#installation)
@@ -58,9 +59,8 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# Release Notes for version 1.4 
-This project has been converted to Typescript. There are also a few changes on the way to supporting the Gemini Exchange (using gemini-grid instead of krakn-grid). If you use both, lucky you! Kraken asked me to close my account after I got arrested for trading Bitcoin. See https://litmocracy.blogspot.com/2024/06/daves-narrative.html, the beginning of a book about it. I have not tested using both Gemini and Kraken with the
-same instance. If you're a coder and you want to help, consider writing some unit tests!
+# Release Notes for version 1.4
+This project has been converted to Typescript. There are also a few changes on the way to supporting the Gemini Exchange (using gemini-grid instead of kraken-grid). If you use both, lucky you! Kraken asked me to close my account after I got arrested for trading Bitcoin. See https://litmocracy.blogspot.com/2024/06/daves-narrative.html, the beginning of a book about it for more information. I have not tested using both Gemini and Kraken with the same instance. If you want to help, consider [writing some unit tests](https://github.com/dscotese/kraken-grid/issues)!
 
 # kraken-grid BETA
 A bot that extends grid trading once you use it to create a grid using orders with conditional closes.

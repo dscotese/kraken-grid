@@ -1,18 +1,18 @@
 {
   "name": "kraken-grid",
-  "version": "1.4.2",
+  "version": "1.4.5",
   "description": "Bot repeatedly buys & sells on kraken from a conditional close order.",
-  "main": ".dist/init.js",
-  "bin": {
-    "kraken-grid": ".dist/init.js",
-    "gemini-grid": ".dist/ginit.js"
-  },
+  "main": "dist/init.js",
   "type": "module",
+  "bin": {
+    "kraken-grid": "bin/kraken-grid.js",
+    "gemini-grid": "bin/gemini-grid.js"
+  },  
   "scripts": {
     "testK": "node --experimental-vm-modules node_modules/jest/bin/jest.js test/kraken.test --debug --verbose --detectOpenHandles --runInBand",
     "testG": "node --experimental-vm-modules node_modules/jest/bin/jest.js test/gem.test --debug --verbose --detectOpenHandles --runInBand",
     "watch": "tsc --watch",
-    "start": "node .dist/init.js",
+    "start": "node dist/init.js",
     "build": "tsc"
   },
   "repository": {
@@ -80,7 +80,7 @@
       "import": {
         "types": "./types.ts",
         "default": [
-          "./.dist/init.js",
+          "./dist/init.js",
           "./init.js"
         ]
       }
@@ -89,7 +89,7 @@
       "import": {
         "types": "./*.d.ts",
         "default": [
-          "./.dist/*.js",
+          "./dist/*.js",
           "./*.js"
         ]
       }

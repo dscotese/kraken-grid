@@ -1,5 +1,7 @@
 # Compiled JavaScript files
 *.js
+!kraken-grid.js
+!gemini-grid.js
 *.d.ts
 .dist/
 
