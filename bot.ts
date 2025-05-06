@@ -4,8 +4,8 @@
 /* eslint-disable no-console */
 import {GridPoint, BothSidesRef, BothSidesPair, OrderEntry, 
     KOrder, TickerResponse, ClosedOrderResponse,
-    Portfolio, GotError, APIResponse} from './types';
-import {Savings} from 'savings.d';
+    Portfolio, GotError, APIResponse} from './types.js';
+import {Savings} from 'savings.js';
 export interface BotInstance {
     order(buysell: string, market: string, price: number, amt: number, 
         lev?: string, inUref?: number, closeO?: number): Promise<any>;
@@ -313,7 +313,8 @@ export default function Bot(config: any): BotInstance {
             portfolio.limits = p.limits ? p.limits : [0,-1];
             portfolio.lastUpdate = p.lastUpdate ? p.lastUpdate : null;
             portfolio.Allocation = await AllocCon(config, 
-                p.Alloc ? p.Alloc.assets : undefined);
+                p.Alloc ? p.Alloc.assets.filter(x => 
+                    (typeof x.ticker == "string" && x.ticker.length>0)) : undefined);
             Reports = ReportCon(config.bot);
             config.report = Reports;
         }

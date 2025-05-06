@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { Portfolio, GridPoint } from './types';
-import { BotInstance } from './bot';
+import { Portfolio, GridPoint } from './types.js';
+import { BotInstance } from './bot.js';
 // Asset in allocation
 export interface AllocationAsset {
     ticker: string;
@@ -482,8 +482,9 @@ export const AllocCon = async (
             ? `${compare.name}\tdiff\t`
             : '\t\t'}Total: ${total}`;
         
-        // Remove any degenerate assets
-        assets = assets.filter(x => (typeof x.ticker == "string" && x.ticker.length>0));
+        // Remove any degenerate asset entries:
+        assets = assets.filter(x => 
+            (typeof x.ticker == "string" && x.ticker.length > 0));
             
         await Promise.all(assets.map(async (a) => {
             await get(a.ticker);  // Forces an update

@@ -11,7 +11,7 @@
     "module": "NodeNext",
     "noEmitOnError": false,
     "noImplicitAny": false,
-    "outDir": ".dist",
+    "outDir": "dist",
     "paths": {
       "*": ["*"]
     },
