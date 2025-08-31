@@ -72,13 +72,18 @@ This version stores your API key and secret using your password.  This informati
 
 ## Installation
 1. Get your API key and secret from Kraken. Otherwise, you will have to go through this process again if you want to run kraken on a machine that doesn't have these keys yet, or if you forget your password.
-   - 1.1 Click the box in the upper right corner on kraken.com after you log in that has your name in it.
-   - 1.2 Click the "Security" item in the dropdown box.
-   - 1.3 Click "API" in the list of options under Security.
-   - 1.4 Choose the "Add Key" link.
-   - 1.5 We recommend that you give your key a better description.
-   - 1.6 Check the "Query Funds" box under "Funds" and all the boxes under "Orders & Trades".
-   - 1.7 We recommend that you record this set of codes (a key and a private key, called "Secret" in kraken-grid).
+   - 1.1 Sign in to your Kraken account and click on the profile icon in the upper right corner.
+   - 1.2 Select "Settings" from the dropdown menu.
+   - 1.3 Click the "API" tab.
+   - 1.4 Click "Create API key".
+   - 1.5 We recommend that you give your key a better description (this is now called "Key Description").
+   - 1.6 Check the "Query Funds" box under "Funds Permissions" and all the boxes under "Orders & Trades Permissions":
+      - Query Open Orders & Trades
+      - Query Closed Orders & Trades
+      - Modify Orders
+      - Cancel/Close Orders
+   - 1.7 Click "Generate key".
+   - 1.8 IMPORTANT: Copy and save both the API Key and Private Key immediately in a secure location (like a password manager). The Private Key will not be shown again after you leave this page
 2. Install [NodeJS](https://nodejs.org/)
 3. Run `npm -g install kraken-grid` from a command line ("Command Prompt", "Terminal Window", or "Shell").
 
@@ -323,3 +328,4 @@ Because grid orders have conditional closes (at a price I'll call C, for close, 
 This code is messy.  It works for me and I didn't want to keep waiting until I cleaned it up to publish it.  One of the major motivations I have for publishing it is that as more people use a strategy like "grid trader" to balance their savings, the prices of the cryptos with which they do it will become more stable.
 
 All calls to @nothingisdead's [Kraken-API](https://github.com/nothingisdead/npm-kraken-api) (which I have copied and renamed to kraka-djs to add CancelAll) are made through a function I called `kapi` so that any other exchange could be used by updating that funtion to translate Kraken's APIs to those of other exchanges.
+
