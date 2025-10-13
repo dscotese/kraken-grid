@@ -7,6 +7,10 @@ import bodyParser from 'body-parser';
 import fs from 'fs';
 import { Portfolio } from './types.js';
 import { BotInstance } from './bot.js';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -54,8 +58,8 @@ function Web(config: Config): WebConfig {
     cookie: { secure: false }
   }));
 
-  app.use("/js",express.static(path.join('.', 'static')));
-  app.use("/img",express.static(path.join('.', 'static')));
+  app.use("/js",express.static(path.join(__dirname, '..', 'static')));
+  app.use("/img",express.static(path.join(__dirname, '..', 'static')));
   app.use(basicAuth({
     challenge: true,
     users: { 'admin': config.stored.getPW() }
@@ -98,7 +102,8 @@ function Web(config: Config): WebConfig {
   }
 
   function Documentation(): string {
-    const rf = fs.readFileSync("./README.md",{encoding:'utf8'}); // ,
+    const projectRoot = path.resolve(__dirname, '..');
+    const rf = fs.readFileSync(path.join(projectRoot, "README.md"), { encoding: 'utf8' });
     return `<div id='Doc'><md-block>${rf}</md-block></div>`;
   }
 

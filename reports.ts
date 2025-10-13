@@ -265,19 +265,20 @@ function ReportCon(bot) {
         let accProceeds = 0;
         let accCost = 0;
         let accGL = 0;
+        let unPurchased = 0;
         sbt.forEach(s => {
             if (s.closetm < notBefore / 1000)
                 return;
             let volume = Number(s.vol_exec);
             const netProceeds = s.cost - s.fee;
-            while (volume > Number.EPSILON) {
+            while (volume > 10*Number.EPSILON) {
                 let liquidated = 0;
                 let m = getValidMatch(s.closetm);
                 let proportion = 1;
                 if( m === undefined ) {
                     console.log(`Capital Gains cannot be computed because more assets`
                         +` were purchased than sold. Try specifying a file that lists`
-                        +` your purchases.`);
+                        +` your purchases (${volume} closed ${new Date(1000*s.closetm)}).`);
                     return;
                 } else if (m.remaining >= volume) {
                     m.remaining -= volume;
