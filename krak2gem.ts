@@ -476,7 +476,7 @@ export default class Gclient {
     const gemClosed: any = { length: 0, lastTS: 0, ...(extra.gemClosed) };
     let oidsRCO: string[] = [];
     
-    // "the list of trades will be sorted by timestamp descending - so the
+    // "the list of orders ... sorted by timestamp descending - so the
     // first element in the list will have the highest timestamp value."
     // if we don't include a timestamp, we will get the latest trades and
     // may thereby miss some old ones, so we always include it.
@@ -488,6 +488,9 @@ export default class Gclient {
         limit_orders: 500,
         include_trades: true
       });
+      const lastTS = orders.length > 0 
+        ? String(Number(orders[0].timestamp) + 1)
+        : gemClosed.lastTS;
       
       if (orders.length > 0)
         orders = orders.filter(pco => pco.trades.length > 0); // Array of obj
@@ -499,6 +502,8 @@ export default class Gclient {
       // Therefore, this.gemTrades is an object.
       count = orders.length;
       
+      // Sum the fee over the trades for each order.
+      // Let's also translate the Gemini Symbols to Kraken...?
       if (orders.length) {
         orders.forEach(closedOrder => {
           const fee: Record<string, number> = {};
@@ -514,9 +519,8 @@ export default class Gclient {
           closedOrder.fee = (fee[fCur] || 0).toFixed(2);
           gemClosed[closedOrder.order_id] = closedOrder;
         });
-        
-        gemClosed.lastTS = String(Number(orders[0].timestamp) + 1);
       }
+      gemClosed.lastTS = lastTS;
       
       // Handle ofs and userref
       // oids in reverse chronological order:

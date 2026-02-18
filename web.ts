@@ -76,8 +76,8 @@ function Web(config: Config): WebConfig {
     if(server) server.close();
     server = app.listen(pport,(e) => { if(e) console.log("HTTP Server failed:",e); });
     // Trap the console.log function
-    console.log = log;
-    logOriginal(`Server is running on http://${host}:${pport}`); 
+    // console.log = log;
+    console.log(`Server is running on http://${host}:${pport}`); 
   }
 
   function address(): false | string { 
