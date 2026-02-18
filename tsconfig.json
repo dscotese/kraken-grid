@@ -29,8 +29,8 @@
   ],
   "exclude": [
     "node_modules",
-    ".dist",
-    ".dist/**/*",
+    "dist",
+    "dist/**/*",
     "**/*.js",
     "**/*.js.map",
     "TFC*",

@@ -5,7 +5,11 @@ import path from "path";
 import session from 'express-session';
 import bodyParser from 'body-parser';
 import fs from 'fs';
+<<<<<<< HEAD
 import { Portfolio } from './types.js';
+=======
+import type { Portfolio } from './types.d.ts';
+>>>>>>> e014928e841ab3db5bb136d0e01ce8030aec30d4
 import { BotInstance } from './bot.js';
 import { fileURLToPath } from 'url';
 
@@ -102,8 +106,13 @@ function Web(config: Config): WebConfig {
   }
 
   function Documentation(): string {
+<<<<<<< HEAD
     const projectRoot = path.resolve(__dirname, '..');
     const rf = fs.readFileSync(path.join(projectRoot, "README.md"), { encoding: 'utf8' });
+=======
+    const rf = fs.readFileSync(path.join(__dirname, "../README.md"),
+      { encoding: 'utf8' });
+>>>>>>> e014928e841ab3db5bb136d0e01ce8030aec30d4
     return `<div id='Doc'><md-block>${rf}</md-block></div>`;
   }
 
