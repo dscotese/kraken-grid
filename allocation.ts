@@ -481,6 +481,10 @@ export const AllocCon = async (
         let str = `\nticker\ttarget\t(adjusted)\t(Range)\t(apct,ppct)\t${compare
             ? `${compare.name}\tdiff\t`
             : '\t\t'}Total: ${total}`;
+        
+        // Remove any degenerate asset entries:
+        assets = assets.filter(x => 
+            (typeof x.ticker == "string" && x.ticker.length > 0));
             
         await Promise.all(assets.map(async (a) => {
             await get(a.ticker);  // Forces an update

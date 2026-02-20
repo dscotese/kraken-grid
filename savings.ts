@@ -9,10 +9,48 @@ export interface Asset {
     amount: number;
 }
 
+export interface Pricer {
+    price: (ticker: string) => Promise<number>;
+    [key: string]: any;
+}
+
+export interface Savings {
+    setBase(ticker: string): void;
+    list(label?: string, copySort?: boolean): string;
+    setTickers(validTickers: string[]): void;
+    updateAsset(ticker: string, amount: number, ask: boolean, allowAdd?: boolean): boolean;
+    recover(): void;
+    labelMe(label: string): void;
+    save(): string;
+    getAlloc(numeraireIn: string, numeraires: string[]): Promise<any>;
+    getTotal(): number;
+    add(sav2: Savings): void;
+    remove(ticker: string): void;
+    get(ticker: string): string;
+    assets: Asset[];
+    validTicker(t: string): boolean;
+}
+
+export interface SavingsCon {
+    (j?: boolean | string): Savings;
+    init(bot: any): void;
+    tickers?: Set<string>;
+    pricers?: any[];
+    setPricer?(pricer: any, assets: any[]): void;
+}
+
 export interface SavingsConfig {
     label?: string;
     assets?: Asset[];
     AllocCon?: any;
+}
+
+export interface SavingsConstructor {
+    (config?: SavingsConfig | string | boolean): SavingsInstance;
+    tickers: Set<string>;
+    pricers: Pricer[];
+    setPricer: (pricer: Pricer, assets: string[]) => void;
+    init: (initbot: any) => void;
 }
 
 export interface SavingsInstance {
@@ -33,19 +71,6 @@ export interface SavingsInstance {
     validTicker: (t: string) => boolean;
     pricers?: Pricer[];
     setPricer?: (pricer: Pricer, assets: string[]) => void;
-}
-
-export interface Pricer {
-    price: (ticker: string) => Promise<number>;
-    [key: string]: any;
-}
-
-export interface SavingsConstructor {
-    (config?: SavingsConfig | string | boolean): SavingsInstance;
-    tickers: Set<string>;
-    pricers: Pricer[];
-    setPricer: (pricer: Pricer, assets: string[]) => void;
-    init: (initbot: any) => void;
 }
 
 // eslint-disable-next-line no-underscore-dangle

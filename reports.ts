@@ -162,11 +162,14 @@ function ReportCon(bot) {
         const started = Date.now();
         const notBefore = new Date(ISOStart).getTime();
         const closed = bot.getPortfolio().Closed;
+        const previousCount = closed.orders.length;
         // Let's not go back before the beginning of the year
         while (closed.orders[closed.keysFwd()[0]].closetm > notBefore / 1000) {
             // eslint-disable-next-line no-await-in-loop
             await getExecuted(50, closed);
-            if (Date.now() - started > 30000) {
+            if(previousCount == closed.orders.length)
+                break;
+            else if (Date.now() - started > 30000) {
                 console.log("I'm stopping after thirty seconds.");
                 return;
             }
@@ -178,35 +181,40 @@ function ReportCon(bot) {
         // external buy saved in exb.
         const exb: Order[] = [];
         const keyList: string[] = Array.from(closed.keysFwd());
-        if (buyFile > '' && fs.existsSync(buyFile)) {
-            // Put the file contents into a string
-            const externalBuys = fs.readFileSync(buyFile).toString();
-            const eb = JSON.parse(externalBuys);
-            let ebi = 0;
-            eb.forEach(b => {
-                const price = (b.cost / b.amount).toFixed(2);
-                const extBuy: Order = {
-                    closetm: new Date(b.date).getTime() / 1000,
-                    remaining: b.amount,
-                    descr: { price, type: 'buy' },
-                    price,
-                    cost: b.cost,
-                    fee: 0,
-                    vol_exec: String(b.amount),
-                    ebi
-                };
-                borrowed += b.amount;
-                exb.push(extBuy);
-                ebi += 1;
-            });
-            exb.sort((a, b) => (a.closetm - b.closetm));
-            let ei = 0;
-            while (ei < exb.length) {
-                const ii = keyList.findIndex(k => (((/^eb[0-9]+$/.test(k)
-                    ? exb[Number(k.slice(2))]
-                    : closed.orders[k]).closetm) > exb[ei].closetm));
-                keyList.splice(ii, 0, `eb${ei}`);
-                ei += 1;
+        if (buyFile > '' ) {
+            if (fs.existsSync(buyFile)) {
+                // Put the file contents into a string
+                const externalBuys = fs.readFileSync(buyFile).toString();
+                const eb = JSON.parse(externalBuys);
+                let ebi = 0;
+                eb.forEach(b => {
+                    const price = (b.cost / b.amount).toFixed(2);
+                    const extBuy: Order = {
+                        closetm: new Date(b.date).getTime() / 1000,
+                        remaining: b.amount,
+                        descr: { price, type: 'buy' },
+                        price,
+                        cost: b.cost,
+                        fee: 0,
+                        vol_exec: String(b.amount),
+                        ebi
+                    };
+                    borrowed += b.amount;
+                    exb.push(extBuy);
+                    ebi += 1;
+                });
+                exb.sort((a, b) => (a.closetm - b.closetm));
+                let ei = 0;
+                while (ei < exb.length) {
+                    const ii = keyList.findIndex(k => (((/^eb[0-9]+$/.test(k)
+                        ? exb[Number(k.slice(2))]
+                        : closed.orders[k]).closetm) > exb[ei].closetm));
+                    keyList.splice(ii, 0, `eb${ei}`);
+                    ei += 1;
+                }
+            } else {
+                console.log(buyFile + " was not found, aborting.")
+                return;
             }
         }
         keyList.forEach(oid => {
@@ -265,19 +273,20 @@ function ReportCon(bot) {
         let accProceeds = 0;
         let accCost = 0;
         let accGL = 0;
+        let unPurchased = 0;
         sbt.forEach(s => {
             if (s.closetm < notBefore / 1000)
                 return;
             let volume = Number(s.vol_exec);
             const netProceeds = s.cost - s.fee;
-            while (volume > Number.EPSILON) {
+            while (volume > 10*Number.EPSILON) {
                 let liquidated = 0;
                 let m = getValidMatch(s.closetm);
                 let proportion = 1;
                 if( m === undefined ) {
                     console.log(`Capital Gains cannot be computed because more assets`
                         +` were purchased than sold. Try specifying a file that lists`
-                        +` your purchases.`);
+                        +` your purchases (${volume} closed ${new Date(1000*s.closetm)}).`);
                     return;
                 } else if (m.remaining >= volume) {
                     m.remaining -= volume;

@@ -314,7 +314,8 @@ export default function Bot(config: any): BotInstance {
             portfolio.limits = p.limits ? p.limits : [0,-1];
             portfolio.lastUpdate = p.lastUpdate ? p.lastUpdate : null;
             portfolio.Allocation = await AllocCon(config, 
-                p.Alloc ? p.Alloc.assets : undefined);
+                p.Alloc ? p.Alloc.assets.filter(x => 
+                    (typeof x.ticker == "string" && x.ticker.length>0)) : undefined);
             Reports = ReportCon(config.bot);
             config.report = Reports;
         }
@@ -450,7 +451,7 @@ export default function Bot(config: any): BotInstance {
         if(gPrices.length === 0) {   // When we have no grid prices, collect orders.
             console.log("Reading grid from 20 closed orders...");
             const closed = await moreOrders(20);
-            const closedIDs = closed?.keysFwd() || [];
+            const closedIDs = closed?.keysFwd?.() ?? [];
             if(closed && closedIDs.length > 0) {
                 let counter = closedIDs.length-1;
                 lCOts = closed?.orders[closedIDs[counter]].closetm || 0;
@@ -647,7 +648,7 @@ export default function Bot(config: any): BotInstance {
     //  Reference Number.
     async function kill(o,oa:KOrder[]=[]):Promise<APIResponse> {
         let killed;
-        if(o === 0) {
+        if(o === 0 || /^0$/.test(o)) {
             const killAll = prompt("Cancel ALL orders? [y/N]");
             if(/^y/i.test(killAll)) {
                 killed = await kapi('CancelAll');
@@ -837,8 +838,15 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                 if(!c.hasClose) { // If any doesn't have a close, combine them and add one.
                     console.log(421,Object.values(c.ids));
                     const cleared = await kill(c.ids.length>1?c.ids:c.ids[0], portfolio.O);
-                    if( cleared.result.descr === 'Ignored') 
+                    if( cleared?.result?.descr === 'Ignored' || cleared?.result?.count === 0 ) 
                         throw new Error('No such order(s).');
+                    if( cleared.result.pending ) {
+                        // Use QueryOrders to wait until they are gone.
+                        await sleep(1000);
+                        let qoRes = await kapi(['QueryOrders',c.ids.join(',')]);
+                        if( qoRes.result.status != 'canceled' )
+                            throw new Error('Cancellation took too long.');
+                    }
                     await order(c.type,sym,price, toDec(c.total,4),
                        c.lev,c.userref,c.open);
                     if(FLAGS.verbose) console.log(425,
@@ -873,6 +881,22 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                             let gpsell = Number(gp.sell);
                             let gpbuy = Number(gp.buy);
                             sp = Math.round(10**decimals*gpsell*gpsell/gpbuy)/10**decimals;
+                            // eslint-disable-next-line no-await-in-loop
+                            let newVol = -1 * await howMuch(sym, sp);
+                            if(newVol < 0) {
+                                // If vol is < 0, use a higher price instead of:
+                            /*    throw new Error(`At ${sp}, you'd have to 'sell' ${
+                                    newVol}, which means we're way out of balance.`);
+                                return;
+                             */
+                                sp = Math.round(10**decimals*gpsell**3/gpbuy**2)/10**decimals;
+                                // eslint-disable-next-line no-await-in-loop
+                                newVol = -1 * await howMuch(sym, sp);
+                                if(newVol < 0) {
+                                    throw new Error(`Even at ${sp}, you'd have to 'sell' ${
+                                        newVol}, which means we're way out of balance.`);
+                                }
+                            }
                             // eslint-disable-next-line no-param-reassign
                             c.userref = makeUserRef('sell', c.sym, sp);
                             // We may already have this grid price but the order
@@ -890,13 +914,6 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                                     } to close at ${gp.sell}`);
                             }
                             // eslint-disable-next-line no-await-in-loop
-                            const newVol = -1 * await howMuch(sym, sp);
-                            if(newVol < 0) {
-                                console.log("At",sp,"you'd have to 'sell'",
-                                    `${newVol}, which means we're way out of balance.`);
-                                return;
-                            }
-                            // eslint-disable-next-line no-await-in-loop
                             await order('sell',c.sym,sp,newVol,
                                 getLev(portfolio,'sell',sp,newVol,c.sym,false),c.userref,
                                 gpsell);
@@ -907,7 +924,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                             gp = gp as GridPoint;
                             let gpsell = Number(gp.sell);
                             let gpbuy = Number(gp.buy);
-                            bp = Math.round(decimals*gpbuy*gpbuy/gpsell)/decimals;
+                            bp = Math.round(10**decimals*gpbuy*gpbuy/gpsell)/10**decimals;
                             // eslint-disable-next-line no-param-reassign
                             c.userref = makeUserRef('buy', c.sym, bp);
                             // We may already have this grid price but the order
@@ -926,11 +943,20 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                                 if(ngp.buy === ngp.sell) throw new Error("Bad Grid Point");
                             }
                             // eslint-disable-next-line no-await-in-loop
-                            const newVol = await howMuch(sym, bp);
+                            let newVol = await howMuch(sym, bp);
                             if(newVol < 0) {
-                                console.log("At",bp,"you'd have to 'buy'",
-                                `${newVol}, which means we're way out of balance.`);
-                                return;
+                                // If vol is < 0, use a higher price instead of:
+                            /*    throw new Error(`At ${bp}, you'd have to 'buy' ${
+                                newVol}, which means we're way out of balance.`);
+                               return; 
+                            */
+                                bp = Math.round(10**decimals*gpbuy**3/gpsell**2)/10**decimals;
+                                // eslint-disable-next-line no-await-in-loop
+                                newVol = await howMuch(sym, bp);
+                                if(newVol < 0) {
+                                    throw new Error(`Even at ${bp}, you'd have to 'buy' ${
+                                        newVol}, which means we're way out of balance.`);
+                                }
                             }
                             // eslint-disable-next-line no-await-in-loop
                             await order('buy',c.sym,bp,newVol,

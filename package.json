@@ -8,6 +8,7 @@
     "kraken-grid": "bin/kraken-grid.js",
     "gemini-grid": "bin/gemini-grid.js"
   },  
+  "//": "Use `npm run testK` (for example) to run these scripts.",
   "scripts": {
     "HowTo": "Use `npm run testK` (for example) to run these scripts.",
     "testK": "node --experimental-vm-modules node_modules/jest/bin/jest.js test/kraken.test --debug --verbose --detectOpenHandles --runInBand",

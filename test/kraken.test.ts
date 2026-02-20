@@ -168,8 +168,9 @@ describe('Test Kraken', () => {
 
         // Test that Safemode prevents orders over $25
         // -------------------------------------------
+        let preOC = bot.getPortfolio().O.length;
         await man.doCommands(['buy XBT 1 50']); // Fails because not safe.
-        customExpect(bot.getPortfolio().O.length === orderCount).toBeTruthy();
+        customExpect(bot.getPortfolio().O.length === preOC).toBeTruthy();
         bot.showPair('XREPZUSD');        
         // Test that showPair returns a real pair
         // --------------------------------------
