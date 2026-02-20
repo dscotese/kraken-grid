@@ -1,6 +1,6 @@
 {
   "name": "kraken-grid",
-  "version": "1.4.5",
+  "version": "1.4.6",
   "description": "Bot repeatedly buys & sells on kraken from a conditional close order.",
   "main": "dist/init.js",
   "type": "module",
@@ -9,6 +9,7 @@
     "gemini-grid": "bin/gemini-grid.js"
   },  
   "scripts": {
+    "HowTo": "Use `npm run testK` (for example) to run these scripts.",
     "testK": "node --experimental-vm-modules node_modules/jest/bin/jest.js test/kraken.test --debug --verbose --detectOpenHandles --runInBand",
     "testG": "node --experimental-vm-modules node_modules/jest/bin/jest.js test/gem.test --debug --verbose --detectOpenHandles --runInBand",
     "watch": "tsc --watch",
