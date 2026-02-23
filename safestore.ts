@@ -63,6 +63,7 @@ function Safestore(pwp: string = 'abc123'): SafestoreInstance {
         : pwp;
     if(pw !== pwp) { // New Password means new file.
         fn = `crypto-v1-${hashArg(pw, true)}`;
+        oldFn = hashArg(pw);
         keyFile = path.join(homeDir, `${process.TESTING ? 'test' : ''}${fn}.txt`);
     }
     const oldKeyFile = path.join(homeDir, 

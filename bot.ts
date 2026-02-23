@@ -464,7 +464,7 @@ export default function Bot(config: any): BotInstance {
                     const cd = new Date(oo.closetm * 1000);
                     let gp:GridPoint | undefined = gPrices.find((x:any) => x.userref===ur); // If we already saw this grid point.
 	                if( counter < 5 ) {
-                        console.log(o,ur,op,od.type,od.close,`${cd.getFullYear()}/${1+cd.getMonth()
+                        console.log(o,ur,op,od.type,oo.vol_exec,od.close,`${cd.getFullYear()}/${1+cd.getMonth()
                             }/${cd.getDate()}`,cd.getHours(),cd.getMinutes(),cd.getSeconds());
                     }
                     counter -= 1;
@@ -858,7 +858,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                     const traded = c.type==='buy' ? 'sold' : 'bought';
                     gp[traded]+=c.total;
                 }
-                // Do we need to extend the grid?
+                // Do we need to [extend] the grid?
                 // If we don't have a buy and a sell, then yes.
                 // --------------------------------------------
                 bs = bSidesP.find(b => b.pair===c.sym); // Was sym+'USD' but #USD Refactor

@@ -98,14 +98,15 @@ const Balancer = (config: BalancerConfig): BalancerInstance => {
         // processes the open orders.
         // -------------------------------------------------------
         // We are replacing the grid for p.pair, so let's cancel
-        // all its orders.
-        const toCancel = bot.portfolio.O.filter(o => [p.pair, po.altname].includes(o[1].descr.pair))
-            .map(ae => ae[0]);
-        console.log(`${bot.FLAGS.safe ? 'NOT ' : ''}Cancelling`, toCancel);
+        // all its orders if there are any.
+        if(bot.portfolio.O) { 
+            const toCancel = bot.portfolio.O.filter(o => [p.pair, po.altname].includes(o[1].descr.pair))
+                .map(ae => ae[0]);
+            console.log(`${bot.FLAGS.safe ? 'NOT ' : ''}Cancelling`, toCancel);
         
-        if (!bot.FLAGS.safe && toCancel)
-            await bot.kill(toCancel);
-            
+            if (!bot.FLAGS.safe && toCancel)
+                await bot.kill(toCancel);
+        }            
         const Ordered = await bot.order(p.type, p.pair, p.price, p.amt,
             bot.getLev(bot.portfolio, p.type, p.price, p.amt, po.base, false),
             0, p.type === 'buy' ? sP : bP); // uref, close
