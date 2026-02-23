@@ -1,6 +1,6 @@
 {
   "name": "kraken-grid",
-  "version": "1.4.7",
+  "version": "1.4.8",
   "description": "Bot repeatedly buys & sells on kraken from a conditional close order.",
   "main": "dist/init.js",
   "type": "module",

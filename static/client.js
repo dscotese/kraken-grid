@@ -98,7 +98,7 @@ function howMuch(tkr, np) {
         t = data.total,
         [hp,lp] = data.ranges[tkr] || [0,0],
         f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp)) || 1,
-        [b,ma] = (data.adjust[tkr]
+        [b,ma] = data.adjust[tkr]
             ? data.adjust[tkr].split('+')
             : [desired].map(Number),
         tot1 = 0,    // How much is off the Exchange?
