@@ -493,12 +493,13 @@ function Manager(config: ManagerConfig):ManagerInstance {
         portfolio = await bot.init(pw);
         report = config.report;
         web = Web(config);
-        await bot.report(true);
         if(!process.TESTING || process.TESTING === 'implied'
-            || process.argv.length > 2) listen();
-        else {
+            || process.argv.length > 2) {
+            listen();
+            await bot.report(true);
+        } else {
+            await bot.report(true);
             console.log("42:",portfolio);
-            already = true;
         }
         already = true;
     }
