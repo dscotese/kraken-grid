@@ -105,7 +105,9 @@ function howMuch(tkr, np) {
         ov = 0,        // What is the value of other cryptos?
         allCrypto = false,
         a, a2, a2s, t2, t2s, trade;
-
+    np = 1*np;
+    b = 1*b;
+    ma = 1*ma;
     // If new price beyond range, adjust range, recalculate factor.
     if(np > hp || np < lp) {
         [hp,lp] = [hp,lp].map(x => x*(np/(np<lp?lp:hp))); 
