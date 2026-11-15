@@ -51,8 +51,8 @@ $(function() {
         +"<span id='auto' class='setting'></span>"
         +"<a href='javascript:getData(data);'>Refresh</a></div>");
     let wst=0,
-         ro = new ResizeObserver( (entries) => { 
-            window.clearTimeout(wst); 
+         ro = new ResizeObserver( (entries) => {
+            window.clearTimeout(wst);
             let e = entries[0],
                 id = e.target.id;
             wst = window.setTimeout( () => {
@@ -100,7 +100,7 @@ function howMuch(tkr, np) {
         f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp)) || 1,
         [b,ma] = data.adjust[tkr]
             ? data.adjust[tkr].split('+')
-            : [desired].map(Number),
+            : [data.desired[tkr],0].map(Number),
         tot1 = 0,    // How much is off the Exchange?
         ov = 0,        // What is the value of other cryptos?
         allCrypto = false,
@@ -108,16 +108,18 @@ function howMuch(tkr, np) {
 
     // If new price beyond range, adjust range, recalculate factor.
     if(np > hp || np < lp) {
-        [hp,lp] = [hp,lp].map(x => x*(np/(np<lp?lp:hp))); 
+        [hp,lp] = [hp,lp].map(x => x*(np/(np<lp?lp:hp)));
         f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp));
     }
     data.savings.forEach((s) => { s.assets.forEach((a) => {
             tot1 += a.ticker==tkr?a.amount:0;
             ov += [tkr,'ZUSD'].includes(a.ticker)?0
-                : a.amount * data.tickers[a][1];
+                : a.amount * data.tickers[a.ticker][1];
         });});
     Object.keys(data.tickers).forEach((s) => {
-        ov += [tkr,'ZUSD'].includes(s)
+        ov += ([tkr,'ZUSD'].includes(s) ||
+            !data.tickers[s][3] ||
+            !data.tickers[s][1])
             ? 0
             : data.tickers[s][3] * data.tickers[s][1]; });
     a = tot1 + data.tickers[tkr][3];
@@ -135,13 +137,13 @@ function stopRefresh() { window.clearTimeout(auto); auto = -1; }
 function getData() {
     $('#notice').html("Refreshing...");
     $.ajax({
-        url: '/data', 
+        url: '/data',
         cache: false,
         dataType: 'json',
         success: (dataR) => { useData(dataR); },
         error: (jqXHR, textStatus, error) => {
             window.clearTimeout(auto);
-            alert("Auto refresh stopping because:\n" + JSON.stringify(textStatus,error)); 
+            alert("Auto refresh stopping because:\n" + JSON.stringify(textStatus,error));
             },
         complete: () => { $('#notice').html(''); }
     });
@@ -151,7 +153,7 @@ var imgs = [],
 
 function setColors(d) {
     let i;
-    if(colors.length!=Object.keys(d).length 
+    if(colors.length!=Object.keys(d).length
         || -1 != colors.findIndex(c => !(c instanceof CanvasPattern))) {
         colors = [];
         Object.keys(d).forEach(k => {
@@ -162,8 +164,8 @@ function setColors(d) {
             }
             try {
                 colors[k] = G.context.createPattern(imgs[k],'repeat');
-            } catch(e) { 
-                console.log(k,e); 
+            } catch(e) {
+                console.log(k,e);
                 let randColor = '#' + Math.floor(
                     0x404040 + Math.random()*0xBFBFBF).toString(16);
                 colors.push(randColor);
@@ -184,7 +186,7 @@ function PieDiv() { //canvasHolder=false) { // Pass the JQuery object that selec
     Object.keys(data.tickers).forEach((t) => {
         if(d[t]) slices[t] = [d[t],colors[t]];
     });
-    
+
     G.desired = G.pie(slices,-w/4,0);
     let underPie = G.desired.radius/2;
     G.desired.markup("Target Allocation",0,underPie)
@@ -255,7 +257,7 @@ function useData(d) {
     if(d.refresh_period > 0)
         auto = window.setTimeout(getData, 1000 * d.refresh_period);
 }
-    
+
 function sigdig(x,sig=6,dp=6) {
     let sd = Math.min(dp,Math.floor(sig-Math.log10(Math.abs(x)))),
         mag = 10**sd;
@@ -381,7 +383,7 @@ function AllocTable(tol = genTol) {
             + tr +"%-wide trading range, the allocation will rise from "
             + b +" at "+rh+" proportionately by "+r+"% up to "+(b+r)+"% at "+rl+".'>"
             + b + ' - ' + (b+r) + '</td>';
-        desired += "<td"+(t==data.numer ? '' 
+        desired += "<td"+(t==data.numer ? ''
             : " title='allocate "+t+" "+(b)+"'") +">"
             + (d=data.desired[t])+"%</td>";
         price = data.tickers[t][1];
@@ -433,7 +435,7 @@ function OrderTable() {
         oo, od, odo, parsed, ret = "<table id='oDiv'><tr><th>ID</th><th>Type</th>"
             + "<th>Units</th>"
             + "<th>Pair</th><th>Price</th><th>UserRef</th><th>Close</th></tr>";
-    
+
     if(data.orders && data.orders.length > 0) {
         data.orders.forEach((o,i) => {
             oo = o[1];
@@ -450,10 +452,10 @@ function OrderTable() {
             od = oo.descr;
             odo = od.order;
             parsed = odo.split(' ');
-            ret += "\n<tr>" + tag('td',oo['ID'],"title='"+o+"'") + tag('td',parsed[0]) 
+            ret += "\n<tr>" + tag('td',oo['ID'],"title='"+o+"'") + tag('td',parsed[0])
                 + tag('td',parsed[1])+tag('td',parsed[2]) + tag('td',parsed[5])
                 + tag('td',oo.userref) + tag('td',od.close.match(/[0-9.]+$/))
-                + tag('th','less') + tag('th','more') + tag('th','kill') 
+                + tag('th','less') + tag('th','more') + tag('th','kill')
                 + tag('th',(oo.descr.leverage=='none'?'add':'de')+'lev') + '</tr>';
         });
     } else ret += `\n<tr> ${tag('td','There are no open orders.',"span='7'")}</tr>`;

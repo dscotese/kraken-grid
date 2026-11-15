@@ -714,7 +714,7 @@ export default function Bot(config: any): BotInstance {
             let [hp,lp] = ranges[tkr] || [0,0];
             const [b,ma] = (adjust[tkr] 
                 ? adjust[tkr].split('+')
-                : [desired[0],0]).map(Number);
+                : [desired[tkr],0]).map(Number);
             let f = Math.min(1,(hp - Math.min(hp,np))/(hp-lp));
             let tot1 = 0;   // How much of this crypto is off the Exchange?
             let ov = 0;     // What is the value of everything else?
