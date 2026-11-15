@@ -1,13 +1,13 @@
 {
   "name": "kraken-grid",
-  "version": "1.4.8",
+  "version": "1.4.9",
   "description": "Bot repeatedly buys & sells on kraken from a conditional close order.",
   "main": "dist/init.js",
   "type": "module",
   "bin": {
     "kraken-grid": "bin/kraken-grid.js",
     "gemini-grid": "bin/gemini-grid.js"
-  },  
+  },
   "//": "Use `npm run testK` (for example) to run these scripts.",
   "scripts": {
     "HowTo": "Use `npm run testK` (for example) to run these scripts.",
