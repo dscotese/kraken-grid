@@ -840,7 +840,7 @@ console.log("[p,np,dp,t,hp,lp,b,ma,f,tot1,ov,a,a2,t2,t2s]:",
                     const cleared = await kill(c.ids.length>1?c.ids:c.ids[0], portfolio.O);
                     if( cleared?.result?.descr === 'Ignored' || cleared?.result?.count === 0 ) 
                         throw new Error('No such order(s).');
-                    if( cleared.result.pending ) {
+                    if( cleared?.result?.pending ) {
                         // Use QueryOrders to wait until they are gone.
                         await sleep(1000);
                         let qoRes = await kapi(['QueryOrders',c.ids.join(',')]);
