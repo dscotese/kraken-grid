@@ -38,5 +38,5 @@
     "TFCGem/**/*",
     "JestTesting"
   ],
-  "files": ["global.d.ts", "unconverted.d.ts"]
+  "files": ["global.d.ts"]
 }
